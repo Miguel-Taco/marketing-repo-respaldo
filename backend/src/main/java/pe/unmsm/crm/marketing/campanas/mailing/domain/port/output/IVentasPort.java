@@ -1,5 +1,5 @@
 package pe.unmsm.crm.marketing.campanas.mailing.domain.port.output;
 
 public interface IVentasPort {
-    void derivarInteresado(Integer id_campana_mailing, Integer id_lead, Integer id_segmento);
+    void derivarInteresado(Integer idCampanaMailingId, Integer idAgenteAsignado, Long idLead, Long idSegmento, Long idCampanaGestion);
 }
