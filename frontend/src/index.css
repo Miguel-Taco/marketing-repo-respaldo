@@ -1,0 +1,173 @@
+/* Material Icons Import */
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+
+/* stylelint-disable at-rule-no-unknown */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
+
+/* Estilos globales */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: #F3F4F6;
+  /* bg-background */
+  color: #1F2937;
+  /* text-dark */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Material Icons Style */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Custom Color Palette from Mockup */
+@layer utilities {
+  .bg-primary {
+    background-color: #3C83F6;
+  }
+
+  .text-primary {
+    color: #3C83F6;
+  }
+
+  .border-primary {
+    border-color: #3C83F6;
+  }
+
+  .text-dark {
+    color: #1F2937;
+  }
+
+  /* Success Chip (CALIFICADO) */
+  .bg-success-chip {
+    background-color: #EBFBDC;
+  }
+
+  .text-success-chip {
+    color: #6EA113;
+  }
+
+  /* Default Chip (NUEVO) */
+  .bg-default-chip {
+    background-color: #EAEAEA;
+  }
+
+  .text-default-chip {
+    color: #555555;
+  }
+
+  /* Warning Chip (DESCARTADO) */
+  .bg-warn-chip {
+    background-color: #FFFBEB;
+  }
+
+  .text-warn-chip {
+    color: #D97706;
+  }
+
+  /* Info Chip (Borrador, Programada) */
+  .bg-info-chip {
+    background-color: #E0F2FE;
+  }
+
+  .text-info-chip {
+    color: #0369A1;
+  }
+
+  .border-separator {
+    border-color: #D9D9D9;
+  }
+
+  .divide-separator {
+    border-color: #D9D9D9;
+  }
+
+  .bg-table-header {
+    background-color: #EDEDED;
+  }
+
+  .shadow-card {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  }
+}
+
+/* Button Styles */
+.btn-pill {
+  border-radius: 9999px;
+  padding: 0.6rem 1.25rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary {
+  background-color: #3C83F6;
+  color: white;
+  box-shadow: 0 4px 14px 0 rgba(60, 131, 246, 0.3);
+}
+
+.btn-primary:hover {
+  background-color: #2563EB;
+}
+
+.btn-secondary {
+  background-color: #FFFFFF;
+  color: #1F2937;
+  border: 1px solid #D9D9D9;
+}
+
+.btn-secondary:hover {
+  background-color: #F9FAFB;
+}
+
+/* Card Styles */
+.card {
+  background-color: #FFFFFF;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  border: 1px solid #D9D9D9;
+}
+
+/* Chip Styles */
+.chip {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Tab Styles */
+.tab {
+  padding: 0.5rem 1.25rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab.active {
+  background-color: #3C83F6;
+  color: white;
+}
+
+.tab.inactive {
+  border: 1px solid #D9D9D9;
+  color: #1F2937;
+  background-color: transparent;
+}
+
+.tab.inactive:hover {
+  background-color: #F9FAFB;
+}
