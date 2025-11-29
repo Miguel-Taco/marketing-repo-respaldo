@@ -130,16 +130,13 @@ public class WebhookSendGridService {
                 return;
             }
             
-            // Obtener campaña (por ahora asumimos que está en contexto)
-            // En producción, guardarías campaña_id en metadata de SendGrid
-            
             LocalDateTime fechaEvento = evento.getTimestamp() != null 
                 ? LocalDateTime.ofInstant(Instant.ofEpochSecond(evento.getTimestamp()), ZoneOffset.UTC)
                 : LocalDateTime.now();
             
-            // Registrar en log
+            // Usar idCampanaMailingId de metadata
             InteraccionLog log_entry = InteraccionLog.builder()
-                    .idCampanaMailingId(1) // TODO: obtener de contexto
+                    .idCampanaMailingId(idCampanaMailingId) // ✅ Variable, no hardcoded
                     .idTipoEvento(idTipo)
                     .idContactoCrm(idContactoCrm)
                     .fechaEvento(fechaEvento)
@@ -147,8 +144,8 @@ public class WebhookSendGridService {
             
             interaccionRepo.save(log_entry);
             
-            // Actualizar métricas
-            actualizarMetricas(1, idTipo); // TODO: obtener campaña_id
+            // Usar idCampanaMailingId de metadata
+            actualizarMetricas(idCampanaMailingId, idTipo); // ✅ Variable, no hardcoded
             
         } catch (Exception e) {
             log.error("Error registrando interacción: {}", e.getMessage(), e);
@@ -183,18 +180,30 @@ public class WebhookSendGridService {
         }
     }
 
+    // Leer metadata en derivación
     private void derivarAVentas(SendGridWebhookRequest evento) {
         try {
-            Long idLead = buscarLeadPorEmail(evento.getEmail());
-            if (idLead == null) return;
+            // Leer metadata del evento
+            Map<String, Object> additionalProps = evento.getAdditionalProperties();
             
-            // TODO: obtener estos datos del contexto/metadata
-            Integer idCampanaMailingId = 1;
-            Integer idAgenteAsignado = 1;
-            Long idSegmento = 1L;
-            Long idCampanaGestion = 1L;
+            if (additionalProps == null) {
+                log.warn("Evento sin metadata, no se puede derivar a Ventas");
+                return;
+            }
+            
+            Integer idCampanaMailingId = Integer.valueOf(String.valueOf(additionalProps.get("campaign_id")));
+            Integer idAgenteAsignado = Integer.valueOf(String.valueOf(additionalProps.get("agent_id")));
+            Long idSegmento = Long.valueOf(String.valueOf(additionalProps.get("segment_id")));
+            Long idCampanaGestion = Long.valueOf(String.valueOf(additionalProps.get("campaign_gestion_id")));
+            
+            Long idLead = buscarLeadPorEmail(evento.getEmail());
+            if (idLead == null) {
+                log.warn("No se encontró lead para derivar: {}", evento.getEmail());
+                return;
+            }
             
             ventasPort.derivarInteresado(idCampanaMailingId, idAgenteAsignado, idLead, idSegmento, idCampanaGestion);
+            log.info("✓ Lead {} derivado a Ventas desde campaña {}", idLead, idCampanaMailingId);
             
         } catch (Exception e) {
             log.error("Error derivando a Ventas: {}", e.getMessage());
