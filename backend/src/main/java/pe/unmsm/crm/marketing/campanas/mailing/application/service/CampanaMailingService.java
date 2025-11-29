@@ -53,6 +53,10 @@ public class CampanaMailingService {
         return campanaRepo.findByAgenteAndEstado(idAgente, 5);
     }
 
+    public List<CampanaMailing> listarTodas(Integer idAgente) {
+        return campanaRepo.findByAgenteOrderByFechaInicio(idAgente);
+    }  
+
     public CampanaMailing obtenerDetalle(Integer id) {
         return campanaRepo.findById(id)
                 .orElseThrow(() -> new NotFoundException("CampanaMailing", id.longValue()));
