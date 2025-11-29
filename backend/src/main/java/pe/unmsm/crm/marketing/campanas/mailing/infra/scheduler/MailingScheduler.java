@@ -36,10 +36,10 @@ public class MailingScheduler {
         
         LocalDateTime ahora = LocalDateTime.now();
         
-        // Tarea 1: Enviar campañas LISTO que ya llegaron a fecha_inicio
+        // Tarea 1:Enviar campañas LISTO que ya llegaron a fecha_inicio
         enviarCampanasListas(ahora);
         
-        // Tarea 2: Marcar como VENCIDO las PENDIENTE que pasaron fecha_inicio
+        // Tarea 2:Marcar como VENCIDO las PENDIENTE que pasaron fecha_inicio
         marcarComoVencidas(ahora);
         
         log.info("=== SCHEDULER: Finalizado ===");

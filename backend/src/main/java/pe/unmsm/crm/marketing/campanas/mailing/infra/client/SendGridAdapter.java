@@ -33,7 +33,6 @@ public class SendGridAdapter implements IMailingSendGridPort {
 
     @Override
     public void enviarEmails(CampanaMailing campaña, List<String> emails) {
-
         if (emails == null || emails.isEmpty()) {
             throw new ExternalServiceException("SendGrid", "Lista de emails vacía");
         }
@@ -57,7 +56,7 @@ public class SendGridAdapter implements IMailingSendGridPort {
                             "Error al enviar email: " + response.getStatusCode());
                 }
 
-                log.debug("Email enviado a: {}", email);
+                log.debug("✓ Email enviado a: {}", email);
 
             } catch (IOException e) {
                 log.error("IOException al enviar email a {}: {}", email, e.getMessage());
@@ -67,7 +66,6 @@ public class SendGridAdapter implements IMailingSendGridPort {
     }
 
     private String construirJson(CampanaMailing campaña, String destinatario) throws IOException {
-
         Map<String, Object> mail = new HashMap<>();
 
         // FROM
@@ -76,7 +74,7 @@ public class SendGridAdapter implements IMailingSendGridPort {
         from.put("name", "Marketing CRM");
         mail.put("from", from);
 
-        // PERSONALIZATION
+        // PERSONALIZATION + CUSTOM ARGS ✅ NUEVO
         Map<String, Object> personalization = new HashMap<>();
         personalization.put("subject", campaña.getAsunto());
 
@@ -84,15 +82,56 @@ public class SendGridAdapter implements IMailingSendGridPort {
                 Map.of("email", destinatario)
         );
         personalization.put("to", toList);
+        
+        // ✅ AGREGAR METADATA (para identificar campaña en webhook)
+        Map<String, String> customArgs = new HashMap<>();
+        customArgs.put("campaign_id", String.valueOf(campaña.getId()));
+        customArgs.put("agent_id", String.valueOf(campaña.getIdAgenteAsignado()));
+        customArgs.put("segment_id", String.valueOf(campaña.getIdSegmento()));
+        customArgs.put("campaign_gestion_id", String.valueOf(campaña.getIdCampanaGestion()));
+        personalization.put("custom_args", customArgs);
 
         mail.put("personalizations", List.of(personalization));
 
         // CONTENT
+        String htmlCompleto = construirHtmlConCTA(campaña);
+        
         List<Map<String, String>> contentList = List.of(
-                Map.of("type", "text/html", "value", campaña.getCuerpo())
+                Map.of("type", "text/html", "value", htmlCompleto)
         );
         mail.put("content", contentList);
 
         return mapper.writeValueAsString(mail);
+    }
+
+    /**
+     * Construye el HTML del correo incluyendo el botón CTA
+     */
+    private String construirHtmlConCTA(CampanaMailing campaña) {
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    %s
+                    <div style="margin-top: 30px; text-align: center;">
+                        <a href="%s" 
+                        style="display: inline-block; padding: 12px 30px; background-color: #007bff; 
+                                color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                            %s
+                        </a>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(
+                campaña.getCuerpo(),
+                campaña.getCtaUrl(),
+                campaña.getCtaTexto()
+            );
     }
 }

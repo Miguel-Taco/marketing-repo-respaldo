@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.SendGridWebhookRequest;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.*;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.ILeadPort;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IVentasPort;
 import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.*;
 import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -25,6 +27,7 @@ public class WebhookSendGridService {
     private final JpaMetricaMailingRepository metricasRepo;
     private final JpaCampanaMailingRepository campanaRepo;
     private final IVentasPort ventasPort;
+    private final ILeadPort leadPort;
     
     // Deduplicación: almacenar sendgrid_event_id ya procesados en sesión
     private static final Set<String> eventosProcessados = new HashSet<>();
@@ -101,9 +104,25 @@ public class WebhookSendGridService {
 
     private void registrarInteraccion(SendGridWebhookRequest evento, TipoInteraccion tipo, Integer idTipo) {
         try {
-            // Obtener ID de la campaña y contacto del email
-            // Nota: SendGrid no envía estos IDs, necesitas guardarlos en metadata o usar email como key
-            // Por MVP: buscar por email en tabla de leads
+            // LEER METADATA del webhook
+            Map<String, Object> additionalProps = evento.getAdditionalProperties();
+            
+            Integer idCampanaMailingId = null;
+            Integer idAgenteAsignado = null;
+            Long idSegmento = null;
+            Long idCampanaGestion = null;
+            
+            if (additionalProps != null) {
+                idCampanaMailingId = Integer.valueOf(String.valueOf(additionalProps.get("campaign_id")));
+                idAgenteAsignado = Integer.valueOf(String.valueOf(additionalProps.get("agent_id")));
+                idSegmento = Long.valueOf(String.valueOf(additionalProps.get("segment_id")));
+                idCampanaGestion = Long.valueOf(String.valueOf(additionalProps.get("campaign_gestion_id")));
+            }
+            
+            if (idCampanaMailingId == null) {
+                log.warn("Webhook sin metadata de campaña: {}", evento.getEmail());
+                return;
+            }                
             
             Long idContactoCrm = buscarLeadPorEmail(evento.getEmail());
             if (idContactoCrm == null) {
@@ -183,9 +202,6 @@ public class WebhookSendGridService {
     }
 
     private Long buscarLeadPorEmail(String email) {
-        // TODO: Implementar búsqueda en BD de leads
-        // SELECT lead_id FROM leads WHERE email = ?
-        log.debug("Buscando lead para email: {}", email);
-        return null; // Placeholder
+        return leadPort.findLeadIdByEmail(email);  
     }
 }
