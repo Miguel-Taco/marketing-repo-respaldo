@@ -28,14 +28,15 @@ public class RegistrarInteraccionObserver {
             log.debug("Observer: Registrando interacción {} para campaña {}", 
                 evento.getTipoEvento(), evento.getIdCampanaMailingId());
             
-            InteraccionLog log = InteraccionLog.builder()
+            // ✅ CORREGIDO: Cambié nombre de variable de 'log' a 'interaccion'
+            InteraccionLog interaccion = InteraccionLog.builder()
                     .idCampanaMailingId(evento.getIdCampanaMailingId())
                     .idTipoEvento(evento.getTipoEvento().getId())
                     .idContactoCrm(evento.getIdContactoCrm())
                     .fechaEvento(evento.getFechaEvento())
                     .build();
             
-            interaccionRepo.save(log);
+            interaccionRepo.save(interaccion);
             
             log.debug("✓ Interacción registrada en BD");
             

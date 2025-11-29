@@ -35,9 +35,11 @@ public class CampanaMailing {
 
     // Estado y Prioridad
     @Column(name = "id_estado", nullable = false)
+    @Builder.Default  // ✅ AGREGADO
     private Integer idEstado = 1; // PENDIENTE por defecto
 
     @Column(name = "prioridad", length = 20, nullable = false)
+    @Builder.Default  // ✅ AGREGADO
     private String prioridad = "Media";
 
     // Datos informativos (del Gestor, read-only)

@@ -18,5 +18,6 @@ public class SendGridWebhookRequest {
     private String reason; // Para bounce/unsubscribed
 
     @JsonAnySetter
+    @Builder.Default  // ✅ AGREGADO
     private Map<String, Object> additionalProperties = new HashMap<>();
 }

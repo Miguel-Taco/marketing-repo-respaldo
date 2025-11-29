@@ -6,10 +6,14 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.CampanaMailing;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.model.MetricaCampana;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IGestorCampanaPort;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IMailingSendGridPort;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.ISegmentoPort;
 import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaCampanaMailingRepository;
+import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaMetricaMailingRepository;
+import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,11 +23,12 @@ import java.util.List;
 public class MailingScheduler {
 
     private final JpaCampanaMailingRepository campanaRepo;
+    private final JpaMetricaMailingRepository metricasRepo;
     private final IMailingSendGridPort sendGridPort;
     private final ISegmentoPort segmentoPort;
     private final IGestorCampanaPort gestorPort;
 
-    // Ejecuta cada 5 minutos
+    // Ejecuta cada 5 minutos (300000 ms)
     @Scheduled(fixedDelay = 300000)
     @Transactional
     public void ejecutarEnviosCada5Min() {
@@ -43,6 +48,8 @@ public class MailingScheduler {
     private void enviarCampanasListas(LocalDateTime ahora) {
         List<CampanaMailing> listosParaEnviar = campanaRepo.findListosParaEnviar(2, ahora);
         
+        log.info("Campañas listas para enviar: {}", listosParaEnviar.size());
+        
         for (CampanaMailing c : listosParaEnviar) {
             try {
                 log.info("Enviando campaña ID: {} - Nombre: {}", c.getId(), c.getNombre());
@@ -51,7 +58,7 @@ public class MailingScheduler {
                 List<String> emails = segmentoPort.obtenerEmailsSegmento(c.getIdSegmento());
                 
                 if (emails.isEmpty()) {
-                    log.warn("Segmento {} sin emails", c.getIdSegmento());
+                    log.warn("Segmento {} sin emails, saltando campaña", c.getIdSegmento());
                     continue;
                 }
                 
@@ -61,13 +68,14 @@ public class MailingScheduler {
                 // Cambiar a ENVIADO (estado 3)
                 c.setIdEstado(3);
                 
-                // Actualizar métricas: enviados = cantidad de emails
-                if (c.getMetricas() != null) {
-                    c.getMetricas().setEnviados(emails.size());
-                }
+                MetricaCampana metricas = metricasRepo.findByCampanaMailingId(c.getId())
+                        .orElseThrow(() -> new NotFoundException("Métricas", c.getId().longValue()));
+                
+                metricas.setEnviados(emails.size());
+                metricasRepo.save(metricas);
                 
                 campanaRepo.save(c);
-                log.info("✓ Campaña {} enviada exitosamente", c.getId());
+                log.info("✓ Campaña {} enviada exitosamente a {} destinatarios", c.getId(), emails.size());
                 
             } catch (Exception e) {
                 log.error("✗ Error enviando campaña {}: {}", c.getId(), e.getMessage(), e);
@@ -77,6 +85,8 @@ public class MailingScheduler {
 
     private void marcarComoVencidas(LocalDateTime ahora) {
         List<CampanaMailing> vencidas = campanaRepo.findVencidas(ahora);
+        
+        log.info("Campañas vencidas encontradas: {}", vencidas.size());
         
         for (CampanaMailing c : vencidas) {
             try {

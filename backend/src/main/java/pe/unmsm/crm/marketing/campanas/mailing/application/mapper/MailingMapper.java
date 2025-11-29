@@ -44,6 +44,7 @@ public class MailingMapper {
                 .cuerpo(c.getCuerpo())
                 .ctaTexto(c.getCtaTexto())
                 .ctaUrl(c.getCtaUrl())
+                .nombreEncuesta("Encuesta #" + c.getIdEncuesta())
                 .fechaCreacion(c.getFechaCreacion())
                 .fechaActualizacion(c.getFechaActualizacion())
                 .build();
