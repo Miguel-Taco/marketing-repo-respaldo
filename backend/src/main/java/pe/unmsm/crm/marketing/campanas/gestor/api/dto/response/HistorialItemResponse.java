@@ -18,6 +18,7 @@ public class HistorialItemResponse {
 
     private Long idHistorial;
     private Long idCampana;
+    private String nombreCampana;
     private LocalDateTime fechaAccion;
     private String tipoAccion; // CREACION, ACTIVACION, etc.
     private String descripcionDetalle; // Descripción legible del cambio

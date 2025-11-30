@@ -1,5 +1,6 @@
 package pe.unmsm.crm.marketing.campanas.gestor.application.mapper;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import pe.unmsm.crm.marketing.campanas.gestor.api.dto.EstadoCampanaEnum;
 import pe.unmsm.crm.marketing.campanas.gestor.api.dto.request.CrearCampanaRequest;
@@ -8,9 +9,11 @@ import pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.CampanaDetalleRes
 import pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.CampanaListItemResponse;
 import pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.ContextoEjecucionResponse;
 import pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.HistorialItemResponse;
+import pe.unmsm.crm.marketing.campanas.gestor.domain.model.Agente;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.model.Campana;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.model.HistorialCampana;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.model.PlantillaCampana;
+import pe.unmsm.crm.marketing.campanas.gestor.domain.port.output.AgenteRepositoryPort;
 
 /**
  * Mapper manual para conversiones entre DTOs y entidades de dominio.
@@ -18,7 +21,10 @@ import pe.unmsm.crm.marketing.campanas.gestor.domain.model.PlantillaCampana;
  * módulos.
  */
 @Component
+@RequiredArgsConstructor
 public class CampanaMapper {
+
+    private final AgenteRepositoryPort agenteRepository;
 
     /**
      * Convierte CrearCampanaRequest a entidad Campana
@@ -40,6 +46,13 @@ public class CampanaMapper {
      * Convierte Campana a CampanaDetalleResponse
      */
     public CampanaDetalleResponse toDetailResponse(Campana campana) {
+        String nombreAgente = null;
+        if (campana.getIdAgente() != null) {
+            nombreAgente = agenteRepository.findById(campana.getIdAgente())
+                    .map(Agente::getNombre)
+                    .orElse("Agente no encontrado");
+        }
+
         return CampanaDetalleResponse.builder()
                 .idCampana(campana.getIdCampana())
                 .nombre(campana.getNombre())
@@ -52,6 +65,7 @@ public class CampanaMapper {
                 .fechaProgramadaFin(campana.getFechaProgramadaFin())
                 .idPlantilla(campana.getIdPlantilla())
                 .idAgente(campana.getIdAgente())
+                .nombreAgente(nombreAgente)
                 .idSegmento(campana.getIdSegmento())
                 .idEncuesta(campana.getIdEncuesta())
                 .fechaCreacion(campana.getFechaCreacion())
@@ -82,6 +96,8 @@ public class CampanaMapper {
         return HistorialItemResponse.builder()
                 .idHistorial(historial.getIdHistorial())
                 .idCampana(historial.getIdCampana())
+                .nombreCampana(
+                        historial.getCampana() != null ? historial.getCampana().getNombre() : "Campaña eliminada")
                 .fechaAccion(historial.getFechaAccion())
                 .tipoAccion(historial.getTipoAccion().name())
                 .descripcionDetalle(historial.getDescripcionDetalle())

@@ -133,6 +133,9 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
 
         Campana updated = campanaRepository.save(campana);
 
+        // Delegar programación al canal correspondiente
+        canalEjecucionPort.programarCampana(updated);
+
         // Publicar evento
         publicarEvento(idCampana, estadoAnterior, "Programada", TipoAccion.PROGRAMACION, null);
 
@@ -151,10 +154,10 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         campanaRepository.save(campana);
 
         // Delegar ejecución al canal correspondiente
-        boolean exitoEjecucion = canalEjecucionPort.ejecutarCampana(campana);
+        boolean exitoEjecucion = canalEjecucionPort.activarCampana(campana);
 
         if (!exitoEjecucion) {
-            log.error("Error al ejecutar campaña {} en canal {}", idCampana, campana.getCanalEjecucion());
+            log.error("Error al activar campaña {} en canal {}", idCampana, campana.getCanalEjecucion());
             publicarEvento(idCampana, "Vigente", "Vigente", TipoAccion.ERROR_EJECUCION,
                     "Error al delegar ejecución al canal");
         } else {
@@ -262,14 +265,16 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         campana.setFechaProgramadaInicio(nuevaFechaInicio);
         campana.setFechaProgramadaFin(nuevaFechaFin);
 
-        // Transición de estado (Pausada → Programada o mantiene Programada)
+        // Transición de estado (Programada → Programada)
         campana.reprogramar();
 
         campanaRepository.save(campana);
 
+        // Notificar al canal
+        canalEjecucionPort.reprogramarCampana(campana);
+
         // Publicar evento
-        publicarEvento(idCampana, estadoAnterior, campana.getEstado().getNombre(),
-                TipoAccion.REPROGRAMACION, "Nuevas fechas: " + nuevaFechaInicio + " - " + nuevaFechaFin);
+        publicarEvento(idCampana, estadoAnterior, "Programada", TipoAccion.REPROGRAMACION, null);
 
         log.info("Campaña {} reprogramada para {} - {}", idCampana, nuevaFechaInicio, nuevaFechaFin);
         return campana;

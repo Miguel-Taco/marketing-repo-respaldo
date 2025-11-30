@@ -41,10 +41,7 @@ public class PlantillaService implements IPlantillaUseCase {
     @Override
     @Transactional(readOnly = true)
     public List<PlantillaCampana> listar(String nombre, String canalEjecucion) {
-        if (nombre != null || canalEjecucion != null) {
-            return plantillaRepository.findByFiltros(nombre, canalEjecucion);
-        }
-        return plantillaRepository.findAll();
+        return plantillaRepository.findByFiltros(nombre, canalEjecucion);
     }
 
     @Override

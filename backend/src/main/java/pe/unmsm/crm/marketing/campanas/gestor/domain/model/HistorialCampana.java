@@ -28,6 +28,10 @@ public class HistorialCampana {
     @Column(name = "id_campana", nullable = false)
     private Long idCampana;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_campana", insertable = false, updatable = false)
+    private Campana campana;
+
     @Column(name = "fecha_accion", nullable = false, updatable = false)
     private LocalDateTime fechaAccion;
 

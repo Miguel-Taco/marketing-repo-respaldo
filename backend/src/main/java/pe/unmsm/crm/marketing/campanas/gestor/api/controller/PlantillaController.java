@@ -8,11 +8,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import pe.unmsm.crm.marketing.campanas.encuestas.domain.repository.EncuestaRepository;
 import pe.unmsm.crm.marketing.campanas.gestor.api.dto.request.CrearPlantillaRequest;
-import pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.CampanaDetalleResponse;
+import pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.PlantillaResponse;
 import pe.unmsm.crm.marketing.campanas.gestor.application.mapper.CampanaMapper;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.model.PlantillaCampana;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.port.input.IPlantillaUseCase;
+import pe.unmsm.crm.marketing.segmentacion.domain.repository.SegmentoRepository;
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +31,8 @@ public class PlantillaController {
 
     private final IPlantillaUseCase plantillaUseCase;
     private final CampanaMapper mapper;
+    private final SegmentoRepository segmentoRepository;
+    private final EncuestaRepository encuestaRepository;
 
     /**
      * GET /api/v1/plantillas - Listar plantillas con filtros
@@ -49,8 +53,39 @@ public class PlantillaController {
                 Math.min(start, plantillas.size()),
                 end);
 
-        Page<PlantillaCampana> pageResult = new PageImpl<>(
-                paginatedList,
+        // Mapear a PlantillaResponse con nombres
+        List<PlantillaResponse> content = paginatedList.stream().map(p -> {
+            String nombreSegmento = null;
+            if (p.getIdSegmento() != null) {
+                nombreSegmento = segmentoRepository.findById(p.getIdSegmento())
+                        .map(s -> s.getNombre())
+                        .orElse(null);
+            }
+
+            String tituloEncuesta = null;
+            if (p.getIdEncuesta() != null) {
+                tituloEncuesta = encuestaRepository.findById(p.getIdEncuesta())
+                        .map(e -> e.getTitulo())
+                        .orElse(null);
+            }
+
+            return PlantillaResponse.builder()
+                    .idPlantilla(p.getIdPlantilla())
+                    .nombre(p.getNombre())
+                    .tematica(p.getTematica())
+                    .descripcion(p.getDescripcion())
+                    .canalEjecucion(p.getCanalEjecucion())
+                    .idSegmento(p.getIdSegmento())
+                    .nombreSegmento(nombreSegmento)
+                    .idEncuesta(p.getIdEncuesta())
+                    .tituloEncuesta(tituloEncuesta)
+                    .fechaCreacion(p.getFechaCreacion())
+                    .fechaModificacion(p.getFechaModificacion())
+                    .build();
+        }).collect(Collectors.toList());
+
+        Page<PlantillaResponse> pageResult = new PageImpl<>(
+                content,
                 PageRequest.of(page, size),
                 plantillas.size());
 

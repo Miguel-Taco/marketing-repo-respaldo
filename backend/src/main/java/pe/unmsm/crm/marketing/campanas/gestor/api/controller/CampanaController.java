@@ -19,6 +19,7 @@ import pe.unmsm.crm.marketing.campanas.gestor.domain.port.input.IGestorCampanaUs
 import pe.unmsm.crm.marketing.campanas.gestor.domain.port.output.HistorialRepositoryPort;
 import pe.unmsm.crm.marketing.shared.api.dto.PageResponse;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -233,11 +234,13 @@ public class CampanaController {
         public ResponseEntity<Map<String, Object>> listarHistorial(
                         @RequestParam(required = false) Long idCampana,
                         @RequestParam(required = false) String tipoAccion,
+                        @RequestParam(required = false) LocalDateTime fechaDesde,
+                        @RequestParam(required = false) LocalDateTime fechaHasta,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size) {
 
                 List<HistorialCampana> historial = historialRepository.findByFiltros(
-                                idCampana, tipoAccion, null, null);
+                                idCampana, tipoAccion, fechaDesde, fechaHasta);
 
                 // Convertir a DTOs
                 List<HistorialItemResponse> responses = historial.stream()
