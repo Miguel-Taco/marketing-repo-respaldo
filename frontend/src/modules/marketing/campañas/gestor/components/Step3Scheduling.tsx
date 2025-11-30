@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CanalEjecucion, Prioridad } from '../types/campana.types';
+import { agentesApi } from '../services/agentes.api';
+import { Agente } from '../types/agente.types';
 
 interface Step3SchedulingProps {
     formData: {
@@ -18,6 +20,7 @@ interface Step3SchedulingProps {
     selectedSegmentSize?: number;
     onChange: (field: string, value: any) => void;
     errors: Record<string, string>;
+    hideSummary?: boolean;
 }
 
 export const Step3Scheduling: React.FC<Step3SchedulingProps> = ({
@@ -25,12 +28,30 @@ export const Step3Scheduling: React.FC<Step3SchedulingProps> = ({
     selectedSegmentName,
     selectedSegmentSize,
     onChange,
-    errors
+    errors,
+    hideSummary = false
 }) => {
+    const [agentes, setAgentes] = useState<Agente[]>([]);
+    const [loadingAgentes, setLoadingAgentes] = useState(false);
+
+    useEffect(() => {
+        const loadAgentes = async () => {
+            setLoadingAgentes(true);
+            try {
+                const data = await agentesApi.getAllActive();
+                setAgentes(data);
+            } catch (error) {
+                console.error('Error loading agents:', error);
+            } finally {
+                setLoadingAgentes(false);
+            }
+        };
+        loadAgentes();
+    }, []);
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className={`grid grid-cols-1 ${hideSummary ? '' : 'lg:grid-cols-3'} gap-6`}>
             {/* Left Column - Schedule Form */}
-            <div className="lg:col-span-2 flex flex-col gap-6">
+            <div className={`${hideSummary ? 'w-full' : 'lg:col-span-2'} flex flex-col gap-6`}>
                 <h3 className="text-lg font-semibold text-gray-900">Fecha y hora</h3>
 
                 {/* Date and Time Inputs */}
@@ -93,12 +114,16 @@ export const Step3Scheduling: React.FC<Step3SchedulingProps> = ({
                                 onChange={(e) => onChange('idAgente', Number(e.target.value))}
                                 className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm appearance-none bg-white ${errors.idAgente ? 'border-red-500' : 'border-separator'
                                     }`}
+                                disabled={loadingAgentes}
                             >
-                                <option value="">Seleccione un agente...</option>
-                                <option value="1">Juan Pérez (Agente Senior)</option>
-                                <option value="2">María García (Agente Ventas)</option>
-                                <option value="3">Carlos López (Soporte)</option>
-                                <option value="4">Ana Martínez (Telemarketing)</option>
+                                <option value="">
+                                    {loadingAgentes ? 'Cargando agentes...' : 'Seleccione un agente...'}
+                                </option>
+                                {agentes.map(agente => (
+                                    <option key={agente.idAgente} value={agente.idAgente}>
+                                        {agente.nombre} {agente.telefono ? `(${agente.telefono})` : ''}
+                                    </option>
+                                ))}
                             </select>
                             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none">
                                 expand_more
@@ -112,57 +137,59 @@ export const Step3Scheduling: React.FC<Step3SchedulingProps> = ({
             </div>
 
             {/* Right Column - Campaign Summary */}
-            <div className="lg:col-span-1 flex flex-col gap-4">
-                <div className="p-4 rounded-lg border border-gray-200 bg-gray-50">
-                    <h4 className="text-base font-semibold text-gray-900 mb-4">Resumen de la Campaña</h4>
-                    <ul className="space-y-3 text-sm">
-                        <li className="flex justify-between items-start gap-2">
-                            <span className="text-gray-500 min-w-[80px]">Nombre:</span>
-                            <span className="font-medium text-gray-800 text-right">{formData.nombre || '-'}</span>
-                        </li>
-                        <li className="flex justify-between items-start gap-2">
-                            <span className="text-gray-500 min-w-[80px]">Temática:</span>
-                            <span className="font-medium text-gray-800 text-right">{formData.tematica || '-'}</span>
-                        </li>
-                        {formData.descripcion && (
-                            <li className="flex flex-col gap-1">
-                                <span className="text-gray-500">Descripción:</span>
-                                <span className="font-medium text-gray-800 text-sm">{formData.descripcion}</span>
+            {!hideSummary && (
+                <div className="lg:col-span-1 flex flex-col gap-4">
+                    <div className="p-4 rounded-lg border border-gray-200 bg-gray-50">
+                        <h4 className="text-base font-semibold text-gray-900 mb-4">Resumen de la Campaña</h4>
+                        <ul className="space-y-3 text-sm">
+                            <li className="flex justify-between items-start gap-2">
+                                <span className="text-gray-500 min-w-[80px]">Nombre:</span>
+                                <span className="font-medium text-gray-800 text-right">{formData.nombre || '-'}</span>
                             </li>
-                        )}
-                        <li className="flex justify-between items-start gap-2">
-                            <span className="text-gray-500 min-w-[80px]">Canal:</span>
-                            <span className="font-medium text-gray-800 text-right">{formData.canalEjecucion || '-'}</span>
-                        </li>
-                        <li className="flex justify-between items-start gap-2">
-                            <span className="text-gray-500 min-w-[80px]">Prioridad:</span>
-                            <span className={`font-medium text-right ${formData.prioridad === 'Alta' ? 'text-red-600' :
+                            <li className="flex justify-between items-start gap-2">
+                                <span className="text-gray-500 min-w-[80px]">Temática:</span>
+                                <span className="font-medium text-gray-800 text-right">{formData.tematica || '-'}</span>
+                            </li>
+                            {formData.descripcion && (
+                                <li className="flex flex-col gap-1">
+                                    <span className="text-gray-500">Descripción:</span>
+                                    <span className="font-medium text-gray-800 text-sm">{formData.descripcion}</span>
+                                </li>
+                            )}
+                            <li className="flex justify-between items-start gap-2">
+                                <span className="text-gray-500 min-w-[80px]">Canal:</span>
+                                <span className="font-medium text-gray-800 text-right">{formData.canalEjecucion || '-'}</span>
+                            </li>
+                            <li className="flex justify-between items-start gap-2">
+                                <span className="text-gray-500 min-w-[80px]">Prioridad:</span>
+                                <span className={`font-medium text-right ${formData.prioridad === 'Alta' ? 'text-red-600' :
                                     formData.prioridad === 'Media' ? 'text-yellow-600' :
                                         formData.prioridad === 'Baja' ? 'text-green-600' :
                                             'text-gray-800'
-                                }`}>
-                                {formData.prioridad || '-'}
-                            </span>
-                        </li>
-                        <li className="flex justify-between items-start gap-2">
-                            <span className="text-gray-500 min-w-[80px]">Segmento:</span>
-                            <span className="font-medium text-gray-800 text-right">{selectedSegmentName || '-'}</span>
-                        </li>
-                        {selectedSegmentSize !== undefined && (
-                            <li className="flex justify-between items-start gap-2">
-                                <span className="text-gray-500 min-w-[80px]">Tamaño:</span>
-                                <span className="font-medium text-gray-800 text-right">{selectedSegmentSize.toLocaleString()} usuarios</span>
+                                    }`}>
+                                    {formData.prioridad || '-'}
+                                </span>
                             </li>
-                        )}
-                    </ul>
-                </div>
+                            <li className="flex justify-between items-start gap-2">
+                                <span className="text-gray-500 min-w-[80px]">Segmento:</span>
+                                <span className="font-medium text-gray-800 text-right">{selectedSegmentName || '-'}</span>
+                            </li>
+                            {selectedSegmentSize !== undefined && (
+                                <li className="flex justify-between items-start gap-2">
+                                    <span className="text-gray-500 min-w-[80px]">Tamaño:</span>
+                                    <span className="font-medium text-gray-800 text-right">{selectedSegmentSize.toLocaleString()} usuarios</span>
+                                </li>
+                            )}
+                        </ul>
+                    </div>
 
-                {/* Info note */}
-                <div className="flex items-start gap-2 text-xs text-gray-600 bg-blue-50 p-3 rounded border border-blue-100">
-                    <span className="material-symbols-outlined text-sm text-blue-600">info</span>
-                    <p>La campaña se ejecutará automáticamente en la fecha y hora programadas.</p>
+                    {/* Info note */}
+                    <div className="flex items-start gap-2 text-xs text-gray-600 bg-blue-50 p-3 rounded border border-blue-100">
+                        <span className="material-symbols-outlined text-sm text-blue-600">info</span>
+                        <p>La campaña se ejecutará automáticamente en la fecha y hora programadas.</p>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

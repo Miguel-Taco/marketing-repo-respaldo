@@ -70,11 +70,16 @@ export const campanasApi = {
     },
 
     // GET /api/v1/campanas/historial - Get campaign history
-    getHistorial: async (idCampana: number) => {
-        const response = await axios.get(`${API_BASE_URL}/historial`, {
-            params: { idCampana, size: 100 } // Get all history items
-        });
-        return response.data.content; // Return only the content array
+    getHistorial: async (params?: {
+        idCampana?: number;
+        tipoAccion?: string;
+        fechaDesde?: string;
+        fechaHasta?: string;
+        page?: number;
+        size?: number;
+    }) => {
+        const response = await axios.get(`${API_BASE_URL}/historial`, { params });
+        return response.data;
     },
 
     // POST /api/v1/campanas/{id}/reprogramar

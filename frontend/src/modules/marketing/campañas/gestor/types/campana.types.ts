@@ -8,7 +8,7 @@ export type CampanaEstado =
     | 'Finalizada'
     | 'Cancelada';
 
-export type CanalEjecucion = 'Mailing' | 'Ll amadas';
+export type CanalEjecucion = 'Mailing' | 'Llamadas';
 
 export type Prioridad = 'Baja' | 'Media' | 'Alta';
 
@@ -93,6 +93,7 @@ export interface CampanaDetalle {
     fechaProgramadaFin: string | null;
     idPlantilla: number | null;
     idAgente: number | null;
+    nombreAgente?: string;
     idSegmento: number | null;
     idEncuesta: number | null;
     fechaCreacion: string;

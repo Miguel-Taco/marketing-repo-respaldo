@@ -7,6 +7,7 @@ import { EditableTextField } from './EditableTextField';
 import { EditableSelectField } from './EditableSelectField';
 import { EditableAsyncSelect } from './EditableAsyncSelect';
 import { MotivoModal } from './MotivoModal';
+import { SchedulingModal } from './SchedulingModal';
 import { EstadoCampanaEnum, TipoAccion, Prioridad, CanalEjecucion, UpdateCampanaDTO } from '../types/campana.types';
 import { campanasApi } from '../services/campanas.api';
 import { segmentosApi } from '../services/segmentos.api';
@@ -42,6 +43,12 @@ export const CampanaDetailModal: React.FC<CampanaDetailModalProps> = ({
         title: string;
         action: (motivo: string) => Promise<void>;
     }>({ isOpen: false, title: '', action: async () => { } });
+
+    // Scheduling modal state
+    const [schedulingModal, setSchedulingModal] = useState<{
+        isOpen: boolean;
+        isReschedule: boolean;
+    }>({ isOpen: false, isReschedule: false });
 
     // Initialize edit data when campaign loads
     useEffect(() => {
@@ -85,6 +92,12 @@ export const CampanaDetailModal: React.FC<CampanaDetailModalProps> = ({
 
     const handleMotivoConfirm = async (motivo: string) => {
         await motivoModal.action(motivo);
+    };
+
+    const handleSchedulingSuccess = async () => {
+        await refresh();
+        await refreshHistorial();
+        if (onUpdate) onUpdate();
     };
 
     // Edit mode functions
@@ -252,7 +265,10 @@ export const CampanaDetailModal: React.FC<CampanaDetailModalProps> = ({
                                     <span className="material-symbols-outlined">edit</span>
                                     Editar
                                 </button>
-                                <button className="w-full px-4 py-2 bg-primary text-white rounded-full hover:bg-blue-700 flex items-center justify-center gap-2">
+                                <button
+                                    onClick={() => setSchedulingModal({ isOpen: true, isReschedule: false })}
+                                    className="w-full px-4 py-2 bg-primary text-white rounded-full hover:bg-blue-700 flex items-center justify-center gap-2"
+                                >
                                     <span className="material-symbols-outlined">schedule</span>
                                     Programar
                                 </button>
@@ -275,7 +291,10 @@ export const CampanaDetailModal: React.FC<CampanaDetailModalProps> = ({
             case EstadoCampanaEnum.PROGRAMADA:
                 return (
                     <>
-                        <button className="w-full px-4 py-2 bg-primary text-white rounded-full hover:bg-blue-700 flex items-center justify-center gap-2">
+                        <button
+                            onClick={() => setSchedulingModal({ isOpen: true, isReschedule: true })}
+                            className="w-full px-4 py-2 bg-primary text-white rounded-full hover:bg-blue-700 flex items-center justify-center gap-2"
+                        >
                             <span className="material-symbols-outlined">update</span>
                             Reprogramar
                         </button>
@@ -371,7 +390,10 @@ export const CampanaDetailModal: React.FC<CampanaDetailModalProps> = ({
                                     <span className="material-symbols-outlined">play_arrow</span>
                                     Reanudar
                                 </button>
-                                <button className="w-full px-4 py-2 bg-primary text-white rounded-full hover:bg-blue-700 flex items-center justify-center gap-2">
+                                <button
+                                    onClick={() => setSchedulingModal({ isOpen: true, isReschedule: true })}
+                                    className="w-full px-4 py-2 bg-primary text-white rounded-full hover:bg-blue-700 flex items-center justify-center gap-2"
+                                >
                                     <span className="material-symbols-outlined">update</span>
                                     Reprogramar
                                 </button>
@@ -577,7 +599,7 @@ export const CampanaDetailModal: React.FC<CampanaDetailModalProps> = ({
                                         <div>
                                             <label className="text-sm text-gray-600">Agente Responsable</label>
                                             <div className="text-dark">
-                                                {campana.idAgente ? `Agente #${campana.idAgente}` : 'Sin asignar'}
+                                                {campana.nombreAgente ? campana.nombreAgente : (campana.idAgente ? `Agente #${campana.idAgente}` : 'Sin asignar')}
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
@@ -670,6 +692,17 @@ export const CampanaDetailModal: React.FC<CampanaDetailModalProps> = ({
                 title={motivoModal.title}
                 placeholder="Ingrese el motivo de la acción..."
             />
+
+            {/* Scheduling Modal */}
+            {campana && (
+                <SchedulingModal
+                    isOpen={schedulingModal.isOpen}
+                    onClose={() => setSchedulingModal({ ...schedulingModal, isOpen: false })}
+                    campana={campana}
+                    onSuccess={handleSchedulingSuccess}
+                    isReschedule={schedulingModal.isReschedule}
+                />
+            )}
         </div>
     );
 };

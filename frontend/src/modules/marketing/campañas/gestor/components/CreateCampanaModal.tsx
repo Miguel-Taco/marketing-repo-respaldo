@@ -7,6 +7,8 @@ import { StepIndicator } from './StepIndicator';
 import { Step1BasicData } from './Step1BasicData';
 import { Step2SegmentSelection } from './Step2SegmentSelection';
 import { Step3Scheduling } from './Step3Scheduling';
+import { PlantillaSelectionModal } from './PlantillaSelectionModal';
+import { PlantillaCampana } from '../types/plantilla.types';
 
 interface CreateCampanaModalProps {
     isOpen: boolean;
@@ -58,6 +60,7 @@ export const CreateCampanaModal: React.FC<CreateCampanaModalProps> = ({
     const [draftId, setDraftId] = useState<number | null>(null);
     const [selectedSegmentName, setSelectedSegmentName] = useState<string>('');
     const [selectedSegmentSize, setSelectedSegmentSize] = useState<number>(0);
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
     const { showToast } = useToast();
 
     // Load segment name and size when idSegmento changes
@@ -85,6 +88,20 @@ export const CreateCampanaModal: React.FC<CreateCampanaModalProps> = ({
                 return newErrors;
             });
         }
+    };
+
+    const handleTemplateSelect = (plantilla: PlantillaCampana) => {
+        setFormData(prev => ({
+            ...prev,
+            nombre: `${plantilla.nombre} (Copia)`,
+            tematica: plantilla.tematica,
+            descripcion: plantilla.descripcion || '',
+            canalEjecucion: plantilla.canalEjecucion || '',
+            idEncuesta: plantilla.idEncuesta,
+            idSegmento: plantilla.idSegmento,
+        }));
+        setIsTemplateModalOpen(false);
+        showToast('Datos de plantilla aplicados', 'success');
     };
 
     const validateStep1 = (): boolean => {
@@ -336,13 +353,25 @@ export const CreateCampanaModal: React.FC<CreateCampanaModalProps> = ({
                             Complete los siguientes campos para configurar su campaña.
                         </p>
                     </div>
-                    <button
-                        onClick={handleCancel}
-                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                        title="Cerrar"
-                    >
-                        <span className="material-symbols-outlined text-2xl">close</span>
-                    </button>
+                    <div className="flex items-center gap-3">
+                        {currentStep === 1 && (
+                            <button
+                                type="button"
+                                onClick={() => setIsTemplateModalOpen(true)}
+                                className="flex items-center px-4 py-2 text-sm font-medium text-primary bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-lg mr-2">auto_fix_high</span>
+                                Usar Plantilla
+                            </button>
+                        )}
+                        <button
+                            onClick={handleCancel}
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            title="Cerrar"
+                        >
+                            <span className="material-symbols-outlined text-2xl">close</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Content */}
@@ -448,6 +477,12 @@ export const CreateCampanaModal: React.FC<CreateCampanaModalProps> = ({
                     </div>
                 </div>
             </div>
+
+            <PlantillaSelectionModal
+                isOpen={isTemplateModalOpen}
+                onClose={() => setIsTemplateModalOpen(false)}
+                onSelect={handleTemplateSelect}
+            />
         </div>
     );
 };
