@@ -90,16 +90,8 @@ export const CampaignLeadsPage: React.FC = () => {
         <div className="flex flex-col h-full">
             <div className="mb-4">
                 <h1 className="text-2xl font-bold text-gray-900">
-                    {id ? 'Leads de la campaña' : 'Mis Leads (Todas las campañas)'}
+                    {id ? 'Lista de Leads' : 'Mis Leads (Todas las campañas)'}
                 </h1>
-                {id && (
-                    <div className="flex items-center gap-2 mt-1">
-                        <p className="text-sm text-gray-500">Campaña de Verano</p>
-                        <span className="flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                            Activa
-                        </span>
-                    </div>
-                )}
             </div>
 
             {/* Filtros y búsqueda */}

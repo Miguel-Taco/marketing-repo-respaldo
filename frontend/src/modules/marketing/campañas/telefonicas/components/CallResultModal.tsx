@@ -7,7 +7,15 @@ interface CallResultModalProps {
     onClose: () => void;
     onSave: (data: ResultadoLlamadaRequest, abrirSiguiente: boolean) => void;
     idContacto: number;
+    duracionSegundos: number;
+    autoNext?: boolean;
 }
+
+const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+};
 
 const RESULTADOS = [
     { id: 'CONTACTADO', label: 'Contactado' },
@@ -22,7 +30,9 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
     isOpen,
     onClose,
     onSave,
-    idContacto
+    idContacto,
+    duracionSegundos,
+    autoNext = false
 }) => {
     const [resultado, setResultado] = useState('');
     const [motivo, setMotivo] = useState('');
@@ -33,11 +43,15 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
     const [derivadoVentas, setDerivadoVentas] = useState(false);
     const [crearOportunidad, setCrearOportunidad] = useState(false);
     const [tipoOportunidad, setTipoOportunidad] = useState('VENTA_NUEVA');
-    const [duracionSegundos, setDuracionSegundos] = useState(0);
 
     if (!isOpen) return null;
 
     const handleSubmit = (abrirSiguiente: boolean = false) => {
+        if (!resultado) {
+            alert('Debe seleccionar un resultado para la llamada');
+            return;
+        }
+
         const data: ResultadoLlamadaRequest = {
             idContacto,
             resultado,
@@ -64,6 +78,17 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
                 </div>
 
                 <div className="p-6 space-y-6">
+                    {/* Duration Display */}
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                        <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-blue-600">schedule</span>
+                            <div>
+                                <p className="text-sm font-medium text-blue-900">Duración de la llamada</p>
+                                <p className="text-lg font-bold text-blue-700">{formatDuration(duracionSegundos)}</p>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Resultado Principal */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Resultado de la llamada</label>
@@ -169,8 +194,8 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
                     <Button variant="secondary" onClick={onClose}>
                         Cancelar
                     </Button>
-                    <Button variant="primary" onClick={() => handleSubmit(false)} disabled={!resultado}>
-                        Guardar Resultado
+                    <Button variant="primary" onClick={() => handleSubmit(autoNext)} disabled={!resultado}>
+                        {autoNext ? 'Guardar y Continuar' : 'Guardar Resultado'}
                     </Button>
                 </div>
             </div>

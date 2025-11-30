@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { telemarketingApi } from '../services/telemarketingApi';
 import type { Llamada } from '../types';
 import { Button } from '../../../../../shared/components/ui/Button';
@@ -7,41 +7,54 @@ import { downloadCSV } from '../../../../../shared/utils/exportUtils';
 
 export const CallHistoryPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
+    const [searchParams] = useSearchParams();
     const [llamadas, setLlamadas] = useState<Llamada[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [resultadoFilter, setResultadoFilter] = useState<string>('Todos');
     const [selectedLlamada, setSelectedLlamada] = useState<Llamada | null>(null);
 
-    const idAgente = 10; // TODO: Get from auth context
+    const agenteParam = searchParams.get('idAgente');
+    const agentId = agenteParam && !Number.isNaN(Number(agenteParam))
+        ? Number(agenteParam)
+        : undefined;
 
     useEffect(() => {
         loadHistorial();
-    }, [id]);
+    }, [id, agentId]);
 
     const loadHistorial = async () => {
         try {
             setLoading(true);
             if (id) {
-                const data = await telemarketingApi.getHistorialLlamadas(Number(id), idAgente);
-                setLlamadas(data);
-                if (data.length > 0) {
-                    setSelectedLlamada(data[0]);
+                const campaignId = Number(id);
+                if (Number.isNaN(campaignId)) {
+                    throw new Error('ID de campania invalido');
                 }
+                const data = await telemarketingApi.getHistorialLlamadas(campaignId);
+                setLlamadas(data);
+                setSelectedLlamada(data[0] ?? null);
             } else {
-                // Global view
-                const campanias = await telemarketingApi.getCampaniasAgente(idAgente);
+                if (agentId === undefined) {
+                    console.warn('Defina el parametro idAgente para cargar el historial global');
+                    setLlamadas([]);
+                    setSelectedLlamada(null);
+                    return;
+                }
+
+                const campanias = await telemarketingApi.getCampaniasAgente(agentId);
                 const allCallsPromises = campanias.map(c =>
-                    telemarketingApi.getHistorialLlamadas(c.id, idAgente).then(calls =>
+                    telemarketingApi.getHistorialLlamadas(c.id, agentId).then(calls =>
                         calls.map(call => ({ ...call, nombreCampania: c.nombre }))
                     )
                 );
                 const results = await Promise.all(allCallsPromises);
-                const allCalls = results.flat().sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime());
+                const allCalls = results
+                    .flat()
+                    .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime());
+
                 setLlamadas(allCalls);
-                if (allCalls.length > 0) {
-                    setSelectedLlamada(allCalls[0]);
-                }
+                setSelectedLlamada(allCalls[0] ?? null);
             }
         } catch (error) {
             console.error('Error cargando historial:', error);
@@ -53,11 +66,13 @@ export const CallHistoryPage: React.FC = () => {
     const handleExport = () => {
         const columns = [
             { key: 'fechaHora' as keyof Llamada, label: 'Fecha/Hora' },
-            ...(id ? [] : [{ key: 'nombreCampania' as keyof Llamada, label: 'Campaña' }]),
+            ...(id
+                ? [{ key: 'idAgente' as keyof Llamada, label: 'Agente' }]
+                : [{ key: 'nombreCampania' as keyof Llamada, label: 'Campana' }]),
             { key: 'nombreContacto' as keyof Llamada, label: 'Lead' },
-            { key: 'telefonoContacto' as keyof Llamada, label: 'Teléfono' },
+            { key: 'telefonoContacto' as keyof Llamada, label: 'Telefono' },
             { key: 'resultado' as keyof Llamada, label: 'Resultado' },
-            { key: 'duracion' as keyof Llamada, label: 'Duración (seg)' },
+            { key: 'duracion' as keyof Llamada, label: 'Duracion (seg)' },
             { key: 'notas' as keyof Llamada, label: 'Notas' }
         ];
 
@@ -65,8 +80,13 @@ export const CallHistoryPage: React.FC = () => {
         downloadCSV(filteredLlamadas, filename, columns);
     };
 
+    const normalizeResultado = (value?: string | null) =>
+        value?.toString().trim().toUpperCase().replace(/\s+/g, '_') ?? '';
+
     const filteredLlamadas = llamadas.filter(l => {
-        if (resultadoFilter !== 'Todos' && l.resultado !== resultadoFilter) return false;
+        const normalizedFilter = normalizeResultado(resultadoFilter);
+        const normalizedResultado = normalizeResultado(l.resultado);
+        if (normalizedFilter !== 'TODOS' && normalizedResultado !== normalizedFilter) return false;
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             return l.nombreContacto?.toLowerCase().includes(term) ||
@@ -75,7 +95,7 @@ export const CallHistoryPage: React.FC = () => {
         return true;
     });
 
-    const getResultadoBadge = (resultado: string) => {
+    const getResultadoBadge = (resultado?: string | null) => {
         const colors: Record<string, string> = {
             'VENTA': 'bg-green-100 text-green-800',
             'CONTACTADO': 'bg-green-100 text-green-800',
@@ -84,8 +104,14 @@ export const CallHistoryPage: React.FC = () => {
             'BUZON': 'bg-yellow-100 text-yellow-800',
             'NO_INTERESADO': 'bg-red-100 text-red-800'
         };
+        if (!resultado) {
+            return 'bg-gray-200 text-gray-800';
+        }
         return colors[resultado] || 'bg-gray-200 text-gray-800';
     };
+
+    const getResultadoLabel = (resultado?: string | null) =>
+        resultado ? resultado.replace('_', ' ') : 'Sin resultado';
 
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -138,13 +164,31 @@ export const CallHistoryPage: React.FC = () => {
                         Todos
                     </button>
                     <button
-                        className={`h-8 px-4 rounded-full text-sm font-medium ${resultadoFilter === 'VENTA'
-                            ? 'bg-primary/20 text-primary'
-                            : 'bg-gray-100 text-gray-700'
+                        className={`h-8 px-4 rounded-full text-sm font-medium transition-colors ${resultadoFilter === 'INTERESADO'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-blue-100 text-blue-700'
                             }`}
-                        onClick={() => setResultadoFilter('VENTA')}
+                        onClick={() => setResultadoFilter('INTERESADO')}
                     >
-                        Venta
+                        Interesado
+                    </button>
+                    <button
+                        className={`h-8 px-4 rounded-full text-sm font-medium transition-colors ${resultadoFilter === 'NO_INTERESADO'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-red-100 text-red-700'
+                            }`}
+                        onClick={() => setResultadoFilter('NO_INTERESADO')}
+                    >
+                        No interesado
+                    </button>
+                    <button
+                        className={`h-8 px-4 rounded-full text-sm font-medium transition-colors ${resultadoFilter === 'CONTACTADO'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-green-100 text-green-700'
+                            }`}
+                        onClick={() => setResultadoFilter('CONTACTADO')}
+                    >
+                        Contactado
                     </button>
                     <button
                         className={`h-8 px-4 rounded-full text-sm font-medium ${resultadoFilter === 'NO_CONTESTA'
@@ -182,6 +226,7 @@ export const CallHistoryPage: React.FC = () => {
                                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Fecha/hora</th>
                                         {!id && <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Campaña</th>}
                                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Lead</th>
+                                        {id && <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Agente</th>}
                                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Teléfono</th>
                                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Resultado</th>
                                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Duración</th>
@@ -207,12 +252,17 @@ export const CallHistoryPage: React.FC = () => {
                                             <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                                 {llamada.nombreContacto || 'N/A'}
                                             </td>
+                                            {id && (
+                                                <td className="px-6 py-4 text-sm text-gray-600">
+                                                    {llamada.idAgente ?? 'N/A'}
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4 text-sm text-gray-600">
                                                 {llamada.telefonoContacto || 'N/A'}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getResultadoBadge(llamada.resultado)}`}>
-                                                    {llamada.resultado.replace('_', ' ')}
+                                                    {getResultadoLabel(llamada.resultado)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-600">
@@ -250,7 +300,7 @@ export const CallHistoryPage: React.FC = () => {
                         <div className="flex-1 overflow-y-auto p-6 space-y-6">
                             <div className="flex items-center">
                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getResultadoBadge(selectedLlamada.resultado)}`}>
-                                    {selectedLlamada.resultado.replace('_', ' ')}
+                                    {getResultadoLabel(selectedLlamada.resultado)}
                                 </span>
                             </div>
 

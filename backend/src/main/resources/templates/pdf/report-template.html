@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{reportTitle}}</title>
+    <style>
+        /* Reset y estilos base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: #F3F4F6;
+            color: #1F2937;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        /* Container principal */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .report-card {
+            background: white;
+            border: 1px solid #D9D9D9;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Header */
+        .report-header {
+            margin-bottom: 24px;
+        }
+
+        .report-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1F2937;
+            margin-bottom: 8px;
+        }
+
+        .report-header p {
+            font-size: 14px;
+            color: #6B7280;
+            margin-bottom: 16px;
+        }
+
+        /* Badges/Tags */
+        .tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #F3F4F6;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #1F2937;
+        }
+
+        /* Secciones */
+        .section {
+            margin-bottom: 32px;
+            page-break-inside: avoid;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #1F2937;
+        }
+
+        /* Cards de criterios */
+        .criteria-card {
+            background: #FAFAFA;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .criteria-grid {
+            display: table;
+            width: 100%;
+        }
+
+        .criteria-row {
+            display: table-row;
+        }
+
+        .criteria-item {
+            display: table-cell;
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        .criteria-item label {
+            display: block;
+            font-size: 11px;
+            color: #6B7280;
+            margin-bottom: 4px;
+        }
+
+        .criteria-value {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #F3F4F6;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #1F2937;
+        }
+
+        .criteria-value.success {
+            background: rgba(132, 204, 22, 0.2);
+            color: #365314;
+        }
+
+        /* Métricas grid */
+        .metrics-grid {
+            display: table;
+            width: 100%;
+            margin-bottom: 24px;
+        }
+
+        .metrics-row {
+            display: table-row;
+        }
+
+        .metric-card {
+            display: table-cell;
+            background: white;
+            border: 1px solid #D9D9D9;
+            border-radius: 8px;
+            padding: 16px;
+            position: relative;
+            margin-right: 16px;
+            width: 25%;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: #84CC16;
+            border-radius: 8px 0 0 8px;
+        }
+
+        .metric-card.primary::before {
+            background: #3C83F6;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: #6B7280;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .metric-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1F2937;
+            display: block;
+        }
+
+        /* Tabla */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #D9D9D9;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        thead {
+            background: #EDEDED;
+        }
+
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: #1F2937;
+            text-transform: uppercase;
+        }
+
+        th.text-center {
+            text-align: center;
+        }
+
+        th.text-right {
+            text-align: right;
+        }
+
+        tbody tr {
+            border-top: 1px solid #D9D9D9;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #F9FAFB;
+        }
+
+        tbody tr:nth-child(odd) {
+            background: white;
+        }
+
+        td {
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #1F2937;
+        }
+
+        td.text-center {
+            text-align: center;
+        }
+
+        td.text-right {
+            text-align: right;
+        }
+
+        td.text-muted {
+            color: #6B7280;
+        }
+
+        td.font-semibold {
+            font-weight: 600;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .status-badge.status-active {
+            background: rgba(132, 204, 22, 0.2);
+            color: #365314;
+        }
+
+        .status-badge.status-inactive {
+            background: #E5E7EB;
+            color: #4B5563;
+        }
+
+        .status-badge.status-warning {
+            background: rgba(251, 191, 36, 0.2);
+            color: #78350F;
+        }
+
+        .status-badge.status-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #7F1D1D;
+        }
+
+        /* Footer */
+        .report-footer {
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #D9D9D9;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #9CA3AF;
+        }
+
+        .footer-left {
+            float: left;
+        }
+
+        .footer-right {
+            float: right;
+        }
+
+        /* Page break control */
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+
+        .page-break {
+            page-break-after: always;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="report-card">
+            <div class="report-header">
+                <h1>{{reportTitle}}</h1>
+                <p>{{reportDescription}}</p>
+
+                <div class="tags">
+                    <span class="tag">Generado por: {{generatedBy}}</span>
+                    <span class="tag">Fecha: {{generatedDate}}</span>
+                    <span class="tag">Rango: {{startDate}} - {{endDate}}</span>
+                </div>
+            </div>
+
+            <!-- Criterios de búsqueda -->
+            {{#hasCriteria}}
+            <div class="section">
+                <div class="criteria-card">
+                    <h3 class="section-title">Criterios de Búsqueda</h3>
+                    <div class="criteria-grid">
+                        {{criteriaItems}}
+                    </div>
+                </div>
+            </div>
+            {{/hasCriteria}}
+
+            <!-- Métricas principales -->
+            {{#hasMetrics}}
+            <div class="section">
+                <div class="metrics-grid">
+                    <div class="metrics-row">
+                        {{metricsCards}}
+                    </div>
+                </div>
+            </div>
+            {{/hasMetrics}}
+
+            <!-- Tabla de datos -->
+            {{#hasTable}}
+            <div class="section">
+                <table>
+                    <thead>
+                        <tr>
+                            {{tableHeaders}}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{tableRows}}
+                    </tbody>
+                </table>
+            </div>
+            {{/hasTable}}
+
+            <!-- Contenido personalizado adicional -->
+            {{customContent}}
+
+            <div class="report-footer">
+                <span class="footer-left">{{platformName}} – Informe Generado</span>
+                <span class="footer-right">Página {{pageNumber}} de {{totalPages}}</span>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

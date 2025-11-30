@@ -8,7 +8,7 @@ export const AgentMetricsPage: React.FC = () => {
     const [metricas, setMetricas] = useState<MetricasAgente | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const idAgente = 10; // TODO: Get from auth context
+    const idAgente = 1; // TODO: Get from auth context (using existing agent ID from database)
 
     useEffect(() => {
         loadMetricas();

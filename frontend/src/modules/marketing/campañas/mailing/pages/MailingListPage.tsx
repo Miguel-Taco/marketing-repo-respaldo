@@ -63,7 +63,7 @@ export const MailingListPage: React.FC = () => {
     );
 
     const handleEdit = (id: number) => {
-        navigate(`/marketing/campanas/mailing/${id}/edit`);
+        navigate(`/emailing/${id}/edit`);
     };
 
     const totalCampanas = campanas.length;
@@ -135,20 +135,21 @@ export const MailingListPage: React.FC = () => {
                     // Tabla normal
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
-                            <thead className="bg-table-header">
+                            <thead className="bg-table-header sticky top-0">
                                 <tr>
-                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">PRIORIDAD</th>
-                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">NOMBRE CAMPAÑA</th>
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide w-24">PRIORIDAD</th>
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">NOMBRE</th>
                                     <th className="p-4 text-sm font-semibold text-dark tracking-wide">DESCRIPCIÓN</th>
-                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">FECHA DE INICIO</th>
-                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">ACCIONES</th>
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide w-32">FECHA</th>
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide w-20 text-center">ESTADO</th>
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide w-16">ACCIONES</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-separator">
                                 {loading ? (
                                     // ✅ Loading solo en la tabla
                                     <tr>
-                                        <td colSpan={5} className="p-12 text-center">
+                                        <td colSpan={6} className="p-12 text-center">
                                             <div className="flex flex-col items-center justify-center">
                                                 <LoadingSpinner size="lg" />
                                                 <p className="text-gray-500 mt-4">Cargando campañas...</p>
@@ -158,7 +159,7 @@ export const MailingListPage: React.FC = () => {
                                 ) : filteredCampanas.length === 0 ? (
                                     // Estado vacío
                                     <tr>
-                                        <td colSpan={5} className="p-12 text-center">
+                                        <td colSpan={6} className="p-12 text-center">
                                             <div className="flex flex-col items-center justify-center">
                                                 <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">inbox</span>
                                                 <p className="text-gray-500 text-lg font-medium">No se encontraron campañas</p>
@@ -173,34 +174,34 @@ export const MailingListPage: React.FC = () => {
                                     filteredCampanas.map((campana) => (
                                         <tr key={campana.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="p-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${PRIORIDAD_COLORS[campana.prioridad]}`}>
+                                                <span className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${PRIORIDAD_COLORS[campana.prioridad]}`}>
                                                     {campana.prioridad}
                                                 </span>
                                             </td>
                                             <td className="p-4">
-                                                <div className="flex flex-col gap-2">
-                                                    <span className="text-sm font-medium text-gray-900">
-                                                        {campana.nombre}
-                                                    </span>
-                                                    <Badge variant={ESTADO_COLORS[campana.idEstado]}>
-                                                        {campana.estadoNombre}
-                                                    </Badge>
-                                                </div>
+                                                <span className="text-sm font-medium text-gray-900 truncate">
+                                                    {campana.nombre}
+                                                </span>
                                             </td>
                                             <td className="p-4 text-sm text-gray-600 max-w-md">
                                                 <p className="line-clamp-2">{campana.descripcion}</p>
                                             </td>
-                                            <td className="p-4 text-sm text-gray-600">
+                                            <td className="p-4 text-sm text-gray-600 whitespace-nowrap">
                                                 {new Date(campana.fechaInicio).toLocaleDateString('es-ES', {
                                                     year: 'numeric',
                                                     month: '2-digit',
                                                     day: '2-digit'
                                                 })}
                                             </td>
-                                            <td className="p-4">
+                                            <td className="p-4 text-center">
+                                                <Badge variant={ESTADO_COLORS[campana.idEstado]}>
+                                                    {campana.estadoNombre}
+                                                </Badge>
+                                            </td>
+                                            <td className="p-4 text-center">
                                                 <button
                                                     onClick={() => handleEdit(campana.id)}
-                                                    className="p-2 text-primary hover:bg-blue-50 rounded-lg transition-colors"
+                                                    className="p-2 text-primary hover:bg-blue-50 rounded-lg transition-colors inline-block"
                                                     title="Editar campaña"
                                                 >
                                                     <span className="material-symbols-outlined text-xl">edit</span>

@@ -16,6 +16,12 @@ public class ResultadoLlamadaEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @Column(name = "resultado", nullable = false, length = 100)
+    private String resultado;
+
+    @Column(name = "motivo", nullable = false, length = 200)
+    private String motivo;
+
     @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;
 

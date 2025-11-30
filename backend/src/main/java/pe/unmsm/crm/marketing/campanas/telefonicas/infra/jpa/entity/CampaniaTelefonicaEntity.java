@@ -39,8 +39,9 @@ public class CampaniaTelefonicaEntity {
     @Column(name = "fecha_fin", nullable = false)
     private LocalDate fechaFin;
 
-    @Column(name = "id_guion")
-    private Integer idGuion;
+    // REMOVED: id_guion field - column doesn't exist in database table
+    // If you need to associate scripts with campaigns, add the column to the
+    // database first
 
     @Column(name = "estado", nullable = false, length = 45)
     private String estado = "BORRADOR";
@@ -62,9 +63,7 @@ public class CampaniaTelefonicaEntity {
     private Boolean esArchivado = false;
 
     // Relaciones
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_guion", insertable = false, updatable = false)
-    private GuionEntity guion;
+    // REMOVED: GuionEntity relationship - id_guion column doesn't exist in database
 
     @OneToMany(mappedBy = "campania", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CampaniaAgenteEntity> agentes = new ArrayList<>();

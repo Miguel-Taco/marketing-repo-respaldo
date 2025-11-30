@@ -53,6 +53,9 @@ export interface Llamada {
 
 export interface ResultadoLlamadaRequest {
   idContacto: number;
+  idContactoCola?: number;
+  idLead?: number;
+  idResultado?: number;
   resultado: string;
   motivo?: string;
   notas?: string;
@@ -60,6 +63,8 @@ export interface ResultadoLlamadaRequest {
   derivadoVentas?: boolean;
   tipoOportunidad?: string;
   duracionSegundos: number;
+  inicio?: Date;
+  fin?: Date;
 }
 
 export interface MetricasAgente {
@@ -87,19 +92,18 @@ export interface MetricasComparativa {
 export interface Guion {
   id: number;
   nombre: string;
-  descripcion: string;
+  descripcion?: string;
   objetivo: string;
-  tipo: 'VENTA' | 'ENCUESTA' | 'RETENCION';
-  estado: 'BORRADOR' | 'PUBLICADO' | 'ARCHIVADO';
+  tipo?: 'VENTA' | 'ENCUESTA' | 'RETENCION' | 'RENOVACION' | 'VENTA_NUEVA' | 'RECUPERO';
+  estado: 'BORRADOR' | 'PUBLICADO' | 'ARCHIVADO' | 'ACTIVO' | 'INACTIVO';
   pasos: PasoGuion[];
 }
 
 export interface PasoGuion {
+  id?: number;
   orden: number;
-  tipo: 'INFORMATIVO' | 'PREGUNTA_ABIERTA' | 'PREGUNTA_CERRADA' | 'OPCION_UNICA';
-  titulo: string;
+  tipoSeccion: string; // INTRO, DIAGNOSTICO, OBJECIONES, CIERRE, POST_LLAMADA
   contenido: string;
-  campoGuardado?: string;
 }
 
 export interface CreateCampaniaRequest {
@@ -111,4 +115,69 @@ export interface CreateCampaniaRequest {
   idsAgentes: number[];
   leadsIniciales: number[];
   prioridadColaDefault?: string;
+}
+
+export interface MetricasDiarias {
+  pendientes: number;
+  realizadasHoy: number;
+  efectivasHoy: number;
+}
+
+export interface BreadcrumbItem {
+  label: string;
+  path?: string;
+}
+
+export interface GuionArchivo {
+  id: number;
+  idCampania: number;
+  idAgente?: number;
+  nombreArchivo: string;
+  tipoArchivo: string;
+  tamanioBytes: number;
+  fechaSubida: string;
+  urlDescarga: string;
+  esGeneral: boolean;
+}
+
+export interface MetricasCampania {
+  totalLeads: number;
+  leadsContactados: number;
+  leadsPendientes: number;
+  porcentajeAvance: number;
+  totalLlamadas: number;
+  duracionPromedio: number;
+  distribucionResultados: Record<string, ResultadoDistribucion>;
+  llamadasPorDia: LlamadasPorDia[];
+  llamadasPorHora: Record<number, number>;
+  rendimientoPorAgente: RendimientoAgente[];
+  tasaContactoGlobal: number;
+  tasaEfectividad: number;
+  duracionPromedioEfectivas: number;
+  duracionPromedioNoEfectivas: number;
+  leadsPorPrioridad: Record<string, number>;
+  leadsPorEstado: Record<string, number>;
+}
+
+export interface ResultadoDistribucion {
+  resultado: string;
+  nombre: string;
+  count: number;
+  porcentaje: number;
+}
+
+export interface LlamadasPorDia {
+  fecha: string;
+  totalLlamadas: number;
+  llamadasEfectivas: number;
+}
+
+export interface RendimientoAgente {
+  idAgente: number;
+  nombreAgente: string;
+  llamadasRealizadas: number;
+  contactosEfectivos: number;
+  tasaExito: number;
+  duracionPromedio: number;
+  llamadasHoy: number;
 }

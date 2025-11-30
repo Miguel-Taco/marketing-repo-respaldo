@@ -109,7 +109,8 @@ public class CampaignSyncService {
         request.setEstado("BORRADOR");
 
         Long idPlantilla = row.get("id_plantilla") != null ? ((Number) row.get("id_plantilla")).longValue() : null;
-        request.setIdGuion(idPlantilla != null ? idPlantilla : 0L); // 0L si es nulo
+        // REMOVED: setIdGuion - field doesn't exist in CampaniaTelefonicaEntity anymore
+        // request.setIdGuion(idPlantilla != null ? idPlantilla : 0L);
 
         Long idAgente = row.get("id_agente") != null ? ((Number) row.get("id_agente")).longValue() : null;
         request.setIdsAgentes(idAgente != null ? List.of(idAgente) : Collections.emptyList());

@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/mailing/v1")
+@RequestMapping("/api/v1/mailing")
 @RequiredArgsConstructor
 public class MailingController {
 

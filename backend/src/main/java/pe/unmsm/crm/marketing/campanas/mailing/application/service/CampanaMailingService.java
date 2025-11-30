@@ -28,6 +28,9 @@ public class CampanaMailingService {
         CampanaMailing c = mapper.toEntity(req);
         CampanaMailing saved = campanaRepo.save(c);
         
+        if (req.getPrioridad() == null || req.getPrioridad().trim().isEmpty()) {
+            throw new ValidationException("La prioridad es obligatoria");
+        }
         MetricaCampana m = MetricaCampana.builder()
                 .campanaMailing(saved)
                 .enviados(0)

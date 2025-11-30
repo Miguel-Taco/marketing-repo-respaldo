@@ -16,13 +16,12 @@ public class CrearCampanaMailingRequest {
     @NotNull(message = "ID de segmento es obligatorio")
     private Long idSegmento;
 
-    @NotNull(message = "ID de encuesta es obligatorio")
     private Integer idEncuesta;
 
     @NotNull(message = "ID de agente asignado es obligatorio")
     private Integer idAgenteAsignado;
 
-    @NotBlank(message = "Nombre es obligatorio")
+    @NotNull(message = "Nombre es obligatorio")
     private String nombre;
 
     private String descripcion;
@@ -40,4 +39,8 @@ public class CrearCampanaMailingRequest {
 
     @NotBlank(message = "CTA URL es obligatoria")
     private String ctaUrl;
+
+    private String asunto;
+    private String cuerpo;
+    private String ctaTexto;
 }

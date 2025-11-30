@@ -4,24 +4,42 @@ import { telemarketingApi } from '../services/telemarketingApi';
 import type { Contacto, Guion, ResultadoLlamadaRequest } from '../types';
 import { CallResultModal } from '../components/CallResultModal';
 import { Button } from '../../../../../shared/components/ui/Button';
+import { generateMarkdownFromScript } from '../utils/markdownGenerator';
+import { MarkdownViewer } from '../components/MarkdownViewer';
+import { useCampaignsContext } from '../context/CampaignsContext';
 
 export const CallScreenPage: React.FC = () => {
     const { id, idContacto } = useParams<{ id: string; idContacto: string }>();
     const navigate = useNavigate();
+    const { autoNext } = useCampaignsContext();
     const [contacto, setContacto] = useState<Contacto | null>(null);
     const [guion, setGuion] = useState<Guion | null>(null);
     const [loading, setLoading] = useState(true);
     const [enLlamada, setEnLlamada] = useState(false);
     const [showResultModal, setShowResultModal] = useState(false);
     const [tiempoInicio, setTiempoInicio] = useState<Date | null>(null);
+    const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
 
-    const idAgente = 10; // TODO: Get from auth context
+    const idAgente = 1; // TODO: Get from auth context (using existing agent ID from database)
 
     useEffect(() => {
         if (id && idContacto) {
             loadData();
         }
     }, [id, idContacto]);
+
+    // Timer effect - updates every second during call
+    useEffect(() => {
+        let interval: number;
+        if (enLlamada && tiempoInicio) {
+            interval = window.setInterval(() => {
+                setTiempoTranscurrido(Math.floor((new Date().getTime() - tiempoInicio.getTime()) / 1000));
+            }, 1000);
+        } else {
+            setTiempoTranscurrido(0);
+        }
+        return () => window.clearInterval(interval);
+    }, [enLlamada, tiempoInicio]);
 
     const loadData = async () => {
         try {
@@ -48,10 +66,27 @@ export const CallScreenPage: React.FC = () => {
         setShowResultModal(true);
     };
 
+    const formatTime = (seconds: number): string => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
     const handleSaveResult = async (data: ResultadoLlamadaRequest, abrirSiguiente: boolean) => {
         try {
-            await telemarketingApi.registrarResultado(Number(id), idAgente, data);
+            const requestCompleto: ResultadoLlamadaRequest = {
+                ...data,
+                inicio: tiempoInicio!,
+                fin: new Date(),
+                duracionSegundos: getDuracionLlamada(),
+                idLead: contacto?.idLead || data.idLead,
+                idContactoCola: contacto?.id
+            };
+
+            await telemarketingApi.registrarResultado(Number(id), idAgente, requestCompleto);
             setShowResultModal(false);
+            setEnLlamada(false);
+            setTiempoInicio(null);
 
             if (abrirSiguiente) {
                 const siguiente = await telemarketingApi.getSiguienteContacto(Number(id), idAgente);
@@ -65,6 +100,7 @@ export const CallScreenPage: React.FC = () => {
             }
         } catch (error) {
             console.error('Error guardando resultado:', error);
+            alert('Error al guardar el resultado. Por favor, intente nuevamente.');
         }
     };
 
@@ -101,7 +137,19 @@ export const CallScreenPage: React.FC = () => {
                         <h1 className="text-3xl font-bold text-gray-900">{contacto.nombreCompleto}</h1>
                         <p className="text-gray-500 mt-1">{contacto.empresa}</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex items-center gap-3">
+                        {/* Timer - visible during call */}
+                        {enLlamada && (
+                            <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-2 border-red-200 rounded-lg">
+                                <span className="material-symbols-outlined text-red-600 animate-pulse">schedule</span>
+                                <div className="text-center">
+                                    <p className="text-xs font-medium text-red-700">Tiempo transcurrido</p>
+                                    <p className="text-2xl font-bold text-red-600 tabular-nums">
+                                        {formatTime(tiempoTranscurrido)}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                         {!enLlamada ? (
                             <Button variant="primary" icon="call" onClick={handleIniciarLlamada}>
                                 Iniciar llamada
@@ -170,45 +218,67 @@ export const CallScreenPage: React.FC = () => {
                 </div>
 
                 {/* Right Panel - Script */}
-                <div className="flex-1 p-6 overflow-y-auto">
+                <div className="flex-1 p-6 overflow-y-auto bg-white">
                     <div className="max-w-3xl mx-auto">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Guion de llamada</h2>
 
                         {guion ? (
                             <div className="space-y-6">
-                                <div className="bg-white rounded-lg p-6 border border-gray-200">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-2">{guion.nombre}</h3>
-                                    <p className="text-gray-600 mb-4">{guion.descripcion}</p>
-                                    <div className="flex gap-2">
-                                        <span className="px-3 py-1 bg-primary/10 text-primary text-sm rounded-full">{guion.tipo}</span>
-                                        <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
-                                            {guion.objetivo}
+                                {/* Metadata Section - Same as ViewScriptModal */}
+                                <div className="space-y-4">
+                                    <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
+                                        <span className="material-symbols-outlined text-blue-600 mt-0.5">flag</span>
+                                        <div className="flex-1">
+                                            <h3 className="text-sm font-semibold text-blue-900 mb-1">
+                                                Objetivo
+                                            </h3>
+                                            <p className="text-sm text-blue-800">
+                                                {guion.objetivo}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {guion.descripcion && (
+                                        <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-lg">
+                                            <span className="material-symbols-outlined text-amber-600 mt-0.5">sticky_note_2</span>
+                                            <div className="flex-1">
+                                                <h3 className="text-sm font-semibold text-amber-900 mb-1">
+                                                    Descripción
+                                                </h3>
+                                                <p className="text-sm text-amber-800">
+                                                    {guion.descripcion}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                        <span className="material-symbols-outlined text-base">label</span>
+                                        <span>
+                                            {guion.pasos?.length || 0} paso{guion.pasos?.length !== 1 ? 's' : ''}
                                         </span>
                                     </div>
                                 </div>
 
-                                {guion.pasos.map((paso, index) => (
-                                    <div key={index} className="bg-white rounded-lg p-6 border border-gray-200">
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white font-bold">
-                                                {paso.orden}
-                                            </span>
-                                            <h4 className="text-lg font-bold text-gray-900">{paso.titulo}</h4>
-                                            <span className="ml-auto px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
-                                                {paso.tipo.replace('_', ' ')}
-                                            </span>
-                                        </div>
-                                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                                            {paso.contenido}
-                                        </p>
-                                        {paso.campoGuardado && (
-                                            <p className="mt-3 text-sm text-gray-500 flex items-center gap-2">
-                                                <span className="material-symbols-outlined text-primary text-base">save</span>
-                                                Se guardará en: {paso.campoGuardado}
-                                            </p>
-                                        )}
+                                {/* Divider */}
+                                <div className="border-t border-gray-200 my-6" />
+
+                                {/* Script Content with Markdown */}
+                                <div className="bg-gray-50 rounded-lg p-6">
+                                    <div className="prose prose-lg max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900">
+                                        {guion.pasos?.map((paso, index) => (
+                                            <div key={index} className="mb-6">
+                                                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                                                    {paso.orden}. {paso.tipoSeccion || 'Paso'}
+                                                </h3>
+                                                <div
+                                                    className="text-gray-700 leading-relaxed"
+                                                    dangerouslySetInnerHTML={{ __html: paso.contenido }}
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                </div>
                             </div>
                         ) : (
                             <p className="text-gray-500">No hay guion disponible para esta campaña.</p>
@@ -222,6 +292,8 @@ export const CallScreenPage: React.FC = () => {
                 onClose={() => setShowResultModal(false)}
                 onSave={handleSaveResult}
                 idContacto={contacto.id}
+                duracionSegundos={tiempoTranscurrido}
+                autoNext={autoNext}
             />
         </div>
     );

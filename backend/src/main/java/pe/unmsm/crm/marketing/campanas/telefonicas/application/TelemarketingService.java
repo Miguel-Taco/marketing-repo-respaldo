@@ -187,4 +187,26 @@ public class TelemarketingService {
     public MetricasAgenteDTO obtenerMetricasAgente(Long idCampania, Long idAgente) {
         return campaignDataProvider.obtenerMetricasAgente(idCampania, idAgente);
     }
+
+    public MetricasDiariasDTO obtenerMetricasDiarias(Long idCampania, Long idAgente) {
+        return campaignDataProvider.obtenerMetricasDiarias(idCampania, idAgente);
+    }
+
+    public MetricasCampaniaDTO obtenerMetricasCampania(Long idCampania, Integer dias) {
+        return campaignDataProvider.obtenerMetricasCampania(idCampania, dias);
+    }
+
+    // === CONTACTOS URGENTES (INTEGRACION CON GESTOR DE ENCUESTAS) ===
+
+    /**
+     * Agrega un contacto urgente a la cola con prioridad ALTA.
+     * La campaña se determina automáticamente a partir del id_encuesta.
+     * 
+     * @param request Solicitud con idLead e idEncuesta
+     * @return ContactoDTO del lead agregado a la cola
+     * @throws IllegalArgumentException si no existe campaña para la encuesta
+     */
+    public ContactoDTO agregarContactoUrgente(AddUrgentContactRequest request) {
+        return campaignDataProvider.agregarContactoUrgente(request);
+    }
 }

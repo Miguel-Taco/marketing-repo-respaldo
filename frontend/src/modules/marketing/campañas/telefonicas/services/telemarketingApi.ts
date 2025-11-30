@@ -5,7 +5,10 @@ import type {
     Llamada,
     ResultadoLlamadaRequest,
     MetricasAgente,
+    MetricasDiarias,
+    MetricasCampania,
     Guion,
+    GuionArchivo,
     CreateCampaniaRequest
 } from '../types';
 
@@ -27,6 +30,14 @@ export const telemarketingApi = {
      */
     async crearCampania(request: CreateCampaniaRequest): Promise<CampaniaTelefonica> {
         const response = await apiClient.post(`${BASE_URL}/campanias-telefonicas`, request);
+        return response.data.data;
+    },
+
+    /**
+     * Obtiene una campaña por su ID
+     */
+    async getCampaniaById(id: number): Promise<CampaniaTelefonica> {
+        const response = await apiClient.get(`${BASE_URL}/campanias-telefonicas/${id}`);
         return response.data.data;
     },
 
@@ -114,9 +125,12 @@ export const telemarketingApi = {
     /**
      * Obtiene el historial de llamadas de una campaña
      */
-    async getHistorialLlamadas(idCampania: number, idAgente: number): Promise<Llamada[]> {
+    async getHistorialLlamadas(idCampania: number, idAgente?: number): Promise<Llamada[]> {
+        const query = typeof idAgente === 'number'
+            ? `?idAgente=${idAgente}`
+            : '';
         const response = await apiClient.get(
-            `${BASE_URL}/campanias-telefonicas/${idCampania}/llamadas?idAgente=${idAgente}`
+            `${BASE_URL}/campanias-telefonicas/${idCampania}/llamadas${query}`
         );
         return response.data.data;
     },
@@ -159,6 +173,26 @@ export const telemarketingApi = {
         return response.data.data;
     },
 
+    /**
+     * Obtiene las métricas diarias de una campaña para un agente
+     */
+    async getMetricasDiarias(idCampania: number, idAgente: number): Promise<MetricasDiarias> {
+        const response = await apiClient.get(
+            `${BASE_URL}/campanias-telefonicas/${idCampania}/metricas-diarias?idAgente=${idAgente}`
+        );
+        return response.data.data;
+    },
+
+    /**
+     * Obtiene métricas completas de una campaña
+     */
+    async getMetricasCampaniaCompletas(idCampania: number, dias: number = 30): Promise<MetricasCampania> {
+        const response = await apiClient.get(
+            `${BASE_URL}/campanias-telefonicas/${idCampania}/metricas?dias=${dias}`
+        );
+        return response.data.data;
+    },
+
     // ========== SESION DE GUION (MEMENTO) ==========
 
     /**
@@ -178,5 +212,93 @@ export const telemarketingApi = {
     async obtenerSesionGuion(idLlamada: number, idAgente: number) {
         const response = await apiClient.get(`${BASE_URL}/llamadas/${idLlamada}/guion/sesion?idAgente=${idAgente}`);
         return response.data.data;
+    },
+
+    // ========== GESTIÓN DE ARCHIVOS DE GUIONES ==========
+
+    /**
+     * Sube un guión general para una campaña
+     */
+    async uploadScriptGeneral(idCampania: number, file: File): Promise<GuionArchivo> {
+        // Validar que sea archivo .md
+        if (!file.name.toLowerCase().endsWith('.md')) {
+            throw new Error('Solo se permiten archivos con extensión .md');
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await apiClient.post(
+            `${BASE_URL}/campanias-telefonicas/${idCampania}/guiones/general`,
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            }
+        );
+        return response.data.data;
+    },
+
+    /**
+     * Obtiene los guiones generales de una campaña
+     */
+    async getScriptsGenerales(idCampania: number): Promise<GuionArchivo[]> {
+        const response = await apiClient.get(`${BASE_URL}/campanias-telefonicas/${idCampania}/guiones/general`);
+        return response.data.data;
+    },
+
+    /**
+     * Sube un guión específico de un agente para una campaña
+     */
+    async uploadScriptAgente(idCampania: number, idAgente: number, file: File): Promise<GuionArchivo> {
+        // Validar que sea archivo .md
+        if (!file.name.toLowerCase().endsWith('.md')) {
+            throw new Error('Solo se permiten archivos con extensión .md');
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await apiClient.post(
+            `${BASE_URL}/campanias-telefonicas/${idCampania}/guiones/agente/${idAgente}`,
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            }
+        );
+        return response.data.data;
+    },
+
+    /**
+     * Obtiene los guiones de un agente específico en una campaña
+     */
+    async getScriptsAgente(idCampania: number, idAgente: number): Promise<GuionArchivo[]> {
+        const response = await apiClient.get(`${BASE_URL}/campanias-telefonicas/${idCampania}/guiones/agente/${idAgente}`);
+        return response.data.data;
+    },
+
+    /**
+     * Elimina un guión
+     */
+    async deleteScript(idGuion: number): Promise<void> {
+        await apiClient.delete(`${BASE_URL}/guiones/${idGuion}`);
+    },
+
+    /**
+     * Obtiene la URL de descarga de un guión
+     */
+    getScriptDownloadUrl(idGuion: number): string {
+        return `${import.meta.env.VITE_API_URL}/guiones/${idGuion}/download`;
+    },
+
+    /**
+     * Obtiene el contenido markdown de un guión
+     */
+    async getScriptMarkdownContent(idGuion: number): Promise<string> {
+        const response = await apiClient.get(`${BASE_URL}/guiones/${idGuion}/contenido`);
+        return response.data.data.contenido;
     }
 };

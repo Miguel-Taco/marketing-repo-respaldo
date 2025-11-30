@@ -1,0 +1,218 @@
+package pe.unmsm.crm.marketing.campanas.telefonicas.application;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.entity.*;
+import pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.repository.*;
+import pe.unmsm.crm.marketing.segmentacion.application.SegmentoService;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+
+/**
+ * Servicio de fachada para la creación de campañas telefónicas desde otros
+ * módulos.
+ * Proporciona una interfaz simplificada para la integración con el gestor de
+ * campañas.
+ */
+@Service
+@RequiredArgsConstructor
+public class CampaniaTelefonicaFacadeService {
+
+    private final CampaniaTelefonicaRepository campaniaRepository;
+    private final CampaniaTelefonicaConfigRepository configRepository;
+    private final CampaniaAgenteRepository campaniaAgenteRepository;
+    private final ColaLlamadaRepository colaLlamadaRepository;
+    private final SegmentoService segmentoService;
+
+    /**
+     * Crea una campaña telefónica completa con:
+     * - Registro en campania_telefonica
+     * - Configuración por defecto
+     * - Asignación de agente
+     * - Población de cola de llamadas con leads del segmento
+     *
+     * @param idCampanaGestion ID de la campaña del gestor general
+     * @param nombre           Nombre de la campaña
+     * @param idSegmento       ID del segmento de leads
+     * @param idEncuesta       ID de la encuesta (opcional)
+     * @param fechaInicio      Fecha de inicio
+     * @param fechaFin         Fecha de fin
+     * @param idAgente         ID del agente asignado
+     * @param prioridad        Prioridad (Alta, Media, Baja)
+     * @return ID de la campaña telefónica creada
+     */
+    @Transactional
+    public Integer crearCampaniaTelefonicaDesdeGestor(
+            Long idCampanaGestion,
+            String nombre,
+            Long idSegmento,
+            Integer idEncuesta,
+            LocalDate fechaInicio,
+            LocalDate fechaFin,
+            Integer idAgente,
+            String prioridad) {
+        // 1. Crear registro principal de campaña telefónica
+        CampaniaTelefonicaEntity campaniaTelefonica = new CampaniaTelefonicaEntity();
+        campaniaTelefonica.setIdCampanaGestion(idCampanaGestion);
+        campaniaTelefonica.setIdSegmento(idSegmento);
+        campaniaTelefonica.setIdEncuesta(idEncuesta);
+        campaniaTelefonica.setNombre(nombre);
+        campaniaTelefonica.setFechaInicio(fechaInicio);
+        campaniaTelefonica.setFechaFin(fechaFin);
+        campaniaTelefonica.setEstado("Programada");
+        campaniaTelefonica.setIdEstado(1); // 1 = pendiente en cat_estados_campana
+        campaniaTelefonica.setPrioridad(mapearPrioridad(prioridad));
+        campaniaTelefonica.setFechaCreacion(LocalDateTime.now());
+        campaniaTelefonica.setFechaModificacion(LocalDateTime.now());
+        campaniaTelefonica.setEsArchivado(false);
+
+        CampaniaTelefonicaEntity campaniaGuardada = campaniaRepository.save(campaniaTelefonica);
+        Integer idCampaniaTelefonica = campaniaGuardada.getId();
+
+        // 2. Crear configuración por defecto
+        crearConfiguracionPorDefecto(idCampaniaTelefonica);
+
+        // 3. Asignar agente a la campaña
+        if (idAgente != null) {
+            asignarAgente(idCampaniaTelefonica, idAgente);
+        }
+
+        // 4. Poblar cola de llamadas con leads del segmento
+        poblarColaLlamadas(idCampaniaTelefonica, idSegmento);
+
+        return idCampaniaTelefonica;
+    }
+
+    /**
+     * Actualiza una campaña telefónica existente cuando se edita desde el gestor
+     */
+    @Transactional
+    public void actualizarCampaniaTelefonicaDesdeGestor(
+            Long idCampanaGestion,
+            String nombre,
+            LocalDate fechaInicio,
+            LocalDate fechaFin,
+            String prioridad) {
+        campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
+                .ifPresent(campania -> {
+                    campania.setNombre(nombre);
+                    campania.setFechaInicio(fechaInicio);
+                    campania.setFechaFin(fechaFin);
+                    campania.setPrioridad(mapearPrioridad(prioridad));
+                    campania.setFechaModificacion(LocalDateTime.now());
+                    campaniaRepository.save(campania);
+                });
+    }
+
+    /**
+     * Elimina una campaña telefónica cuando se elimina desde el gestor
+     */
+    @Transactional
+    public void eliminarCampaniaTelefonicaDesdeGestor(Long idCampanaGestion) {
+        campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
+                .ifPresent(campania -> {
+                    // Eliminar en cascada (configuración, asignaciones, cola)
+                    campaniaRepository.delete(campania);
+                });
+    }
+
+    @Transactional
+    public void activarCampania(Long idCampanaGestion) {
+        campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
+                .ifPresent(campania -> {
+                    campania.setEstado("Vigente");
+                    campania.setIdEstado(2); // VIGENTE
+                    campania.setFechaModificacion(LocalDateTime.now());
+                    campaniaRepository.save(campania);
+                });
+    }
+
+    @Transactional
+    public void pausarCampania(Long idCampanaGestion) {
+        campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
+                .ifPresent(campania -> {
+                    campania.setEstado("Pausada");
+                    campania.setIdEstado(3); // PAUSADA
+                    campania.setFechaModificacion(LocalDateTime.now());
+                    campaniaRepository.save(campania);
+                });
+    }
+
+    @Transactional
+    public void reanudarCampania(Long idCampanaGestion) {
+        campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
+                .ifPresent(campania -> {
+                    campania.setEstado("Vigente");
+                    campania.setIdEstado(2); // VIGENTE
+                    campania.setFechaModificacion(LocalDateTime.now());
+                    campaniaRepository.save(campania);
+                });
+    }
+
+    @Transactional
+    public void cancelarCampania(Long idCampanaGestion) {
+        campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
+                .ifPresent(campania -> {
+                    campania.setEstado("Cancelada");
+                    campania.setIdEstado(5); // CANCELADA
+                    campania.setFechaModificacion(LocalDateTime.now());
+                    campaniaRepository.save(campania);
+                });
+    }
+
+    // === MÉTODOS PRIVADOS ===
+
+    private void crearConfiguracionPorDefecto(Integer idCampaniaTelefonica) {
+        CampaniaTelefonicaConfigEntity config = new CampaniaTelefonicaConfigEntity();
+        config.setIdCampaniaTelefonica(idCampaniaTelefonica);
+        config.setHoraInicioPermitida(LocalTime.of(9, 0));
+        config.setHoraFinPermitida(LocalTime.of(21, 0));
+        config.setDiasSemanaPermitidos("LUN-MAR-MIE-JUE-VIE");
+        config.setMaxIntentos(3);
+        config.setIntervaloReintentosMin(60);
+        config.setTipoDiscado(CampaniaTelefonicaConfigEntity.TipoDiscadoEnum.Manual);
+        config.setModoContacto(CampaniaTelefonicaConfigEntity.ModoContactoEnum.Llamada);
+        config.setPermiteSmsRespaldo(false);
+
+        configRepository.save(config);
+    }
+
+    private void asignarAgente(Integer idCampaniaTelefonica, Integer idAgente) {
+        CampaniaAgenteEntity asignacion = new CampaniaAgenteEntity();
+        asignacion.setIdCampania(idCampaniaTelefonica);
+        asignacion.setIdAgente(idAgente);
+
+        campaniaAgenteRepository.save(asignacion);
+    }
+
+    private void poblarColaLlamadas(Integer idCampaniaTelefonica, Long idSegmento) {
+        // Obtener IDs de leads del segmento
+        List<Long> leadIds = segmentoService.obtenerMiembrosSegmento(idSegmento);
+
+        // Crear entrada en cola para cada lead
+        leadIds.forEach(leadId -> {
+            ColaLlamadaEntity cola = new ColaLlamadaEntity();
+            cola.setIdCampania(idCampaniaTelefonica);
+            cola.setIdLead(leadId);
+            cola.setPrioridadCola("MEDIA");
+            cola.setEstadoEnCola("PENDIENTE");
+
+            colaLlamadaRepository.save(cola);
+        });
+    }
+
+    private CampaniaTelefonicaEntity.PrioridadEnum mapearPrioridad(String prioridad) {
+        if (prioridad == null)
+            return CampaniaTelefonicaEntity.PrioridadEnum.Media;
+
+        return switch (prioridad.toUpperCase()) {
+            case "ALTA" -> CampaniaTelefonicaEntity.PrioridadEnum.Alta;
+            case "BAJA" -> CampaniaTelefonicaEntity.PrioridadEnum.Baja;
+            default -> CampaniaTelefonicaEntity.PrioridadEnum.Media;
+        };
+    }
+}

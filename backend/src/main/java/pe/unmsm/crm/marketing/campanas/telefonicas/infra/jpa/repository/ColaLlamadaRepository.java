@@ -77,4 +77,42 @@ public interface ColaLlamadaRepository extends JpaRepository<ColaLlamadaEntity, 
          * Obtiene todos los contactos de una campaña
          */
         List<ColaLlamadaEntity> findByIdCampania(Integer idCampania);
+
+        /**
+         * Cuenta el total de leads en una campaña
+         */
+        @Query("SELECT COUNT(c) FROM ColaLlamadaEntity c WHERE c.idCampania = :idCampania")
+        Long countTotalByCampaign(@Param("idCampania") Integer idCampania);
+
+        /**
+         * Cuenta los leads completados (contactados) de una campaña
+         */
+        @Query("SELECT COUNT(c) FROM ColaLlamadaEntity c " +
+                        "WHERE c.idCampania = :idCampania AND c.estadoEnCola = 'COMPLETADO'")
+        Long countCompletadosByCampaign(@Param("idCampania") Integer idCampania);
+
+        /**
+         * Cuenta los leads por estado en una campaña
+         */
+        @Query("SELECT COUNT(c) FROM ColaLlamadaEntity c " +
+                        "WHERE c.idCampania = :idCampania AND c.estadoEnCola = :estado")
+        Long countByEstadoAndCampaign(@Param("idCampania") Integer idCampania, @Param("estado") String estado);
+
+        /**
+         * Busca un lead específico en la cola de una campaña
+         * Usado para verificar si un lead urgente ya existe en la cola
+         */
+        @Query("SELECT c FROM ColaLlamadaEntity c " +
+                        "WHERE c.idCampania = :idCampania AND c.idLead = :idLead")
+        java.util.Optional<ColaLlamadaEntity> findByIdCampaniaAndIdLead(
+                        @Param("idCampania") Integer idCampania,
+                        @Param("idLead") Long idLead);
+
+        /**
+         * Cuenta leads por prioridad en una campaña
+         */
+        @Query("SELECT c.prioridadCola, COUNT(c) FROM ColaLlamadaEntity c " +
+                        "WHERE c.idCampania = :idCampania " +
+                        "GROUP BY c.prioridadCola")
+        List<Object[]> countByPrioridadAndCampaign(@Param("idCampania") Integer idCampania);
 }

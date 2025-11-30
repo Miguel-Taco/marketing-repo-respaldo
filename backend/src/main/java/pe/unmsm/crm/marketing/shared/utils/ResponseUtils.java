@@ -38,6 +38,16 @@ public class ResponseUtils {
         return ResponseEntity.status(Objects.requireNonNull(status)).body(body);
     }
 
+    // Respuesta para errores con código de estado personalizado
+    public static ResponseEntity<Map<String, Object>> error(String message, int statusCode) {
+        HttpStatus status = HttpStatus.valueOf(statusCode);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", "ERROR");
+        body.put("message", message);
+        body.put("timestamp", Instant.now());
+        return ResponseEntity.status(status).body(body);
+    }
+
     // Mantiene tu método existente para errores
     public ProblemDetail fromException(String code, String message, @NonNull HttpStatus status,
             HttpServletRequest request) {

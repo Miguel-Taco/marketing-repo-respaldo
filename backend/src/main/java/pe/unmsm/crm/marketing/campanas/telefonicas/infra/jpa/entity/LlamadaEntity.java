@@ -39,6 +39,9 @@ public class LlamadaEntity {
     @Column(name = "notas", columnDefinition = "MEDIUMTEXT")
     private String notas;
 
+    @Column(name = "duracion_segundos")
+    private Integer duracionSegundos;
+
     // Relaciones
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_agente", insertable = false, updatable = false)

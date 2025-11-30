@@ -11,7 +11,8 @@ import { EditSegmentPage } from '../modules/marketing/segmentacion/pages/EditSeg
 import { SegmentacionLayout } from '../modules/marketing/segmentacion/components/SegmentacionLayout';
 import { CampanasListPage } from '../modules/marketing/campañas/gestor/pages/CampanasListPage';
 import { TelemarketingRoutes } from '../modules/marketing/campañas/telefonicas';
-
+import { MailingListPage } from '../modules/marketing/campañas/mailing/pages/MailingListPage';
+import { MailingEditorPage } from '../modules/marketing/campañas/mailing/pages/MailingEditorPage';
 import { LeadsProvider } from '../modules/marketing/leads/context/LeadsContext';
 import { ImportHistoryProvider } from '../modules/marketing/leads/context/ImportHistoryContext';
 import { SegmentosProvider } from '../modules/marketing/segmentacion/context/SegmentosContext';
@@ -52,6 +53,13 @@ export const AppRouter: React.FC = () => {
 
                     {/* Rutas de Campañas */}
                     <Route path="marketing/campanas" element={<CampanasListPage />} />
+
+                    {/* Rutas de Campañas de Mailing */}
+                    <Route path="marketing/campanas/mailing" element={<MailingListPage />} />
+                    <Route path="marketing/campanas/mailing/:id/edit" element={<MailingEditorPage />} />
+                    {/* Alias para acceder por /emailing (compatibilidad con Sidebar) */}
+                    <Route path="emailing" element={<MailingListPage />} />
+                    <Route path="emailing/:id/edit" element={<MailingEditorPage />} />
 
                     {/* Rutas de Campañas Telefónicas */}
                     <Route path="marketing/campanas/telefonicas/*" element={<TelemarketingRoutes />} />

@@ -25,15 +25,12 @@ public class ProcesadorMailing {
                 .nombre(campana.getNombre())
                 .tematica(campana.getTematica())
                 .descripcion(campana.getDescripcion())
+                .prioridad(campana.getPrioridad() != null ? campana.getPrioridad().name() : "Media")
                 .fechaInicio(campana.getFechaProgramadaInicio())
                 .fechaFin(campana.getFechaProgramadaFin())
                 .idSegmento(campana.getIdSegmento())
                 .idEncuesta(campana.getIdEncuesta())
                 .idAgenteAsignado(campana.getIdAgente())
-                // Mapeo inicial de contenido (se puede refinar luego)
-                .asunto(campana.getTematica())
-                .cuerpo(campana.getDescripcion())
-                .ctaTexto("Ver Más")
                 .ctaUrl("http://localhost:3000/encuesta/" + campana.getIdEncuesta())
                 .build();
 

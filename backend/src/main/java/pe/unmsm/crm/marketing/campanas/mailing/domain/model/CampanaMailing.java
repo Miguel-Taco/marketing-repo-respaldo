@@ -27,7 +27,7 @@ public class CampanaMailing {
     @Column(name = "id_segmento", nullable = false)
     private Long idSegmento;
 
-    @Column(name = "id_encuesta", nullable = false)
+    @Column(name = "id_encuesta")
     private Integer idEncuesta;
 
     @Column(name = "id_agente_asignado", nullable = false)

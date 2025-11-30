@@ -9,7 +9,7 @@ import pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.SendGridWebhookRe
 import pe.unmsm.crm.marketing.campanas.mailing.application.service.WebhookSendGridService;
 
 @RestController
-@RequestMapping("/api/mailing/v1")
+@RequestMapping("/api/v1/mailing")
 @RequiredArgsConstructor
 @Slf4j
 public class WebhookController {
@@ -17,7 +17,7 @@ public class WebhookController {
     private final WebhookSendGridService webhookService;
 
     /**
-     * POST /api/mailing/v1/interacciones/webhook
+     * POST /api/v1/mailing/interacciones/webhook
      * Recibe array de eventos desde SendGrid
      * SendGrid envía eventos en lotes
      */

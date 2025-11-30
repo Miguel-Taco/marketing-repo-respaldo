@@ -14,9 +14,9 @@ import java.util.List;
 public class GuionDTO {
     private Long id;
     private String nombre;
-    private String descripcion;
     private String objetivo;
-    private String tipo; // VENTA, ENCUESTA, RETENCION
+    private String tipo; // VENTA, ENCUESTA, RETENCION, RENOVACION, VENTA_NUEVA, RECUPERO
+    private String notasInternas;
     private String estado; // BORRADOR, PUBLICADO, ARCHIVADO
-    private List<PasoGuionDTO> pasos;
+    private List<SeccionGuionDTO> pasos; // Renamed from 'secciones' to match frontend
 }

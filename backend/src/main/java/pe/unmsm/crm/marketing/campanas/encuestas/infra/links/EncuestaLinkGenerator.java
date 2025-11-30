@@ -4,7 +4,14 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class EncuestaLinkGenerator {
-    public String generateLink(String encuestaId) {
-        return "https://crm.unmsm.pe/encuestas/" + encuestaId;
+    /**
+     * Genera un enlace público para una encuesta.
+     * La URL se genera on-demand y no se almacena en la base de datos.
+     * 
+     * @param idEncuesta ID de la encuesta (INT)
+     * @return URL pública para acceder a la encuesta
+     */
+    public String generarEnlacePublico(int idEncuesta) {
+        return "http://localhost:5600/q/" + idEncuesta;
     }
 }

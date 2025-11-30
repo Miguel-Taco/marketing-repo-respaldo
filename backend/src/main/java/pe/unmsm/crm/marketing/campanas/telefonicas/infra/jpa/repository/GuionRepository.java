@@ -13,4 +13,9 @@ public interface GuionRepository extends JpaRepository<GuionEntity, Integer> {
     Optional<GuionEntity> findById(Integer id);
 
     List<GuionEntity> findByActivoTrue();
+
+    /**
+     * Obtiene los guiones activos de una campaña específica.
+     */
+    List<GuionEntity> findByIdCampaniaAndActivoTrue(Long idCampania);
 }

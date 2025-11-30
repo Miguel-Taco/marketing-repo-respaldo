@@ -47,4 +47,19 @@ public interface CampaignDataProvider {
 
     // Métricas
     MetricasAgenteDTO obtenerMetricasAgente(Long idCampania, Long idAgente);
+
+    MetricasDiariasDTO obtenerMetricasDiarias(Long idCampania, Long idAgente);
+
+    MetricasCampaniaDTO obtenerMetricasCampania(Long idCampania, Integer dias);
+
+    // Contactos urgentes (integración con gestor de encuestas)
+    /**
+     * Agrega un contacto urgente a la cola con prioridad ALTA.
+     * La campaña se determina a partir del id_encuesta.
+     * 
+     * @param request Solicitud con idLead e idEncuesta
+     * @return ContactoDTO del lead agregado a la cola
+     * @throws IllegalArgumentException si no existe campaña para la encuesta
+     */
+    ContactoDTO agregarContactoUrgente(AddUrgentContactRequest request);
 }

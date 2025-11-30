@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.entity.ResultadoLlamadaEntity;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ResultadoLlamadaRepository extends JpaRepository<ResultadoLlamadaEntity, Integer> {
@@ -12,4 +13,6 @@ public interface ResultadoLlamadaRepository extends JpaRepository<ResultadoLlama
     List<ResultadoLlamadaEntity> findAllByOrderByNombreAsc();
 
     List<ResultadoLlamadaEntity> findByActivoTrue();
+
+    Optional<ResultadoLlamadaEntity> findByResultado(String resultado);
 }

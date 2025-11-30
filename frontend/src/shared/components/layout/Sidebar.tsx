@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 const NAV_ITEMS = [
     { icon: 'person_search', label: 'Leads', path: '/leads' },
     { icon: 'filter_alt', label: 'Segmentación', path: '/marketing/segmentacion' },
-    { icon: 'campaign', label: 'Campañas', path: '/marketing/campanas' },
+    { icon: 'campaign', label: 'Campañas', path: '/marketing/campanas', excludePath: '/marketing/campanas/mailing' },
     { icon: 'mail', label: 'Emailing', path: '/emailing' },
     { icon: 'phone_in_talk', label: 'Teléfono', path: '/marketing/campanas/telefonicas' },
     { icon: 'ballot', label: 'Encuestas', path: '/encuestas' },
@@ -15,9 +15,11 @@ export const Sidebar: React.FC = () => {
 
     const activeItem = React.useMemo(() => {
         const sortedItems = [...NAV_ITEMS].sort((a, b) => b.path.length - a.path.length);
-        return sortedItems.find(item =>
-            location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
-        );
+        return sortedItems.find(item => {
+            const isExcluded = item.excludePath && (location.pathname.startsWith(item.excludePath) || location.pathname === item.excludePath);
+            if (isExcluded) return false;
+            return location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+        });
     }, [location.pathname]);
 
     return (

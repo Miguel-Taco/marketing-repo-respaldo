@@ -1,22 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { telemarketingApi } from '../services/telemarketingApi';
-import type { Contacto, CampaniaTelefonica } from '../types';
+import type { Contacto, CampaniaTelefonica, MetricasDiarias } from '../types';
 import { Button } from '../../../../../shared/components/ui/Button';
+import { useCampaignsContext } from '../context/CampaignsContext';
 
 export const CallQueuePage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { autoNext, setAutoNext } = useCampaignsContext();
     const [cola, setCola] = useState<Contacto[]>([]);
     const [campanias, setCampanias] = useState<CampaniaTelefonica[]>([]);
+    const [metricas, setMetricas] = useState<MetricasDiarias | null>(null);
     const [loading, setLoading] = useState(true);
-    const [autoNext, setAutoNext] = useState(false);
     const [colaPausada, setColaPausada] = useState(false);
 
-    const idAgente = 10; // TODO: Get from auth context
+    const idAgente = 1; // TODO: Get from auth context (using existing agent ID from database)
 
     useEffect(() => {
         loadCola();
+        if (id) {
+            loadMetricas();
+        }
     }, [id]);
 
     const loadCola = async () => {
@@ -33,6 +38,15 @@ export const CallQueuePage: React.FC = () => {
             console.error('Error cargando cola:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadMetricas = async () => {
+        try {
+            const data = await telemarketingApi.getMetricasDiarias(Number(id), idAgente);
+            setMetricas(data);
+        } catch (error) {
+            console.error('Error cargando métricas:', error);
         }
     };
 
@@ -137,7 +151,7 @@ export const CallQueuePage: React.FC = () => {
         <div className="flex flex-col h-full p-6">
             <header className="flex flex-wrap justify-between items-start gap-4 mb-6">
                 <div className="flex flex-col gap-3">
-                    <h1 className="text-4xl font-black text-gray-900">Bandeja de llamadas – Ventas Q3</h1>
+                    <h1 className="text-4xl font-black text-gray-900">Bandeja de llamadas</h1>
                     <p className="text-gray-500">Gestiona la cola de llamadas pendientes para esta campaña.</p>
                     <div className="flex gap-3">
                         <div className="flex h-8 items-center rounded-full bg-white px-4 border border-gray-200">
@@ -157,15 +171,15 @@ export const CallQueuePage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="flex flex-col gap-2 rounded-lg p-6 bg-white border border-gray-200">
                     <p className="text-base font-medium text-gray-800">Pendientes</p>
-                    <p className="text-3xl font-bold text-gray-900">{cola.length}</p>
+                    <p className="text-3xl font-bold text-gray-900">{metricas?.pendientes ?? cola.length}</p>
                 </div>
                 <div className="flex flex-col gap-2 rounded-lg p-6 bg-white border border-gray-200">
                     <p className="text-base font-medium text-gray-800">Realizadas hoy</p>
-                    <p className="text-3xl font-bold text-gray-900">42</p>
+                    <p className="text-3xl font-bold text-gray-900">{metricas?.realizadasHoy ?? 0}</p>
                 </div>
                 <div className="flex flex-col gap-2 rounded-lg p-6 bg-white border border-gray-200">
                     <p className="text-base font-medium text-gray-800">Efectivas</p>
-                    <p className="text-3xl font-bold text-gray-900">15</p>
+                    <p className="text-3xl font-bold text-gray-900">{metricas?.efectivasHoy ?? 0}</p>
                 </div>
             </div>
 

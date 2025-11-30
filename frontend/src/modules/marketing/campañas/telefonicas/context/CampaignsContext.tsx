@@ -13,6 +13,8 @@ interface CampaignsContextProps {
     };
     setFilter: (key: string, value: any) => void;
     fetchCampanias: (force?: boolean) => Promise<void>;
+    autoNext: boolean;
+    setAutoNext: (value: boolean) => void;
 }
 
 const CampaignsContext = createContext<CampaignsContextProps | undefined>(undefined);
@@ -32,8 +34,11 @@ export const CampaignsProvider: React.FC<{ children: ReactNode }> = ({ children 
     // Flag para saber si ya se cargó al menos una vez
     const [hasLoaded, setHasLoaded] = useState(false);
 
+    // Auto-next: obtener siguiente contacto automáticamente al finalizar llamada
+    const [autoNext, setAutoNext] = useState(false);
+
     // TODO: Obtener el ID del agente actual del contexto/autenticación
-    const idAgente = 10;
+    const idAgente = 1; // TODO: Get from auth context (using existing agent ID from database)
 
     const fetchCampanias = useCallback(async (force = false) => {
         // Si ya tenemos datos y no es forzado, no hacemos nada (cache hit)
@@ -108,7 +113,9 @@ export const CampaignsProvider: React.FC<{ children: ReactNode }> = ({ children 
             error,
             filters,
             setFilter,
-            fetchCampanias: refresh // Exponemos refresh como fetchCampanias para compatibilidad
+            fetchCampanias: refresh, // Exponemos refresh como fetchCampanias para compatibilidad
+            autoNext,
+            setAutoNext
         }}>
             {children}
         </CampaignsContext.Provider>

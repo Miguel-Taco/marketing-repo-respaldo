@@ -1,0 +1,60 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] -------------------< pe.unmsm.crm:marketing-backend >-------------------
+[INFO] Building marketing-backend 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.4.1:clean (default-clean) @ marketing-backend ---
+[INFO] Deleting C:\Users\marec\Desktop\Wankas_v2\backend\target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ marketing-backend ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 2 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ marketing-backend ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 307 source files with javac [debug parameters release 17] to target\classes
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /C:/Users/marec/Desktop/Wankas_v2/backend/src/main/java/pe/unmsm/crm/marketing/campanas/telefonicas/api/controller/TelemarketingController.java:[66,46] cannot find symbol
+  symbol:   method obtenerContactosPorCampania(java.lang.Long)
+  location: variable service of type pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService
+[ERROR] /C:/Users/marec/Desktop/Wankas_v2/backend/src/main/java/pe/unmsm/crm/marketing/campanas/telefonicas/api/controller/TelemarketingController.java:[78,41] cannot find symbol
+  symbol:   method obtenerColaLlamadas(java.lang.Long)
+  location: variable service of type pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService
+[ERROR] /C:/Users/marec/Desktop/Wankas_v2/backend/src/main/java/pe/unmsm/crm/marketing/campanas/telefonicas/api/controller/TelemarketingController.java:[105,39] cannot find symbol
+  symbol:   method tomarContactoEspecifico(java.lang.Long,java.lang.Long,java.lang.Long)
+  location: variable service of type pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService
+[ERROR] /C:/Users/marec/Desktop/Wankas_v2/backend/src/main/java/pe/unmsm/crm/marketing/campanas/telefonicas/api/controller/TelemarketingController.java:[141,37] cannot find symbol
+  symbol:   method obtenerLlamadaPorId(java.lang.Long)
+  location: variable service of type pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService
+[INFO] 4 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  23.233 s
+[INFO] Finished at: 2025-11-28T22:46:49-05:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.1:compile (default-compile) on project marketing-backend: Compilation failure: Compilation failure: 
+[ERROR] /C:/Users/marec/Desktop/Wankas_v2/backend/src/main/java/pe/unmsm/crm/marketing/campanas/telefonicas/api/controller/TelemarketingController.java:[66,46] cannot find symbol
+[ERROR]   symbol:   method obtenerContactosPorCampania(java.lang.Long)
+[ERROR]   location: variable service of type pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService
+[ERROR] /C:/Users/marec/Desktop/Wankas_v2/backend/src/main/java/pe/unmsm/crm/marketing/campanas/telefonicas/api/controller/TelemarketingController.java:[78,41] cannot find symbol
+[ERROR]   symbol:   method obtenerColaLlamadas(java.lang.Long)
+[ERROR]   location: variable service of type pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService
+[ERROR] /C:/Users/marec/Desktop/Wankas_v2/backend/src/main/java/pe/unmsm/crm/marketing/campanas/telefonicas/api/controller/TelemarketingController.java:[105,39] cannot find symbol
+[ERROR]   symbol:   method tomarContactoEspecifico(java.lang.Long,java.lang.Long,java.lang.Long)
+[ERROR]   location: variable service of type pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService
+[ERROR] /C:/Users/marec/Desktop/Wankas_v2/backend/src/main/java/pe/unmsm/crm/marketing/campanas/telefonicas/api/controller/TelemarketingController.java:[141,37] cannot find symbol
+[ERROR]   symbol:   method obtenerLlamadaPorId(java.lang.Long)
+[ERROR]   location: variable service of type pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
