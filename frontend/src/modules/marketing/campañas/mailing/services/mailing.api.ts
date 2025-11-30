@@ -1,7 +1,7 @@
 import { http } from '../../../../../shared/services/api.client';
 import { CampanaMailing, MetricasMailing, ActualizarContenidoRequest } from '../types/mailing.types';
 
-const BASE_URL = '/mailing/v1';
+const BASE_URL = '/mailing';
 
 export const mailingApi = {
     // Listar campañas
