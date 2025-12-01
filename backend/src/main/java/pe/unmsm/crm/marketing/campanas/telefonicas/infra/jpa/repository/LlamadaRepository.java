@@ -55,10 +55,11 @@ public interface LlamadaRepository extends JpaRepository<LlamadaEntity, Integer>
 
         /**
          * Cuenta llamadas por resultado en una campaña
+         * Retorna: [resultado (código), nombre (display), count]
          */
-        @Query("SELECT r.nombre, COUNT(l) FROM LlamadaEntity l " +
-                        "JOIN l.resultado r WHERE l.idCampania = :idCampania " +
-                        "GROUP BY r.id, r.nombre")
+        @Query("SELECT r.resultado, r.nombre, COUNT(l) FROM LlamadaEntity l " +
+                        "LEFT JOIN l.resultado r WHERE l.idCampania = :idCampania " +
+                        "GROUP BY r.id, r.resultado, r.nombre")
         List<Object[]> countByResultadoAndCampania(@Param("idCampania") Integer idCampania);
 
         /**

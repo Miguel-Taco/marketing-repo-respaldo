@@ -146,6 +146,12 @@ public class SegmentoService {
         LocalDateTime ahora = LocalDateTime.now();
 
         batchRepository.batchInsertMiembros(id, tipoMiembro, leadIds, ahora);
+
+        // Actualizar cantidad de miembros en el segmento
+        segmento.setCantidadMiembros(leadIds.size());
+        segmentoRepository.save(segmento);
+
+        System.out.println("✓ Segmento materializado con " + leadIds.size() + " miembros");
     }
 
     /**

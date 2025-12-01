@@ -82,18 +82,39 @@ public class RespuestaEncuestaService {
 
             detalle.setPregunta(pregunta);
 
-            // Si hay opción seleccionada, buscarla y asignarla
-            if (detalleDto.getIdOpcion() != null) {
-                Opcion opcion = pregunta.getOpciones().stream()
-                        .filter(o -> o.getIdOpcion().equals(detalleDto.getIdOpcion()))
-                        .findFirst()
-                        .orElseThrow(() -> new IllegalArgumentException(
-                                "Opción no encontrada con ID: " + detalleDto.getIdOpcion()));
-                detalle.setOpcion(opcion);
+            // Manejo específico según el tipo de pregunta
+            if (pregunta
+                    .getTipoPregunta() == pe.unmsm.crm.marketing.campanas.encuestas.domain.model.Pregunta.TipoPregunta.ESCALA) {
+                // Para preguntas de ESCALA: idOpcion debe ser null y valorRespuesta debe estar
+                // presente
+                if (detalleDto.getValorRespuesta() == null) {
+                    throw new IllegalArgumentException(
+                            "Debe proporcionar una calificación para la pregunta de escala: "
+                                    + pregunta.getTextoPregunta());
+                }
+                detalle.setValorRespuesta(detalleDto.getValorRespuesta());
+            } else {
+                // Para otros tipos (UNICA, MULTIPLE): idOpcion es obligatorio
+                if (detalleDto.getIdOpcion() != null) {
+                    Opcion opcion = pregunta.getOpciones().stream()
+                            .filter(o -> o.getIdOpcion().equals(detalleDto.getIdOpcion()))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "Opción no encontrada con ID: " + detalleDto.getIdOpcion()));
+                    detalle.setOpcion(opcion);
+                } else {
+                    // Si no es escala y no tiene opción, podría ser un error dependiendo de la
+                    // lógica de negocio
+                    // Por ahora asumimos que preguntas no-escala requieren opción
+                    throw new IllegalArgumentException(
+                            "Debe seleccionar una opción para la pregunta: " + pregunta.getTextoPregunta());
+                }
             }
 
-            // Si hay valor de respuesta, asignarlo
-            if (detalleDto.getValorRespuesta() != null) {
+            // Si hay valor de respuesta adicional (para casos mixtos si existieran),
+            // asignarlo
+            // Nota: Para ESCALA ya se asignó arriba, esto es redundante pero seguro
+            if (detalleDto.getValorRespuesta() != null && detalle.getValorRespuesta() == null) {
                 detalle.setValorRespuesta(detalleDto.getValorRespuesta());
             }
 

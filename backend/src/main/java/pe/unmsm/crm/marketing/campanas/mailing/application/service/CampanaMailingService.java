@@ -72,6 +72,11 @@ public class CampanaMailingService {
         if (req.getCuerpo() != null) c.setCuerpo(req.getCuerpo());
         if (req.getCtaTexto() != null) c.setCtaTexto(req.getCtaTexto());
         
+        if (c.getIdEstado().equals(2)) {
+            log.info("Campaña {} estaba en LISTO, regresando a PENDIENTE por edición", id);
+            c.setIdEstado(1);
+        }
+        
         campanaRepo.save(c);
         log.info("Borrador guardado para campaña {}", id);
     }

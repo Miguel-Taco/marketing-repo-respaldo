@@ -81,6 +81,7 @@ public class SegmentoRepositoryImpl implements SegmentoRepository {
         entity.setDescripcion(domain.getDescripcion());
         entity.setTipoAudiencia(domain.getTipoAudiencia());
         entity.setEstado(domain.getEstado());
+        entity.setCantidadMiembros(domain.getCantidadMiembros());
         entity.setFechaCreacion(domain.getFechaCreacion());
         entity.setFechaActualizacion(domain.getFechaActualizacion());
         return entity;
@@ -93,6 +94,7 @@ public class SegmentoRepositoryImpl implements SegmentoRepository {
         domain.setDescripcion(entity.getDescripcion());
         domain.setTipoAudiencia(entity.getTipoAudiencia());
         domain.setEstado(entity.getEstado());
+        domain.setCantidadMiembros(entity.getCantidadMiembros());
         domain.setFechaCreacion(entity.getFechaCreacion());
         domain.setFechaActualizacion(entity.getFechaActualizacion());
 
@@ -130,6 +132,7 @@ public class SegmentoRepositoryImpl implements SegmentoRepository {
         domain.setDescripcion(entity.getDescripcion());
         domain.setTipoAudiencia(entity.getTipoAudiencia());
         domain.setEstado(entity.getEstado());
+        domain.setCantidadMiembros(entity.getCantidadMiembros());
         domain.setFechaCreacion(entity.getFechaCreacion());
         domain.setFechaActualizacion(entity.getFechaActualizacion());
 

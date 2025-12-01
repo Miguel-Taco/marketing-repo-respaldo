@@ -61,9 +61,6 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 entity.setIdCampanaGestion(request.getIdCampanaGestion());
                 entity.setEstado("BORRADOR");
                 entity.setEsArchivado(false);
-                // REMOVED: setIdGuion - field doesn't exist in entity anymore
-                // entity.setIdGuion(request.getIdGuion() != null ?
-                // request.getIdGuion().intValue() : null);
                 entity.setPrioridad(mapPrioridad(request.getPrioridadColaDefault()));
 
                 CampaniaTelefonicaEntity saved = campaniaRepo.save(entity);
@@ -173,16 +170,12 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Transactional
         public void pausarCola(Long idAgente, Long idCampania) {
                 log.info("Pausando cola para agente: {}, campaña: {}", idAgente, idCampania);
-                // Implementación según lógica de negocio
-                // Por ahora, solo log
         }
 
         @Override
         @Transactional
         public void reanudarCola(Long idAgente, Long idCampania) {
                 log.info("Reanudando cola para agente: {}, campaña: {}", idAgente, idCampania);
-                // Implementación según lógica de negocio
-                // Por ahora, solo log
         }
 
         @Override
@@ -258,7 +251,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
 
                 Integer campaniaId = idCampania != null ? idCampania.intValue() : null;
                 if (campaniaId == null) {
-                        throw new IllegalArgumentException("El id de campa��a es requerido para obtener el historial");
+                        throw new IllegalArgumentException("El id de campaña es requerido para obtener el historial");
                 }
 
                 List<LlamadaEntity> llamadas;
@@ -363,11 +356,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
 
                 // 1. Resumen general
                 Long totalLeads = colaRepo.countTotalByCampaign(campaniaId);
-                Long leadsContactados = colaRepo.countCompletadosByCampaign(campaniaId);
                 Long leadsPendientes = colaRepo.countPendingByCampaign(campaniaId);
-                Double porcentajeAvance = totalLeads > 0
-                                ? (leadsContactados.doubleValue() / totalLeads.doubleValue()) * 100
-                                : 0.0;
 
                 java.util.Map<String, Object> metricasGenerales = llamadaRepo.getMetricasByCampania(campaniaId);
                 Long totalLlamadas = (Long) metricasGenerales.get("totalLlamadas");
@@ -381,22 +370,51 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 java.util.Map<String, ResultadoDistribucionDTO> distribucionResultados = new java.util.HashMap<>();
 
                 for (Object[] row : resultadosRaw) {
-                        String nombre = (String) row[0];
-                        Long count = (Long) row[1];
+                        String resultado = (String) row[0]; // Código (ej. "CONTACTADO")
+                        String nombre = (String) row[1]; // Nombre display (ej. "Contactado")
+                        Long count = (Long) row[2]; // Count
+
+                        // Handle nulls for calls without result (LEFT JOIN)
+                        if (resultado == null)
+                                resultado = "SIN_RESULTADO";
+                        if (nombre == null)
+                                nombre = "Sin Resultado";
+
+                        // DEBUG: Log para ver qué valores devuelve la BD
+                        log.info("DEBUG - Resultado de BD: resultado='{}', nombre='{}', count={}", resultado, nombre,
+                                        count);
+
                         Double porcentaje = totalLlamadas > 0
                                         ? (count.doubleValue() / totalLlamadas.doubleValue()) * 100
                                         : 0.0;
 
-                        distribucionResultados.put(nombre, ResultadoDistribucionDTO.builder()
-                                        .resultado(nombre)
+                        // Usar 'resultado' (código) como key para que el filtro funcione correctamente
+                        distribucionResultados.put(resultado, ResultadoDistribucionDTO.builder()
+                                        .resultado(resultado)
                                         .nombre(nombre)
                                         .count(count)
                                         .porcentaje(porcentaje)
                                         .build());
                 }
 
+                // FIXED: Calcular leads contactados basado en llamadas efectivas (CONTACTADO,
+                // INTERESADO)
+                Long leadsContactados = distribucionResultados.values().stream()
+                                .filter(d -> d.getResultado().equals("CONTACTADO")
+                                                || d.getResultado().equals("INTERESADO"))
+                                .mapToLong(ResultadoDistribucionDTO::getCount)
+                                .sum();
+
+                // DEBUG: Log para ver el resultado del filtrado
+                log.info("DEBUG - Leads contactados calculados: {}", leadsContactados);
+                log.info("DEBUG - Distribución completa: {}", distribucionResultados.keySet());
+
+                Double porcentajeAvance = totalLeads > 0
+                                ? (leadsContactados.doubleValue() / totalLeads.doubleValue()) * 100
+                                : 0.0;
+
                 // 3. Análisis temporal
-                LocalDateTime fin = LocalDateTime.now();
+                LocalDateTime fin = LocalDateTime.now().toLocalDate().atTime(23, 59, 59); // End of today
                 LocalDateTime inicio = fin.minusDays(dias != null ? dias : 30);
 
                 List<java.util.Map<String, Object>> llamadasDiarias = llamadaRepo.countLlamadasPorDia(
@@ -450,20 +468,15 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                 })
                                 .collect(Collectors.toList());
 
-                // 5. Métricas de calidad
+                // 5. Métricas de calidad - FIXED: usar llamadas efectivas en lugar de cualquier
+                // resultado
                 Long llamadasConResultado = (Long) metricasGenerales.get("conResultado");
                 Double tasaContactoGlobal = totalLlamadas > 0
-                                ? (llamadasConResultado.doubleValue() / totalLlamadas.doubleValue()) * 100
+                                ? (leadsContactados.doubleValue() / totalLlamadas.doubleValue()) * 100
                                 : 0.0;
 
-                Long efectivas = distribucionResultados.values().stream()
-                                .filter(d -> d.getResultado().equals("CONTACTADO")
-                                                || d.getResultado().equals("INTERESADO"))
-                                .mapToLong(ResultadoDistribucionDTO::getCount)
-                                .sum();
-
                 Double tasaEfectividad = llamadasConResultado > 0
-                                ? (efectivas.doubleValue() / llamadasConResultado.doubleValue()) * 100
+                                ? (leadsContactados.doubleValue() / llamadasConResultado.doubleValue()) * 100
                                 : 0.0;
 
                 java.util.Map<String, Object> duraciones = llamadaRepo.getDuracionPromedioByEfectividad(campaniaId);

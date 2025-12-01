@@ -29,6 +29,9 @@ public class JpaSegmentoEntity {
     @Column(name = "estado")
     private String estado;
 
+    @Column(name = "cantidad_miembros")
+    private Integer cantidadMiembros;
+
     @Column(name = "fecha_creacion")
     private LocalDateTime fechaCreacion;
 

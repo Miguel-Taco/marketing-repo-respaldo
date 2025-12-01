@@ -12,6 +12,7 @@ public class Segmento {
     private String descripcion;
     private String tipoAudiencia; // "LEAD" or "CLIENTE"
     private String estado; // "BORRADOR", "ACTIVO", etc.
+    private Integer cantidadMiembros; // Cantidad de miembros materializados
     private LocalDateTime fechaCreacion;
     private LocalDateTime fechaActualizacion;
 

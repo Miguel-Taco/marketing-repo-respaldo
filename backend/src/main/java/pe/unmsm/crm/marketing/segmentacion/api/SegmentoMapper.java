@@ -25,13 +25,8 @@ public class SegmentoMapper {
         dto.setFechaCreacion(segmento.getFechaCreacion());
         dto.setFechaActualizacion(segmento.getFechaActualizacion());
 
-        // Get member count efficiently without loading all members
-        if (segmento.getId() != null) {
-            long count = miembroRepository.countByIdSegmento(segmento.getId());
-            dto.setCantidadMiembros((int) count);
-        } else {
-            dto.setCantidadMiembros(0);
-        }
+        // Use cantidadMiembros from domain instead of querying database
+        dto.setCantidadMiembros(segmento.getCantidadMiembros() != null ? segmento.getCantidadMiembros() : 0);
 
         if (segmento.getReglaPrincipal() != null) {
             dto.setReglaPrincipal(toDto(segmento.getReglaPrincipal()));
