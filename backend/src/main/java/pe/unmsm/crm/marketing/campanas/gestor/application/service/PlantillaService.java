@@ -2,6 +2,8 @@ package pe.unmsm.crm.marketing.campanas.gestor.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.model.PlantillaCampana;
@@ -40,8 +42,8 @@ public class PlantillaService implements IPlantillaUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PlantillaCampana> listar(String nombre, String canalEjecucion) {
-        return plantillaRepository.findByFiltros(nombre, canalEjecucion);
+    public Page<PlantillaCampana> listar(String nombre, String canalEjecucion, int page, int size) {
+        return plantillaRepository.findByFiltros(nombre, canalEjecucion, PageRequest.of(page, size));
     }
 
     @Override

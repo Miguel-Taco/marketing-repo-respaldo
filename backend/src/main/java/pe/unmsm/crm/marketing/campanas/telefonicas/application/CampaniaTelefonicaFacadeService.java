@@ -1,6 +1,7 @@
 package pe.unmsm.crm.marketing.campanas.telefonicas.application;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.entity.*;
@@ -20,6 +21,7 @@ import java.util.List;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CampaniaTelefonicaFacadeService {
 
     private final CampaniaTelefonicaRepository campaniaRepository;
@@ -98,14 +100,16 @@ public class CampaniaTelefonicaFacadeService {
             LocalDate fechaFin,
             String prioridad) {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
-                .ifPresent(campania -> {
+                .ifPresentOrElse(campania -> {
+                    log.info("Actualizando campaña telefónica desde gestor: {}", idCampanaGestion);
                     campania.setNombre(nombre);
                     campania.setFechaInicio(fechaInicio);
                     campania.setFechaFin(fechaFin);
                     campania.setPrioridad(mapearPrioridad(prioridad));
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
-                });
+                    log.info("Campaña telefónica actualizada exitosamente");
+                }, () -> log.warn("No se encontró campaña telefónica para gestión ID: {}", idCampanaGestion));
     }
 
     /**
@@ -123,45 +127,67 @@ public class CampaniaTelefonicaFacadeService {
     @Transactional
     public void activarCampania(Long idCampanaGestion) {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
-                .ifPresent(campania -> {
+                .ifPresentOrElse(campania -> {
+                    log.info("Activando campaña telefónica desde gestor: {}", idCampanaGestion);
                     campania.setEstado("Vigente");
                     campania.setIdEstado(2); // VIGENTE
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
-                });
+                    log.info("Campaña telefónica activada (Vigente)");
+                }, () -> log.warn("No se encontró campaña telefónica para activar. Gestión ID: {}", idCampanaGestion));
     }
 
     @Transactional
     public void pausarCampania(Long idCampanaGestion) {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
-                .ifPresent(campania -> {
+                .ifPresentOrElse(campania -> {
+                    log.info("Pausando campaña telefónica desde gestor: {}", idCampanaGestion);
                     campania.setEstado("Pausada");
                     campania.setIdEstado(3); // PAUSADA
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
-                });
+                    log.info("Campaña telefónica pausada");
+                }, () -> log.warn("No se encontró campaña telefónica para pausar. Gestión ID: {}", idCampanaGestion));
     }
 
     @Transactional
     public void reanudarCampania(Long idCampanaGestion) {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
-                .ifPresent(campania -> {
+                .ifPresentOrElse(campania -> {
+                    log.info("Reanudando campaña telefónica desde gestor: {}", idCampanaGestion);
                     campania.setEstado("Vigente");
                     campania.setIdEstado(2); // VIGENTE
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
-                });
+                    log.info("Campaña telefónica reanudada (Vigente)");
+                }, () -> log.warn("No se encontró campaña telefónica para reanudar. Gestión ID: {}", idCampanaGestion));
     }
 
     @Transactional
     public void cancelarCampania(Long idCampanaGestion) {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
-                .ifPresent(campania -> {
+                .ifPresentOrElse(campania -> {
+                    log.info("Cancelando campaña telefónica desde gestor: {}", idCampanaGestion);
                     campania.setEstado("Cancelada");
                     campania.setIdEstado(5); // CANCELADA
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
-                });
+                    log.info("Campaña telefónica cancelada");
+                }, () -> log.warn("No se encontró campaña telefónica para cancelar. Gestión ID: {}", idCampanaGestion));
+    }
+
+    @Transactional
+    public void finalizarCampania(Long idCampanaGestion) {
+        campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
+                .ifPresentOrElse(campania -> {
+                    log.info("Finalizando campaña telefónica desde gestor: {}", idCampanaGestion);
+                    campania.setEstado("Finalizada");
+                    campania.setIdEstado(4); // FINALIZADA
+                    campania.setFechaModificacion(LocalDateTime.now());
+                    campaniaRepository.save(campania);
+                    log.info("Campaña telefónica finalizada");
+                }, () -> log.warn("No se encontró campaña telefónica para finalizar. Gestión ID: {}",
+                        idCampanaGestion));
     }
 
     // === MÉTODOS PRIVADOS ===

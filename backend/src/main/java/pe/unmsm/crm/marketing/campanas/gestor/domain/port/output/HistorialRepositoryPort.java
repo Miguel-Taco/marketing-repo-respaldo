@@ -5,6 +5,9 @@ import pe.unmsm.crm.marketing.campanas.gestor.domain.model.HistorialCampana;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 /**
  * Puerto de salida para operaciones de persistencia del historial de campanas.
  */
@@ -23,8 +26,8 @@ public interface HistorialRepositoryPort {
     /**
      * Busca historial con filtros
      */
-    List<HistorialCampana> findByFiltros(Long idCampana, String tipoAccion,
-            LocalDateTime fechaDesde, LocalDateTime fechaHasta);
+    Page<HistorialCampana> findByFiltros(Long idCampana, String tipoAccion,
+            LocalDateTime fechaDesde, LocalDateTime fechaHasta, Pageable pageable);
 
     /**
      * Lista todo el historial

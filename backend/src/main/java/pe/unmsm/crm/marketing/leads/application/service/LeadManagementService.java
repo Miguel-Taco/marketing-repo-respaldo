@@ -100,7 +100,8 @@ public class LeadManagementService {
         int actualizados = 0;
         for (Long id : ids) {
             // Validación explícita de null para satisfacer el análisis de null-safety
-            @NonNull Long nonNullId = Objects.requireNonNull(id, "El ID no puede ser null");
+            @NonNull
+            Long nonNullId = Objects.requireNonNull(id, "El ID no puede ser null");
             if (leadRepository.existsById(nonNullId)) {
                 try {
                     cualificarLead(nonNullId, nuevoEstado, motivo);
@@ -112,5 +113,9 @@ public class LeadManagementService {
             }
         }
         return actualizados;
+    }
+
+    public List<Lead> obtenerLeadsPorIds(@NonNull List<@NonNull Long> ids) {
+        return leadRepository.findAllById(ids);
     }
 }

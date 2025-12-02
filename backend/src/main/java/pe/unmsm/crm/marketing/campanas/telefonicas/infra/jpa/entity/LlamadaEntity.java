@@ -42,6 +42,15 @@ public class LlamadaEntity {
     @Column(name = "duracion_segundos")
     private Integer duracionSegundos;
 
+    @Column(name = "encuesta_enviada")
+    private Boolean encuestaEnviada;
+
+    @Column(name = "fecha_envio_encuesta")
+    private LocalDateTime fechaEnvioEncuesta;
+
+    @Column(name = "url_encuesta", length = 500)
+    private String urlEncuesta;
+
     // Relaciones
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_agente", insertable = false, updatable = false)

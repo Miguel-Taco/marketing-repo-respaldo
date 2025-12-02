@@ -40,4 +40,7 @@ public class ResultadoLlamadaRequest {
 
     @NotNull(message = "La fecha de fin es obligatoria")
     private LocalDateTime fin;
+
+    // Encuesta post-llamada
+    private Boolean enviarEncuesta;
 }

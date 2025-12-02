@@ -28,6 +28,8 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         private final ResultadoLlamadaRepository resultadoRepo;
         private final CampaniaAgenteRepository campaniaAgenteRepo;
         private final CampaignMapper mapper;
+        private final pe.unmsm.crm.marketing.campanas.telefonicas.application.service.EncuestaLlamadaService encuestaLlamadaService;
+        private final pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository leadRepository;
 
         @Override
         @Transactional(readOnly = true)
@@ -130,6 +132,18 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         public ContactoDTO obtenerSiguienteContacto(Long idCampania, Long idAgente) {
                 log.info("Obteniendo siguiente contacto para campaña: {}, agente: {}", idCampania, idAgente);
 
+                // Verificar estado de la campaña
+                CampaniaTelefonicaEntity campania = campaniaRepo.findById(idCampania.intValue())
+                                .orElseThrow(() -> new RuntimeException("Campaña no encontrada: " + idCampania));
+
+                // Solo permitir obtener contactos si la campaña está VIGENTE
+                // Se valida tanto el string como el ID para mayor seguridad
+                if (!"Vigente".equalsIgnoreCase(campania.getEstado()) && campania.getIdEstado() != 2) {
+                        log.warn("Campaña {} no está VIGENTE (Estado: {}). No se entregarán contactos.",
+                                        idCampania, campania.getEstado());
+                        return null;
+                }
+
                 return colaRepo.findNextAvailableContact(
                                 idCampania.intValue(),
                                 idAgente.intValue(),
@@ -227,7 +241,48 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 LlamadaEntity savedLlamada = llamadaRepo.save(llamada);
                 log.info("Llamada registrada con ID: {}", savedLlamada.getId());
 
-                // 2. Actualizar estado en cola si se proporciona el ID del contacto
+                // 2. Procesar envío de encuesta si está habilitado
+                if (Boolean.TRUE.equals(request.getEnviarEncuesta())) {
+                        log.info("Procesando envío de encuesta para llamada ID: {}", savedLlamada.getId());
+
+                        // Obtener ID de encuesta de la campaña
+                        CampaniaTelefonicaEntity campania = campaniaRepo.findById(idCampania.intValue())
+                                        .orElseThrow(() -> new RuntimeException(
+                                                        "Campaña no encontrada: " + idCampania));
+
+                        if (campania.getIdEncuesta() != null) {
+                                // Obtener teléfono del lead (usar array para hacerlo efectivamente final)
+                                final String[] telefonoArray = new String[1];
+                                if (request.getIdLead() != null) {
+                                        leadRepository.findById(request.getIdLead()).ifPresent(lead -> {
+                                                if (lead.getContacto() != null) {
+                                                        telefonoArray[0] = lead.getContacto().getTelefono();
+                                                }
+                                        });
+                                }
+                                String telefono = telefonoArray[0];
+
+                                // Procesar envío de encuesta (simulado)
+                                pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.entity.EnvioEncuestaEntity envio = encuestaLlamadaService
+                                                .procesarEnvioEncuesta(
+                                                                savedLlamada.getId(),
+                                                                campania.getIdEncuesta(),
+                                                                request.getIdLead(),
+                                                                telefono);
+
+                                // Actualizar campos de encuesta en la llamada
+                                savedLlamada.setEncuestaEnviada(true);
+                                savedLlamada.setFechaEnvioEncuesta(envio.getFechaEnvio());
+                                savedLlamada.setUrlEncuesta(envio.getUrlEncuesta());
+                                savedLlamada = llamadaRepo.save(savedLlamada);
+
+                                log.info("Encuesta procesada exitosamente para llamada ID: {}", savedLlamada.getId());
+                        } else {
+                                log.warn("Campaña {} no tiene encuesta asociada, se omite envío", idCampania);
+                        }
+                }
+
+                // 3. Actualizar estado en cola si se proporciona el ID del contacto
                 if (request.getIdContactoCola() != null) {
                         ColaLlamadaEntity contacto = colaRepo.findById(request.getIdContactoCola().intValue())
                                         .orElseThrow(() -> new RuntimeException("Contacto en cola no encontrado"));
@@ -414,8 +469,10 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                 : 0.0;
 
                 // 3. Análisis temporal
-                LocalDateTime fin = LocalDateTime.now().toLocalDate().atTime(23, 59, 59); // End of today
-                LocalDateTime inicio = fin.minusDays(dias != null ? dias : 30);
+                // FIXED: Extend to end of tomorrow to account for UTC-5 timezone offset
+                // Calls made late today (local time) are stored as "tomorrow" in UTC
+                LocalDateTime fin = LocalDateTime.now().plusDays(1).toLocalDate().atTime(23, 59, 59);
+                LocalDateTime inicio = fin.minusDays(dias != null ? dias + 1 : 31);
 
                 List<java.util.Map<String, Object>> llamadasDiarias = llamadaRepo.countLlamadasPorDia(
                                 campaniaId, inicio, fin);
@@ -536,13 +593,12 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                                         + request.getIdEncuesta());
                 }
 
-                // Si hay múltiples campañas, tomar la primera activa (no COMPLETADA ni
-                // ARCHIVADA)
+                // Si hay múltiples campañas, tomar la primera activa (VIGENTE)
                 CampaniaTelefonicaEntity campania = campanias.stream()
-                                .filter(c -> !c.getEstado().equals("COMPLETADA") && !c.getEsArchivado())
+                                .filter(c -> "Vigente".equalsIgnoreCase(c.getEstado()) && !c.getEsArchivado())
                                 .findFirst()
                                 .orElseThrow(() -> new IllegalArgumentException(
-                                                "No hay campañas activas para la encuesta ID: "
+                                                "No hay campañas VIGENTES para la encuesta ID: "
                                                                 + request.getIdEncuesta()));
 
                 Integer idCampania = campania.getId();

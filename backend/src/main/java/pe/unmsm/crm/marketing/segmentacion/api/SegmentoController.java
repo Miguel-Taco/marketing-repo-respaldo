@@ -1,11 +1,16 @@
 package pe.unmsm.crm.marketing.segmentacion.api;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import pe.unmsm.crm.marketing.segmentacion.application.SegmentoExportService;
 import pe.unmsm.crm.marketing.segmentacion.application.SegmentoPreviewService;
 import pe.unmsm.crm.marketing.segmentacion.application.SegmentoService;
 import pe.unmsm.crm.marketing.segmentacion.domain.model.Segmento;
+import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,13 +22,16 @@ public class SegmentoController {
     private final SegmentoService segmentoService;
     private final SegmentoPreviewService previewService;
     private final SegmentoMapper mapper;
+    private final SegmentoExportService exportService;
 
     public SegmentoController(SegmentoService segmentoService,
             SegmentoPreviewService previewService,
-            SegmentoMapper mapper) {
+            SegmentoMapper mapper,
+            SegmentoExportService exportService) {
         this.segmentoService = segmentoService;
         this.previewService = previewService;
         this.mapper = mapper;
+        this.exportService = exportService;
     }
 
     @GetMapping
@@ -114,5 +122,24 @@ public class SegmentoController {
         Segmento segmento = mapper.toDomain(dto);
         Map<String, Object> result = previewService.previsualizarSegmentoTemporal(segmento);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Exporta un segmento a Excel con información del segmento y sus miembros
+     */
+    @GetMapping("/{id}/export")
+    public ResponseEntity<byte[]> exportarSegmento(@PathVariable Long id) throws IOException {
+        Segmento segmento = segmentoService.obtenerSegmento(id)
+                .orElseThrow(() -> new NotFoundException("Segmento", id));
+
+        byte[] excelBytes = exportService.exportSegmentoToExcel(segmento);
+        String filename = "segmento_" + segmento.getNombre().replaceAll("\\s+", "_") + "_"
+                + java.time.LocalDate.now() + ".xlsx";
+
+        return ResponseEntity.ok()
+                .contentType(
+                        MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+                .body(excelBytes);
     }
 }

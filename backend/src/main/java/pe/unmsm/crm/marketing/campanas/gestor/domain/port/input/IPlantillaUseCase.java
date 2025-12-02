@@ -1,5 +1,6 @@
 package pe.unmsm.crm.marketing.campanas.gestor.domain.port.input;
 
+import org.springframework.data.domain.Page;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.model.PlantillaCampana;
 
 import java.util.List;
@@ -20,9 +21,9 @@ public interface IPlantillaUseCase {
     PlantillaCampana obtenerPorId(Integer idPlantilla);
 
     /**
-     * Lista plantillas con filtros opcionales
+     * Lista plantillas con filtros opcionales y paginación
      */
-    List<PlantillaCampana> listar(String nombre, String canalEjecucion);
+    Page<PlantillaCampana> listar(String nombre, String canalEjecucion, int page, int size);
 
     /**
      * Edita una plantilla existente

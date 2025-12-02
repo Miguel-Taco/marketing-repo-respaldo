@@ -17,6 +17,7 @@ public class WebConfig {
                 registry.addMapping("/**")
                         .allowedOrigins(
                                 "http://localhost:5173", // Frontend principal
+                                "http://localhost:5174", // Frontend alternativo
                                 "http://localhost:5600" // Frontend encuestas públicas
                 )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")

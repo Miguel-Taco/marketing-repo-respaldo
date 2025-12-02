@@ -10,6 +10,9 @@ import pe.unmsm.crm.marketing.campanas.gestor.infra.persistence.repository.JpaHi
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 /**
  * Adaptador que implementa el puerto HistorialRepositoryPort
  * delegando a JpaHistorialRepository (Spring Data JPA).
@@ -31,8 +34,8 @@ public class HistorialRepositoryAdapter implements HistorialRepositoryPort {
     }
 
     @Override
-    public List<HistorialCampana> findByFiltros(Long idCampana, String tipoAccion, LocalDateTime fechaDesde,
-            LocalDateTime fechaHasta) {
+    public Page<HistorialCampana> findByFiltros(Long idCampana, String tipoAccion, LocalDateTime fechaDesde,
+            LocalDateTime fechaHasta, Pageable pageable) {
         TipoAccion tipoAccionObj = null;
         if (tipoAccion != null && !tipoAccion.isEmpty()) {
             try {
@@ -41,7 +44,7 @@ public class HistorialRepositoryAdapter implements HistorialRepositoryPort {
                 // Si el tipo de acción no es válido, lo ignoramos
             }
         }
-        return jpaRepository.findByFiltros(idCampana, tipoAccionObj, fechaDesde, fechaHasta);
+        return jpaRepository.findByFiltros(idCampana, tipoAccionObj, fechaDesde, fechaHasta, pageable);
     }
 
     @Override

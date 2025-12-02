@@ -65,23 +65,29 @@ public class ProcesadorMailing {
     }
 
     public void notificarPausa(Long idCampana, String motivo) {
-        log.warn("Pausa no soportada nativamente para Mailing en ejecución (ID: {}). Motivo: {}", idCampana, motivo);
-        // Podríamos implementar lógica para cambiar estado a PENDIENTE si aún no se
-        // envía
+        log.info("Pausando campaña mailing ID Gestión: {}", idCampana);
+        campanaMailingService.pausarPorGestor(idCampana);
     }
 
     public void notificarCancelacion(Long idCampana, String motivo) {
         log.info("Cancelando campaña mailing ID Gestión: {}", idCampana);
-        // Implementar lógica de cancelación si es necesario
+        campanaMailingService.cancelarPorGestor(idCampana);
     }
 
     public void notificarReanudacion(Long idCampana) {
         log.info("Reanudando campaña mailing ID Gestión: {}", idCampana);
-        // Implementar lógica de reanudación
+        // Se espera implementación futura de API endpoint en Mailing
     }
 
     public void reprogramarCampana(Campana campana) {
         log.info("Reprogramando campaña mailing ID Gestión: {}", campana.getIdCampana());
-        // Implementar lógica de actualización de fechas
+
+        pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.ReprogramarCampanaRequest req = pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.ReprogramarCampanaRequest
+                .builder()
+                .fechaInicio(campana.getFechaProgramadaInicio())
+                .fechaFin(campana.getFechaProgramadaFin())
+                .build();
+
+        campanaMailingService.reprogramarPorGestor(campana.getIdCampana(), req);
     }
 }

@@ -169,6 +169,21 @@ public class LeadCacheService {
                 return evaluateEquals(lead.getNivelEducativo(), valor, operador);
             case "estadocivil":
                 return evaluateEquals(lead.getEstadoCivil(), valor, operador);
+            case "utmsource":
+            case "fuentecampaña":
+            case "fuentecampana":
+                return evaluateEquals(lead.getUtmSource(), valor, operador);
+            case "utmmedium":
+            case "mediocampaña":
+            case "mediocampana":
+                return evaluateEquals(lead.getUtmMedium(), valor, operador);
+            case "utmcampaign":
+            case "nombrecampaña":
+            case "nombrecampana":
+                return evaluateEquals(lead.getUtmCampaign(), valor, operador);
+            case "tipofuente":
+            case "tipoorigen":
+                return evaluateEquals(lead.getTipoFuente(), valor, operador);
             default:
                 log.warn("Campo no soportado para filtrado: {}", campo);
                 return true;

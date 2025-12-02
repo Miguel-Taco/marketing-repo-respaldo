@@ -44,17 +44,10 @@ public class PlantillaController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        List<PlantillaCampana> plantillas = plantillaUseCase.listar(nombre, canalEjecucion);
-
-        // Paginación simple
-        int start = page * size;
-        int end = Math.min(start + size, plantillas.size());
-        List<PlantillaCampana> paginatedList = plantillas.subList(
-                Math.min(start, plantillas.size()),
-                end);
+        Page<PlantillaCampana> pagePlantillas = plantillaUseCase.listar(nombre, canalEjecucion, page, size);
 
         // Mapear a PlantillaResponse con nombres
-        List<PlantillaResponse> content = paginatedList.stream().map(p -> {
+        List<PlantillaResponse> content = pagePlantillas.getContent().stream().map(p -> {
             String nombreSegmento = null;
             if (p.getIdSegmento() != null) {
                 nombreSegmento = segmentoRepository.findById(p.getIdSegmento())
@@ -84,17 +77,12 @@ public class PlantillaController {
                     .build();
         }).collect(Collectors.toList());
 
-        Page<PlantillaResponse> pageResult = new PageImpl<>(
-                content,
-                PageRequest.of(page, size),
-                plantillas.size());
-
         Map<String, Object> response = new HashMap<>();
-        response.put("content", pageResult.getContent());
-        response.put("page", pageResult.getNumber());
-        response.put("size", pageResult.getSize());
-        response.put("total_elements", pageResult.getTotalElements());
-        response.put("total_pages", pageResult.getTotalPages());
+        response.put("content", content);
+        response.put("page", pagePlantillas.getNumber());
+        response.put("size", pagePlantillas.getSize());
+        response.put("total_elements", pagePlantillas.getTotalElements());
+        response.put("total_pages", pagePlantillas.getTotalPages());
 
         return ResponseEntity.ok(response);
     }

@@ -5,6 +5,8 @@ import pe.unmsm.crm.marketing.campanas.gestor.domain.model.Campana;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+
 /**
  * Puerto de entrada (Use Case) para el gestor de campanas.
  * Define las operaciones del dominio que puede realizar el sistema.
@@ -24,7 +26,8 @@ public interface IGestorCampanaUseCase {
     /**
      * Lista campanas con filtros opcionales
      */
-    List<Campana> listar(String nombre, String estado, String prioridad, String canalEjecucion, Boolean esArchivado);
+    Page<Campana> listar(String nombre, String estado, String prioridad, String canalEjecucion, Boolean esArchivado,
+            int page, int size);
 
     /**
      * Edita una campaña (solo permitido en Borrador o Pausada)

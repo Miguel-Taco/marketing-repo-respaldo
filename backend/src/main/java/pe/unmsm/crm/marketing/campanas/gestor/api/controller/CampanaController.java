@@ -51,30 +51,22 @@ public class CampanaController {
                         @RequestParam(defaultValue = "10") int size) {
 
                 // Por defecto, excluir archivadas
-                List<Campana> campanas = gestorCampanaUseCase.listar(nombre, estado, prioridad, canalEjecucion, false);
+                Page<Campana> campanasPage = gestorCampanaUseCase.listar(nombre, estado, prioridad, canalEjecucion,
+                                false, page, size);
 
                 // Convertir a DTOs ligeros
-                List<CampanaListItemResponse> responses = campanas.stream()
+                List<CampanaListItemResponse> content = campanasPage.getContent().stream()
                                 .map(mapper::toListItemResponse)
                                 .collect(Collectors.toList());
 
-                // Paginación manual
-                int start = page * size;
-                int end = Math.min(start + size, responses.size());
-                List<CampanaListItemResponse> paginatedList = responses.subList(
-                                Math.min(start, responses.size()),
-                                end);
-
-                int totalPages = (int) Math.ceil((double) responses.size() / size);
-
                 PageResponse<CampanaListItemResponse> pageResponse = PageResponse.<CampanaListItemResponse>builder()
-                                .content(paginatedList)
-                                .page(page)
-                                .size(size)
-                                .totalElements(responses.size())
-                                .totalPages(totalPages)
-                                .first(page == 0)
-                                .last(page >= totalPages - 1)
+                                .content(content)
+                                .page(campanasPage.getNumber())
+                                .size(campanasPage.getSize())
+                                .totalElements(campanasPage.getTotalElements())
+                                .totalPages(campanasPage.getTotalPages())
+                                .first(campanasPage.isFirst())
+                                .last(campanasPage.isLast())
                                 .build();
 
                 return ResponseEntity.ok(pageResponse);
@@ -239,32 +231,20 @@ public class CampanaController {
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size) {
 
-                List<HistorialCampana> historial = historialRepository.findByFiltros(
-                                idCampana, tipoAccion, fechaDesde, fechaHasta);
+                Page<HistorialCampana> historialPage = historialRepository.findByFiltros(
+                                idCampana, tipoAccion, fechaDesde, fechaHasta, PageRequest.of(page, size));
 
                 // Convertir a DTOs
-                List<HistorialItemResponse> responses = historial.stream()
+                List<HistorialItemResponse> content = historialPage.getContent().stream()
                                 .map(mapper::toHistorialResponse)
                                 .collect(Collectors.toList());
 
-                // Paginación simple
-                int start = page * size;
-                int end = Math.min(start + size, responses.size());
-                List<HistorialItemResponse> paginatedList = responses.subList(
-                                Math.min(start, responses.size()),
-                                end);
-
-                Page<HistorialItemResponse> pageResult = new PageImpl<>(
-                                paginatedList,
-                                PageRequest.of(page, size),
-                                responses.size());
-
                 Map<String, Object> response = new HashMap<>();
-                response.put("content", pageResult.getContent());
-                response.put("page", pageResult.getNumber());
-                response.put("size", pageResult.getSize());
-                response.put("total_elements", pageResult.getTotalElements());
-                response.put("total_pages", pageResult.getTotalPages());
+                response.put("content", content);
+                response.put("page", historialPage.getNumber());
+                response.put("size", historialPage.getSize());
+                response.put("total_elements", historialPage.getTotalElements());
+                response.put("total_pages", historialPage.getTotalPages());
 
                 return ResponseEntity.ok(response);
         }

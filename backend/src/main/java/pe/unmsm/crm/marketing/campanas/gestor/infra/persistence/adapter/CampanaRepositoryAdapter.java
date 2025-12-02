@@ -12,6 +12,9 @@ import pe.unmsm.crm.marketing.campanas.gestor.infra.persistence.repository.JpaCa
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 /**
  * Adaptador que implementa el puerto CampanaRepositoryPort
  * delegando a JpaCampanaRepository (Spring Data JPA).
@@ -38,8 +41,8 @@ public class CampanaRepositoryAdapter implements CampanaRepositoryPort {
     }
 
     @Override
-    public List<Campana> findByFiltros(String nombre, String estado, String prioridad, String canalEjecucion,
-            Boolean esArchivado) {
+    public Page<Campana> findByFiltros(String nombre, String estado, String prioridad, String canalEjecucion,
+            Boolean esArchivado, Pageable pageable) {
         EstadoCampana estadoObj = null;
         if (estado != null && !estado.isEmpty()) {
             estadoObj = convertirEstado(estado);
@@ -64,7 +67,7 @@ public class CampanaRepositoryAdapter implements CampanaRepositoryPort {
             }
         }
 
-        return jpaRepository.findByFiltros(nombre, estadoObj, prioridadObj, canalObj, esArchivado);
+        return jpaRepository.findByFiltros(nombre, estadoObj, prioridadObj, canalObj, esArchivado, pageable);
     }
 
     private EstadoCampana convertirEstado(String nombreEstado) {
@@ -87,5 +90,11 @@ public class CampanaRepositoryAdapter implements CampanaRepositoryPort {
     @Override
     public boolean existsById(Long idCampana) {
         return jpaRepository.existsById(idCampana);
+    }
+
+    @Override
+    public List<Campana> findProgramadasParaActivar(java.time.LocalDateTime ahora) {
+        return jpaRepository.findProgramadasParaActivar(
+                new pe.unmsm.crm.marketing.campanas.gestor.domain.state.EstadoProgramada(), ahora);
     }
 }

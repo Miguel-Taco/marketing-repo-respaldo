@@ -34,8 +34,19 @@ public class FrecuenciaSimpleStrategy implements ICalculoIndicador {
             }
         }
 
+        Map<String, Double> porcentajes = new HashMap<>();
+        if (totalRespuestas > 0) {
+            for (Map.Entry<String, Long> entry : conteoPorOpcion.entrySet()) {
+                double pct = (entry.getValue() * 100.0) / totalRespuestas;
+                // Redondear a 1 decimal
+                pct = Math.round(pct * 10.0) / 10.0;
+                porcentajes.put(entry.getKey(), pct);
+            }
+        }
+
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("distribucion", conteoPorOpcion);
+        metadata.put("porcentajes", porcentajes);
         metadata.put("totalRespuestas", totalRespuestas);
 
         // Para frecuencia simple, retornamos el total como valor principal,

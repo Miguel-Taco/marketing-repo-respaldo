@@ -190,4 +190,35 @@ public class LeadManagementController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
                 .body(excelBytes);
     }
-}
+
+    // --- ENDPOINT 9: OBTENER LEADS EN LOTE ---
+    @PostMapping("/batch")
+    public ResponseEntity<Map<String, Object>> obtenerLeadsEnLote(@RequestBody Map<String, List<Long>> request) {
+        List<Long> ids = request.get("ids");
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "La lista de IDs no puede estar vacía"));
+        }
+
+        List<Lead> leads = managementService.obtenerLeadsPorIds(ids);
+
+        // Map leads to response with ubigeo data
+        List<LeadResponse> responses = leads.stream()
+                .map(lead -> {
+                    Map<String, String> ubigeoNombres = null;
+                    if (lead.getDemograficos() != null && lead.getDemograficos().getDistrito() != null) {
+                        ubigeoNombres = ubigeoService.obtenerNombresUbigeo(lead.getDemograficos().getDistrito());
+                    }
+                    return LeadMapper.toResponse(lead, ubigeoNombres);
+                })
+                .collect(Collectors.toList());
+
+        return ResponseUtils.success(responses, "Leads obtenidos exitosamente");
+    }
+
+    }
+
+    
+    
+    
+
+    

@@ -125,6 +125,13 @@ public class CampaignMapper {
                 .notas(entity.getNotas())
                 .nombreContacto(nombreContacto)
                 .telefonoContacto(telefonoContacto)
+                // Campos de encuesta
+                .encuestaEnviada(entity.getEncuestaEnviada())
+                .estadoEncuesta(entity.getEncuestaEnviada() != null && entity.getEncuestaEnviada()
+                        ? "ENVIADA"
+                        : "NO_ENVIADA")
+                .fechaEnvioEncuesta(entity.getFechaEnvioEncuesta())
+                .urlEncuesta(entity.getUrlEncuesta())
                 .build();
     }
 

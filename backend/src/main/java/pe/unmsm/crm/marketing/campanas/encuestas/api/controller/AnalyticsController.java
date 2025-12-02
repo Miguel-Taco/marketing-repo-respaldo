@@ -22,8 +22,17 @@ public class AnalyticsController {
         return ResponseEntity.ok(analyticsService.getTendenciaRespuestas(idEncuesta));
     }
 
-    @GetMapping("/{idEncuesta}/indicadores")
-    public ResponseEntity<List<AnalisisResultadoDto>> getIndicadores(@PathVariable Integer idEncuesta) {
-        return ResponseEntity.ok(analyticsService.getIndicadores(idEncuesta));
+    @GetMapping("/{id}/indicadores")
+    public List<AnalisisResultadoDto> getIndicadores(
+            @PathVariable Integer id,
+            @RequestParam(required = false) String rango) {
+        return analyticsService.getIndicadores(id, rango);
+    }
+
+    @GetMapping("/{id}/resumen")
+    public pe.unmsm.crm.marketing.campanas.encuestas.api.dto.AnalyticsSummaryDto getResumen(
+            @PathVariable Integer id,
+            @RequestParam(required = false) String rango) {
+        return analyticsService.getResumen(id, rango);
     }
 }

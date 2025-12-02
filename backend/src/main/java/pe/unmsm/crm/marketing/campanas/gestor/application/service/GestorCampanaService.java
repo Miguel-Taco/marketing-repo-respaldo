@@ -3,6 +3,8 @@ package pe.unmsm.crm.marketing.campanas.gestor.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.gestor.application.event.CampanaEstadoCambiadoEvent;
@@ -58,14 +60,15 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Campana> listar(String nombre, String estado, String prioridad, String canalEjecucion,
-            Boolean esArchivado) {
+    public Page<Campana> listar(String nombre, String estado, String prioridad, String canalEjecucion,
+            Boolean esArchivado, int page, int size) {
         // Por defecto, excluir archivadas
         if (esArchivado == null) {
             esArchivado = false;
         }
 
-        return campanaRepository.findByFiltros(nombre, estado, prioridad, canalEjecucion, esArchivado);
+        return campanaRepository.findByFiltros(nombre, estado, prioridad, canalEjecucion, esArchivado,
+                PageRequest.of(page, size));
     }
 
     @Override

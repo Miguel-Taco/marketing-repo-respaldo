@@ -187,6 +187,25 @@ public class TelemarketingController {
         return ResponseUtils.success(llamadas, "Historial obtenido exitosamente");
     }
 
+    /**
+     * GET /campanias-telefonicas/{idCampania}/llamadas/{idLlamada}/encuesta
+     * Obtiene los detalles del envío de encuesta para una llamada específica.
+     */
+    @GetMapping("/campanias-telefonicas/{idCampania}/llamadas/{idLlamada}/encuesta")
+    public ResponseEntity<Map<String, Object>> obtenerDetalleEncuesta(
+            @PathVariable Long idCampania,
+            @PathVariable Integer idLlamada) {
+        try {
+            EnvioEncuestaDTO detalle = service.obtenerDetalleEncuesta(idLlamada);
+            if (detalle == null) {
+                return ResponseUtils.error("No se encontró envío de encuesta para esta llamada", 404);
+            }
+            return ResponseUtils.success(detalle, "Detalle de encuesta obtenido exitosamente");
+        } catch (Exception e) {
+            return ResponseUtils.error("Error al obtener detalle de encuesta: " + e.getMessage(), 500);
+        }
+    }
+
     // ==================== MÉTRICAS ====================
 
     /**

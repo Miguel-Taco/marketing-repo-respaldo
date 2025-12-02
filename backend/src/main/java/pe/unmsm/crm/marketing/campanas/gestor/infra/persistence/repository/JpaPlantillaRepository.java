@@ -1,6 +1,8 @@
 
 package pe.unmsm.crm.marketing.campanas.gestor.infra.persistence.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,8 +25,9 @@ public interface JpaPlantillaRepository extends JpaRepository<PlantillaCampana, 
                         "(:canalEjecucion IS NULL OR " +
                         " (:canalEjecucion = 'SIN_ASIGNAR' AND p.canalEjecucion IS NULL) OR " +
                         " (:canalEjecucion != 'SIN_ASIGNAR' AND str(p.canalEjecucion) = :canalEjecucion))")
-        List<PlantillaCampana> findByFiltros(@Param("nombre") String nombre,
-                        @Param("canalEjecucion") String canalEjecucion);
+        Page<PlantillaCampana> findByFiltros(@Param("nombre") String nombre,
+                        @Param("canalEjecucion") String canalEjecucion,
+                        Pageable pageable);
 
         /**
          * Busca plantillas por canal de ejecución

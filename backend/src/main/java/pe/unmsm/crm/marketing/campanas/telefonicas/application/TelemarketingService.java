@@ -36,6 +36,7 @@ public class TelemarketingService {
     private final TelemarketingEventPublisher eventPublisher;
     private final ScriptSessionStore scriptSessionStore;
     private final TelemarketingMetrics telemarketingMetrics;
+    private final pe.unmsm.crm.marketing.campanas.telefonicas.application.service.EncuestaLlamadaService encuestaLlamadaService;
 
     // === CAMPANAS ===
 
@@ -170,6 +171,13 @@ public class TelemarketingService {
 
     public List<LlamadaDTO> obtenerHistorialLlamadas(Long idCampania, Long idAgente) {
         return campaignDataProvider.obtenerHistorialLlamadas(idCampania, idAgente);
+    }
+
+    /**
+     * Obtiene los detalles del envío de encuesta para una llamada específica.
+     */
+    public EnvioEncuestaDTO obtenerDetalleEncuesta(Integer idLlamada) {
+        return encuestaLlamadaService.obtenerDetalleEnvio(idLlamada);
     }
 
     // === GUIONES ===

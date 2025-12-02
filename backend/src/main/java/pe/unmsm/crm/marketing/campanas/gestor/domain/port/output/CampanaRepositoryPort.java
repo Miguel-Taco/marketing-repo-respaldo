@@ -5,6 +5,9 @@ import pe.unmsm.crm.marketing.campanas.gestor.domain.model.Campana;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 /**
  * Puerto de salida para operaciones de persistencia de campanas.
  */
@@ -28,8 +31,8 @@ public interface CampanaRepositoryPort {
     /**
      * Busca campanas por filtros
      */
-    List<Campana> findByFiltros(String nombre, String estado, String prioridad, String canalEjecucion,
-            Boolean esArchivado);
+    Page<Campana> findByFiltros(String nombre, String estado, String prioridad, String canalEjecucion,
+            Boolean esArchivado, Pageable pageable);
 
     /**
      * Elimina una campaña por ID
@@ -40,4 +43,9 @@ public interface CampanaRepositoryPort {
      * Verifica si existe una campaña por ID
      */
     boolean existsById(Long idCampana);
+
+    /**
+     * Busca campañas programadas listas para activar
+     */
+    List<Campana> findProgramadasParaActivar(java.time.LocalDateTime ahora);
 }

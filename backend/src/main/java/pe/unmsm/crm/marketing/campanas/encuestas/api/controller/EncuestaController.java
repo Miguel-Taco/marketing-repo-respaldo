@@ -54,4 +54,37 @@ public class EncuestaController {
             @jakarta.validation.Valid @RequestBody CreateEncuestaDto dto) {
         return encuestaService.actualizarEncuesta(id, dto);
     }
+
+    @PutMapping("/{id}/archivar")
+    public org.springframework.http.ResponseEntity<?> archivarEncuesta(@PathVariable Integer id) {
+        try {
+            encuestaService.archivarEncuesta(id);
+            return org.springframework.http.ResponseEntity.ok().build();
+        } catch (IllegalStateException e) {
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT)
+                    .body(java.util.Collections.singletonMap("message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{id}/campanas")
+    public org.springframework.http.ResponseEntity<List<pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.CampanaListItemResponse>> listarCampanasAsociadas(
+            @PathVariable Integer id) {
+        List<pe.unmsm.crm.marketing.campanas.gestor.domain.model.Campana> campanas = encuestaService
+                .listarCampanasAsociadas(id);
+
+        List<pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.CampanaListItemResponse> response = campanas
+                .stream()
+                .map(c -> pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.CampanaListItemResponse.builder()
+                        .idCampana(c.getIdCampana())
+                        .nombre(c.getNombre())
+                        .estado(c.getEstado().getNombre())
+                        .prioridad(c.getPrioridad().name())
+                        .canalEjecucion(c.getCanalEjecucion().name())
+                        .fechaProgramadaInicio(c.getFechaProgramadaInicio())
+                        .fechaProgramadaFin(c.getFechaProgramadaFin())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+
+        return org.springframework.http.ResponseEntity.ok(response);
+    }
 }

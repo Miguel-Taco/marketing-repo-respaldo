@@ -19,6 +19,35 @@ public class EncuestaService {
         @Autowired
         private EncuestaRepository encuestaRepository;
 
+        @Autowired
+        private pe.unmsm.crm.marketing.campanas.encuestas.domain.repository.CampanaExternalRepository campanaRepository;
+
+        @Transactional
+        public void archivarEncuesta(Integer id) {
+                Encuesta encuesta = encuestaRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Encuesta no encontrada con ID: " + id));
+
+                List<pe.unmsm.crm.marketing.campanas.gestor.domain.model.Campana> campanas = campanaRepository
+                                .findByIdEncuesta(id);
+
+                if (!campanas.isEmpty()) {
+                        boolean todasFinalizadas = campanas.stream()
+                                        .allMatch(c -> "Finalizada".equals(c.getEstado().getNombre()));
+
+                        if (!todasFinalizadas) {
+                                throw new IllegalStateException(
+                                                "No se puede archivar la encuesta porque tiene campañas asociadas que no están finalizadas.");
+                        }
+                }
+
+                encuesta.setEstado(Encuesta.EstadoEncuesta.ARCHIVADA);
+                encuestaRepository.save(encuesta);
+        }
+
+        public List<pe.unmsm.crm.marketing.campanas.gestor.domain.model.Campana> listarCampanasAsociadas(Integer id) {
+                return campanaRepository.findByIdEncuesta(id);
+        }
+
         public List<EncuestaDto> obtenerTodasConEstadisticas() {
                 List<Object[]> results = encuestaRepository.findAllWithResponseCount();
                 return results.stream().map(result -> {

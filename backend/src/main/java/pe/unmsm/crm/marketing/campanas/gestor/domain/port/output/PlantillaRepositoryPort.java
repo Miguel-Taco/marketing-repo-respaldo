@@ -1,5 +1,7 @@
 package pe.unmsm.crm.marketing.campanas.gestor.domain.port.output;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.model.PlantillaCampana;
 
 import java.util.List;
@@ -26,9 +28,9 @@ public interface PlantillaRepositoryPort {
     List<PlantillaCampana> findAll();
 
     /**
-     * Busca plantillas por filtros
+     * Busca plantillas por filtros con paginación
      */
-    List<PlantillaCampana> findByFiltros(String nombre, String canalEjecucion);
+    Page<PlantillaCampana> findByFiltros(String nombre, String canalEjecucion, Pageable pageable);
 
     /**
      * Elimina una plantilla por ID

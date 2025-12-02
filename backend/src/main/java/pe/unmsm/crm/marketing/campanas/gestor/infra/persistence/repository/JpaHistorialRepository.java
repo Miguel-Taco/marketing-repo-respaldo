@@ -10,6 +10,9 @@ import pe.unmsm.crm.marketing.campanas.gestor.domain.model.TipoAccion;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 /**
  * Repositorio Spring Data JPA para la entidad HistorialCampana.
  */
@@ -30,10 +33,11 @@ public interface JpaHistorialRepository extends JpaRepository<HistorialCampana, 
                         "(:fechaDesde IS NULL OR h.fechaAccion >= :fechaDesde) AND " +
                         "(:fechaHasta IS NULL OR h.fechaAccion <= :fechaHasta) " +
                         "ORDER BY h.fechaAccion DESC")
-        List<HistorialCampana> findByFiltros(@Param("idCampana") Long idCampana,
+        Page<HistorialCampana> findByFiltros(@Param("idCampana") Long idCampana,
                         @Param("tipoAccion") TipoAccion tipoAccion,
                         @Param("fechaDesde") LocalDateTime fechaDesde,
-                        @Param("fechaHasta") LocalDateTime fechaHasta);
+                        @Param("fechaHasta") LocalDateTime fechaHasta,
+                        Pageable pageable);
 
         /**
          * Busca historial por tipo de acción

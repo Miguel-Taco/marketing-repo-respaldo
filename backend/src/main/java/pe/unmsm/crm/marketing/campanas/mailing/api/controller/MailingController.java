@@ -94,4 +94,11 @@ public class MailingController {
         MetricasMailingResponse m = service.obtenerMetricas(id);
         return ResponseEntity.ok(m);
     }
+
+    // ============ Cancelar campaña desde Gestor ============
+    @PutMapping("/campañas/gestion/{idCampanaGestion}/cancelar")
+    public ResponseEntity<Void> cancelarPorGestor(@PathVariable Long idCampanaGestion) {
+        service.cancelarPorGestor(idCampanaGestion);
+        return ResponseEntity.ok().build();
+    }
 }

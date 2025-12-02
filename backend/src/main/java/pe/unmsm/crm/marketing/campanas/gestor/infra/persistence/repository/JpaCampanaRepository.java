@@ -11,6 +11,9 @@ import pe.unmsm.crm.marketing.campanas.gestor.domain.state.EstadoCampana;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 /**
  * Repositorio Spring Data JPA para la entidad Campana.
  */
@@ -26,14 +29,19 @@ public interface JpaCampanaRepository extends JpaRepository<Campana, Long> {
                         "(:prioridad IS NULL OR c.prioridad = :prioridad) AND " +
                         "(:canalEjecucion IS NULL OR c.canalEjecucion = :canalEjecucion) AND " +
                         "(:esArchivado IS NULL OR c.esArchivado = :esArchivado)")
-        List<Campana> findByFiltros(@Param("nombre") String nombre,
+        Page<Campana> findByFiltros(@Param("nombre") String nombre,
                         @Param("estado") EstadoCampana estado,
                         @Param("prioridad") Prioridad prioridad,
                         @Param("canalEjecucion") CanalEjecucion canalEjecucion,
-                        @Param("esArchivado") Boolean esArchivado);
+                        @Param("esArchivado") Boolean esArchivado,
+                        Pageable pageable);
 
         /**
          * Busca campanas no archivadas
          */
         List<Campana> findByEsArchivadoFalse();
+
+        @Query("SELECT c FROM Campana c WHERE c.estado = :estado AND c.canalEjecucion = 'Llamadas' AND c.fechaProgramadaInicio <= :ahora")
+        List<Campana> findProgramadasParaActivar(@Param("estado") EstadoCampana estado,
+                        @Param("ahora") java.time.LocalDateTime ahora);
 }

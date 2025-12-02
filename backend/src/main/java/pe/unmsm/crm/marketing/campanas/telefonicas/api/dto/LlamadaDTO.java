@@ -24,8 +24,14 @@ public class LlamadaDTO {
     private LocalDateTime fechaReagendamiento;
     private Boolean derivadoVentas;
     private String tipoOportunidad;
-    
+
     // Info adicional del contacto para mostrar en historial
     private String nombreContacto;
     private String telefonoContacto;
+
+    // Info de encuesta post-llamada
+    private Boolean encuestaEnviada;
+    private String estadoEncuesta; // "ENVIADA", "NO_ENVIADA", "ERROR"
+    private LocalDateTime fechaEnvioEncuesta;
+    private String urlEncuesta;
 }

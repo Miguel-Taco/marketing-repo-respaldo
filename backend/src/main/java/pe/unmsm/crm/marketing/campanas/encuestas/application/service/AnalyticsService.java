@@ -36,12 +36,76 @@ public class AnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public List<AnalisisResultadoDto> getIndicadores(Integer idEncuesta) {
+    public List<AnalisisResultadoDto> getIndicadores(Integer idEncuesta, String rango) {
         Encuesta encuesta = encuestaRepository.findById(idEncuesta)
                 .orElseThrow(() -> new IllegalArgumentException("Encuesta no encontrada con ID: " + idEncuesta));
 
-        List<RespuestaEncuesta> respuestasEncuesta = respuestaEncuestaRepository.findByEncuesta_IdEncuesta(idEncuesta);
+        List<RespuestaEncuesta> respuestasEncuesta;
 
+        if (rango == null || rango.equals("all")) {
+            respuestasEncuesta = respuestaEncuestaRepository.findByEncuesta_IdEncuesta(idEncuesta);
+        } else {
+            java.time.LocalDateTime fechaInicio = java.time.LocalDateTime.now();
+            switch (rango) {
+                case "7d":
+                    fechaInicio = fechaInicio.minusDays(7);
+                    break;
+                case "14d":
+                    fechaInicio = fechaInicio.minusDays(14);
+                    break;
+                case "28d":
+                    fechaInicio = fechaInicio.minusDays(28);
+                    break;
+                default:
+                    respuestasEncuesta = respuestaEncuestaRepository.findByEncuesta_IdEncuesta(idEncuesta);
+                    return processIndicadores(encuesta, respuestasEncuesta);
+            }
+            respuestasEncuesta = respuestaEncuestaRepository.findByEncuesta_IdEncuestaAndFechaRespuestaAfter(idEncuesta,
+                    fechaInicio);
+        }
+
+        return processIndicadores(encuesta, respuestasEncuesta);
+    }
+
+    @Transactional(readOnly = true)
+    public pe.unmsm.crm.marketing.campanas.encuestas.api.dto.AnalyticsSummaryDto getResumen(Integer idEncuesta,
+            String rango) {
+        long totalRespuestas;
+        long alertasUrgentes;
+
+        if (rango == null || rango.equals("all")) {
+            List<RespuestaEncuesta> respuestas = respuestaEncuestaRepository.findByEncuesta_IdEncuesta(idEncuesta);
+            totalRespuestas = respuestas.size();
+            alertasUrgentes = respuestaEncuestaRepository.countAlertasUrgentes(idEncuesta);
+        } else {
+            java.time.LocalDateTime fechaInicio = java.time.LocalDateTime.now();
+            switch (rango) {
+                case "7d":
+                    fechaInicio = fechaInicio.minusDays(7);
+                    break;
+                case "14d":
+                    fechaInicio = fechaInicio.minusDays(14);
+                    break;
+                case "28d":
+                    fechaInicio = fechaInicio.minusDays(28);
+                    break;
+                default:
+                    fechaInicio = java.time.LocalDateTime.now().minusYears(100);
+            }
+            List<RespuestaEncuesta> respuestas = respuestaEncuestaRepository
+                    .findByEncuesta_IdEncuestaAndFechaRespuestaAfter(idEncuesta, fechaInicio);
+            totalRespuestas = respuestas.size();
+            alertasUrgentes = respuestaEncuestaRepository.countAlertasUrgentesAfter(idEncuesta, fechaInicio);
+        }
+
+        return pe.unmsm.crm.marketing.campanas.encuestas.api.dto.AnalyticsSummaryDto.builder()
+                .totalRespuestas(totalRespuestas)
+                .alertasUrgentes(alertasUrgentes)
+                .build();
+    }
+
+    private List<AnalisisResultadoDto> processIndicadores(Encuesta encuesta,
+            List<RespuestaEncuesta> respuestasEncuesta) {
         // Aplanar todos los detalles de todas las respuestas
         List<Respuesta_Detalle> todosDetalles = respuestasEncuesta.stream()
                 .flatMap(r -> r.getDetalles().stream())

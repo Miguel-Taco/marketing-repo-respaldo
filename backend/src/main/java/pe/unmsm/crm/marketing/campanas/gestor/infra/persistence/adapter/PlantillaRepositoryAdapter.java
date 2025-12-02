@@ -1,6 +1,8 @@
 package pe.unmsm.crm.marketing.campanas.gestor.infra.persistence.adapter;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.model.PlantillaCampana;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.port.output.PlantillaRepositoryPort;
@@ -35,8 +37,8 @@ public class PlantillaRepositoryAdapter implements PlantillaRepositoryPort {
     }
 
     @Override
-    public List<PlantillaCampana> findByFiltros(String nombre, String canalEjecucion) {
-        return jpaRepository.findByFiltros(nombre, canalEjecucion);
+    public Page<PlantillaCampana> findByFiltros(String nombre, String canalEjecucion, Pageable pageable) {
+        return jpaRepository.findByFiltros(nombre, canalEjecucion, pageable);
     }
 
     @Override

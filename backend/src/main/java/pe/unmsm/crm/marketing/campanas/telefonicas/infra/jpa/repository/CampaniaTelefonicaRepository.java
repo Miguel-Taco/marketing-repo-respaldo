@@ -12,13 +12,13 @@ import java.util.Optional;
 public interface CampaniaTelefonicaRepository extends JpaRepository<CampaniaTelefonicaEntity, Integer> {
 
         /**
-         * Obtiene las campañas telefónicas activas (modificado para mostrar todas las
-         * campañas)
-         * Anteriormente filtraba por agente, pero se simplificó para mostrar todas las
-         * campañas no archivadas
+         * Obtiene las campañas telefónicas visibles para los agentes.
+         * Excluye campañas canceladas y finalizadas para mantener el panel limpio.
+         * Solo muestra: Programada, Vigente, Pausada
          */
         @Query("SELECT c FROM CampaniaTelefonicaEntity c " +
                         "WHERE c.esArchivado = false " +
+                        "AND c.estado NOT IN ('Cancelada', 'Finalizada') " +
                         "ORDER BY c.fechaInicio DESC")
         List<CampaniaTelefonicaEntity> findByAgenteId();
 

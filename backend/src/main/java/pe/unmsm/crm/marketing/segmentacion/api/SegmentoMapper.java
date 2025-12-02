@@ -2,18 +2,11 @@ package pe.unmsm.crm.marketing.segmentacion.api;
 
 import org.springframework.stereotype.Component;
 import pe.unmsm.crm.marketing.segmentacion.domain.model.*;
-import pe.unmsm.crm.marketing.segmentacion.infra.persistence.JpaSegmentoMiembroRepository;
 
 import java.util.stream.Collectors;
 
 @Component
 public class SegmentoMapper {
-
-    private final JpaSegmentoMiembroRepository miembroRepository;
-
-    public SegmentoMapper(JpaSegmentoMiembroRepository miembroRepository) {
-        this.miembroRepository = miembroRepository;
-    }
 
     public SegmentoDto toDto(Segmento segmento) {
         SegmentoDto dto = new SegmentoDto();

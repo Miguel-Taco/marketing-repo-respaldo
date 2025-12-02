@@ -16,5 +16,5 @@ public class EncuestaDto {
     private String descripcion;
     private Encuesta.EstadoEncuesta estado;
     private LocalDateTime fechaModificacion;
-    private Long cantidadRespuestas;
+    private Long totalRespuestas;
 }
