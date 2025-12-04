@@ -17,6 +17,9 @@ import pe.unmsm.crm.marketing.campanas.telefonicas.domain.memento.ScriptSession;
 import pe.unmsm.crm.marketing.campanas.telefonicas.domain.memento.ScriptSessionMemento;
 import pe.unmsm.crm.marketing.campanas.telefonicas.infra.ScriptSessionStore;
 import pe.unmsm.crm.marketing.campanas.telefonicas.infra.metrics.TelemarketingMetrics;
+import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
+import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
+import pe.unmsm.crm.marketing.shared.logging.AccionLog;
 
 import java.util.List;
 
@@ -37,6 +40,7 @@ public class TelemarketingService {
     private final ScriptSessionStore scriptSessionStore;
     private final TelemarketingMetrics telemarketingMetrics;
     private final pe.unmsm.crm.marketing.campanas.telefonicas.application.service.EncuestaLlamadaService encuestaLlamadaService;
+    private final AuditoriaService auditoriaService;
 
     // === CAMPANAS ===
 
@@ -137,6 +141,15 @@ public class TelemarketingService {
         // precálculo; integración futura
         telemarketingMetrics.recordCallResult(request.getResultado(), System.nanoTime() - start);
         eventPublisher.publish(new CallResultRegisteredEvent(idCampania, idAgente, command.getResultado()));
+
+        // AUDITORÍA: Registrar llamada
+        auditoriaService.registrarEvento(
+                ModuloLog.CAMPANIAS_TELEFONICAS,
+                AccionLog.REGISTRAR_LLAMADA,
+                idCampania,
+                idAgente,
+                String.format("Resultado: %s, Contacto: %d", request.getResultado(), request.getIdContacto()));
+
         return command.getResultado();
     }
 

@@ -31,6 +31,15 @@ public class ColaLlamadaEntity {
     @Column(name = "id_agente_actual")
     private Integer idAgenteActual;
 
+    @Column(name = "fecha_programada")
+    private java.time.LocalDateTime fechaProgramada;
+
+    @Column(name = "fecha_ultima_llamada")
+    private java.time.LocalDateTime fechaUltimaLlamada;
+
+    @Column(name = "resultado_ultima_llamada")
+    private String resultadoUltimaLlamada;
+
     // Relaciones
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_campania", insertable = false, updatable = false)

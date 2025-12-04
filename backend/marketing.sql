@@ -231,13 +231,15 @@ CREATE TABLE `campana` (
   KEY `fk_campana_plantilla` (`id_plantilla`),
   KEY `fk_campana_encuesta` (`id_encuesta`),
   KEY `fk_campana_segmento` (`id_segmento`),
+  KEY 'fk_campana_agente' ('id_agente'),
   KEY `idx_campana_estado` (`estado`),
   KEY `idx_campana_prioridad` (`prioridad`),
   KEY `idx_campana_canal` (`canal_ejecucion`),
   KEY `idx_campana_archivado` (`es_archivado`),
   CONSTRAINT `fk_campana_encuesta` FOREIGN KEY (`id_encuesta`) REFERENCES `Encuesta` (`id_encuesta`) ON DELETE SET NULL,
   CONSTRAINT `fk_campana_plantilla` FOREIGN KEY (`id_plantilla`) REFERENCES `plantilla_campana` (`id_plantilla`) ON DELETE SET NULL,
-  CONSTRAINT `fk_campana_segmento` FOREIGN KEY (`id_segmento`) REFERENCES `segmento` (`id_segmento`) ON DELETE SET NULL
+  CONSTRAINT `fk_campana_segmento` FOREIGN KEY (`id_segmento`) REFERENCES `segmento` (`id_segmento`) ON DELETE SET NULL,
+  CONSTRAINT 'fk_campana_agente' FOREIGN KEY ('id_agente') REFERENCES 'agente_marketing' ('id_agente') ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

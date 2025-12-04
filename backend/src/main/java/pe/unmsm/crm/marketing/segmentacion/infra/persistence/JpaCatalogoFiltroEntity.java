@@ -25,4 +25,7 @@ public class JpaCatalogoFiltroEntity {
 
     @Column(name = "operadores_permitidos")
     private String operadoresPermitidos;
+
+    @Column(name = "tipo_audiencia")
+    private String tipoAudiencia; // LEAD, CLIENTE, AMBOS
 }

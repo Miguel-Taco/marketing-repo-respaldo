@@ -14,6 +14,9 @@ import pe.unmsm.crm.marketing.leads.domain.model.Lead;
 import pe.unmsm.crm.marketing.leads.domain.enums.TipoFuente;
 import pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository;
 import pe.unmsm.crm.marketing.shared.infra.exception.DuplicateLeadException;
+import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
+import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
+import pe.unmsm.crm.marketing.shared.logging.AccionLog;
 
 import java.util.List;
 import java.util.Objects;
@@ -27,6 +30,7 @@ public class LeadProcessingService {
     private final LeadRepository leadRepository;
     private final DeduplicationStrategy deduplicationStrategy; // Inyección Strategy
     private final ApplicationEventPublisher eventPublisher; // Publicador de Eventos
+    private final AuditoriaService auditoriaService;
 
     @Transactional
     public void procesarDesdeStaging(TipoFuente tipo, Object datoStaging) {
@@ -68,6 +72,16 @@ public class LeadProcessingService {
             eventPublisher.publishEvent(new LeadEstadoCambiadoEvent(
                     nuevoLead.getId(), null, nuevoLead.getEstado(), "Creación inicial (" + tipo + ")"));
             System.out.println("Lead creado: " + nuevoLead.getId() + " con estado: " + nuevoLead.getEstado());
+
+            // AUDITORÍA: Registrar procesamiento exitoso
+            auditoriaService.registrarEvento(
+                    ModuloLog.LEADS,
+                    AccionLog.CREAR,
+                    nuevoLead.getId(),
+                    null,
+                    String.format("Lead procesado desde staging. Tipo: %s, Estado inicial: %s, Email: %s",
+                            tipo, nuevoLead.getEstado(),
+                            nuevoLead.getContacto() != null ? nuevoLead.getContacto().getEmail() : "N/A"));
         }
     }
 }

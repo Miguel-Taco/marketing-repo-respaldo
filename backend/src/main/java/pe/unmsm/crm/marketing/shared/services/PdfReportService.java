@@ -9,6 +9,9 @@ import org.xhtmlrenderer.pdf.ITextRenderer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
 /**
  * Servicio para generar archivos PDF a partir de contenido HTML.
  * Utiliza Flying Saucer (xhtmlrenderer) con iText como backend.
@@ -31,8 +34,13 @@ public class PdfReportService {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             ITextRenderer renderer = new ITextRenderer();
 
-            // Configurar el HTML
-            renderer.setDocumentFromString(htmlContent);
+            // Usar Jsoup para limpiar y convertir a XHTML válido
+            Document document = Jsoup.parse(htmlContent);
+            document.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
+            String xhtmlPayload = document.html();
+
+            // Configurar el HTML limpio
+            renderer.setDocumentFromString(xhtmlPayload);
             renderer.layout();
 
             // Generar PDF

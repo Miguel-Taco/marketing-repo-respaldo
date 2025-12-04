@@ -3,6 +3,7 @@ package pe.unmsm.crm.marketing.campanas.mailing.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.ActualizarContenidoRequest;
 import pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.CrearCampanaMailingRequest;
@@ -104,6 +105,7 @@ public class CampanaMailingService {
         log.info("Borrador guardado para campaña {}", id);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void marcarListo(Integer id) {
         CampanaMailing c = obtenerDetalle(id);
 

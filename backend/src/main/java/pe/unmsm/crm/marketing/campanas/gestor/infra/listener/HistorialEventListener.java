@@ -45,6 +45,7 @@ public class HistorialEventListener {
                     .fechaAccion(event.getTimestamp())
                     .tipoAccion(tipoAccion)
                     .descripcionDetalle(descripcion)
+                    .usuarioResponsable(event.getUsuarioResponsable())
                     .build();
 
             historialRepository.save(historial);

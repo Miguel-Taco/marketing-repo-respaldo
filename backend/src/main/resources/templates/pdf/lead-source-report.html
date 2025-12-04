@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>{{reportTitle}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F3F4F6;
+            color: #1F2937;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .report-card {
+            background: white;
+            border: 1px solid #D9D9D9;
+            border-radius: 8px;
+            padding: 40px;
+        }
+
+        .report-header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid #E5E7EB;
+            padding-bottom: 16px;
+        }
+
+        .report-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1F2937;
+        }
+
+        .report-header p {
+            font-size: 14px;
+            color: #6B7280;
+            margin-top: 4px;
+        }
+
+        .meta-info {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: #6B7280;
+        }
+
+        .metrics-grid {
+            display: table;
+            width: 100%;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            display: table-cell;
+            background: #FAFAFA;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 16px;
+            width: 25%;
+            text-align: center;
+        }
+
+        .metric-value {
+            display: block;
+            font-size: 24px;
+            font-weight: 700;
+            color: #1F2937;
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #6B7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #E5E7EB;
+            font-size: 11px;
+            color: #9CA3AF;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="report-card">
+            <div class="report-header">
+                <h1>{{reportTitle}}</h1>
+                <p>{{reportDescription}}</p>
+                <div class="meta-info">
+                    <span>Generado: {{generatedDate}}</span>
+                    <span>Periodo: {{startDate}} - {{endDate}}</span>
+                </div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-value">{{totalWeb}}</span>
+                    <span class="metric-label">Web</span>
+                </div>
+                <div class="metric-card" style="padding-left: 10px;">
+                    <span class="metric-value">{{porcentajeWeb}}</span>
+                    <span class="metric-label">% Web</span>
+                </div>
+                <div class="metric-card" style="padding-left: 10px;">
+                    <span class="metric-value">{{totalImport}}</span>
+                    <span class="metric-label">Importación</span>
+                </div>
+                <div class="metric-card" style="padding-left: 10px;">
+                    <span class="metric-value">{{porcentajeImport}}</span>
+                    <span class="metric-label">% Import</span>
+                </div>
+            </div>
+
+            <div class="footer">
+                Generado por {{generatedBy}} | Marketing CRM
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

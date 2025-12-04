@@ -72,4 +72,22 @@ public interface LeadRepository extends JpaRepository<Lead, Long> {
                         @Param("estado") EstadoLead estado,
                         @Param("fuenteTipo") TipoFuente fuenteTipo,
                         @Param("search") String search);
+
+        // REPORTES
+        long countByEstado(EstadoLead estado);
+
+        long countByFuenteTipo(TipoFuente fuenteTipo);
+
+        long countByFechaCreacionBetween(LocalDateTime fechaInicio, LocalDateTime fechaFin);
+
+        List<Lead> findByFechaCreacionBetweenOrderByFechaCreacionAsc(LocalDateTime fechaInicio, LocalDateTime fechaFin);
+
+        @Query("SELECT l.estado, COUNT(l) FROM Lead l WHERE l.fechaCreacion BETWEEN :fechaInicio AND :fechaFin GROUP BY l.estado")
+        List<Object[]> countByEstadoBetween(@Param("fechaInicio") LocalDateTime fechaInicio,
+                        @Param("fechaFin") LocalDateTime fechaFin);
+
+        @Query("SELECT l.fuenteTipo, COUNT(l) FROM Lead l WHERE l.fechaCreacion BETWEEN :fechaInicio AND :fechaFin GROUP BY l.fuenteTipo")
+        List<Object[]> countByFuenteTipoBetween(@Param("fechaInicio") LocalDateTime fechaInicio,
+                        @Param("fechaFin") LocalDateTime fechaFin);
+
 }

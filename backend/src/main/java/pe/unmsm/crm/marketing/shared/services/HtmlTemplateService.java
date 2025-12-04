@@ -42,6 +42,7 @@ public class HtmlTemplateService {
 
         // Parsear HTML con Jsoup para manipulación segura
         Document doc = Jsoup.parse(template);
+        doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
 
         // Reemplazar placeholders
         replacePlaceholders(doc, data);
@@ -60,6 +61,7 @@ public class HtmlTemplateService {
      */
     public String processTemplateFromString(String templateContent, Map<String, Object> data) {
         Document doc = Jsoup.parse(templateContent);
+        doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
         replacePlaceholders(doc, data);
         return doc.html();
     }

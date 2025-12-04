@@ -7,6 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.entity.*;
 import pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.repository.*;
 import pe.unmsm.crm.marketing.segmentacion.application.SegmentoService;
+import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
+import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
+import pe.unmsm.crm.marketing.shared.logging.AccionLog;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,6 +32,7 @@ public class CampaniaTelefonicaFacadeService {
     private final CampaniaAgenteRepository campaniaAgenteRepository;
     private final ColaLlamadaRepository colaLlamadaRepository;
     private final SegmentoService segmentoService;
+    private final AuditoriaService auditoriaService;
 
     /**
      * Crea una campaña telefónica completa con:
@@ -86,6 +90,16 @@ public class CampaniaTelefonicaFacadeService {
         // 4. Poblar cola de llamadas con leads del segmento
         poblarColaLlamadas(idCampaniaTelefonica, idSegmento);
 
+        // AUDITORÍA: Registrar creación de campaña
+        auditoriaService.registrarEvento(
+                ModuloLog.CAMPANIAS_TELEFONICAS,
+                AccionLog.CREAR,
+                idCampaniaTelefonica.longValue(),
+                null, // TODO: Agregar ID de usuario cuando esté disponible en el contexto de
+                      // seguridad
+                String.format("Campaña telefónica creada: %s (Segmento: %d, Agente: %d)",
+                        nombre, idSegmento, idAgente));
+
         return idCampaniaTelefonica;
     }
 
@@ -109,6 +123,14 @@ public class CampaniaTelefonicaFacadeService {
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
                     log.info("Campaña telefónica actualizada exitosamente");
+
+                    // AUDITORÍA: Registrar actualización
+                    auditoriaService.registrarEvento(
+                            ModuloLog.CAMPANIAS_TELEFONICAS,
+                            AccionLog.ACTUALIZAR,
+                            campania.getId().longValue(),
+                            null, // TODO: Agregar ID de usuario
+                            String.format("Campaña telefónica actualizada: %s", nombre));
                 }, () -> log.warn("No se encontró campaña telefónica para gestión ID: {}", idCampanaGestion));
     }
 
@@ -119,8 +141,19 @@ public class CampaniaTelefonicaFacadeService {
     public void eliminarCampaniaTelefonicaDesdeGestor(Long idCampanaGestion) {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
                 .ifPresent(campania -> {
+                    Integer campaniaId = campania.getId();
+                    String nombre = campania.getNombre();
+
                     // Eliminar en cascada (configuración, asignaciones, cola)
                     campaniaRepository.delete(campania);
+
+                    // AUDITORÍA: Registrar eliminación
+                    auditoriaService.registrarEvento(
+                            ModuloLog.CAMPANIAS_TELEFONICAS,
+                            AccionLog.ELIMINAR,
+                            campaniaId.longValue(),
+                            null, // TODO: Agregar ID de usuario
+                            String.format("Campaña telefónica eliminada: %s", nombre));
                 });
     }
 
@@ -129,11 +162,20 @@ public class CampaniaTelefonicaFacadeService {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
                 .ifPresentOrElse(campania -> {
                     log.info("Activando campaña telefónica desde gestor: {}", idCampanaGestion);
+                    String estadoAnterior = campania.getEstado();
                     campania.setEstado("Vigente");
                     campania.setIdEstado(2); // VIGENTE
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
                     log.info("Campaña telefónica activada (Vigente)");
+
+                    // AUDITORÍA: Registrar cambio de estado
+                    auditoriaService.registrarEvento(
+                            ModuloLog.CAMPANIAS_TELEFONICAS,
+                            AccionLog.CAMBIAR_ESTADO,
+                            campania.getId().longValue(),
+                            null, // TODO: Agregar ID de usuario
+                            String.format("Estado cambiado de %s a Vigente", estadoAnterior));
                 }, () -> log.warn("No se encontró campaña telefónica para activar. Gestión ID: {}", idCampanaGestion));
     }
 
@@ -142,11 +184,20 @@ public class CampaniaTelefonicaFacadeService {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
                 .ifPresentOrElse(campania -> {
                     log.info("Pausando campaña telefónica desde gestor: {}", idCampanaGestion);
+                    String estadoAnterior = campania.getEstado();
                     campania.setEstado("Pausada");
                     campania.setIdEstado(3); // PAUSADA
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
                     log.info("Campaña telefónica pausada");
+
+                    // AUDITORÍA: Registrar cambio de estado
+                    auditoriaService.registrarEvento(
+                            ModuloLog.CAMPANIAS_TELEFONICAS,
+                            AccionLog.CAMBIAR_ESTADO,
+                            campania.getId().longValue(),
+                            null, // TODO: Agregar ID de usuario
+                            String.format("Estado cambiado de %s a Pausada", estadoAnterior));
                 }, () -> log.warn("No se encontró campaña telefónica para pausar. Gestión ID: {}", idCampanaGestion));
     }
 
@@ -155,11 +206,20 @@ public class CampaniaTelefonicaFacadeService {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
                 .ifPresentOrElse(campania -> {
                     log.info("Reanudando campaña telefónica desde gestor: {}", idCampanaGestion);
+                    String estadoAnterior = campania.getEstado();
                     campania.setEstado("Vigente");
                     campania.setIdEstado(2); // VIGENTE
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
                     log.info("Campaña telefónica reanudada (Vigente)");
+
+                    // AUDITORÍA: Registrar cambio de estado
+                    auditoriaService.registrarEvento(
+                            ModuloLog.CAMPANIAS_TELEFONICAS,
+                            AccionLog.CAMBIAR_ESTADO,
+                            campania.getId().longValue(),
+                            null, // TODO: Agregar ID de usuario
+                            String.format("Estado cambiado de %s a Vigente (reanudada)", estadoAnterior));
                 }, () -> log.warn("No se encontró campaña telefónica para reanudar. Gestión ID: {}", idCampanaGestion));
     }
 
@@ -168,11 +228,20 @@ public class CampaniaTelefonicaFacadeService {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
                 .ifPresentOrElse(campania -> {
                     log.info("Cancelando campaña telefónica desde gestor: {}", idCampanaGestion);
+                    String estadoAnterior = campania.getEstado();
                     campania.setEstado("Cancelada");
                     campania.setIdEstado(5); // CANCELADA
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
                     log.info("Campaña telefónica cancelada");
+
+                    // AUDITORÍA: Registrar cambio de estado
+                    auditoriaService.registrarEvento(
+                            ModuloLog.CAMPANIAS_TELEFONICAS,
+                            AccionLog.CAMBIAR_ESTADO,
+                            campania.getId().longValue(),
+                            null, // TODO: Agregar ID de usuario
+                            String.format("Estado cambiado de %s a Cancelada", estadoAnterior));
                 }, () -> log.warn("No se encontró campaña telefónica para cancelar. Gestión ID: {}", idCampanaGestion));
     }
 
@@ -181,11 +250,20 @@ public class CampaniaTelefonicaFacadeService {
         campaniaRepository.findByIdCampanaGestion(idCampanaGestion)
                 .ifPresentOrElse(campania -> {
                     log.info("Finalizando campaña telefónica desde gestor: {}", idCampanaGestion);
+                    String estadoAnterior = campania.getEstado();
                     campania.setEstado("Finalizada");
                     campania.setIdEstado(4); // FINALIZADA
                     campania.setFechaModificacion(LocalDateTime.now());
                     campaniaRepository.save(campania);
                     log.info("Campaña telefónica finalizada");
+
+                    // AUDITORÍA: Registrar cambio de estado
+                    auditoriaService.registrarEvento(
+                            ModuloLog.CAMPANIAS_TELEFONICAS,
+                            AccionLog.CAMBIAR_ESTADO,
+                            campania.getId().longValue(),
+                            null, // TODO: Agregar ID de usuario
+                            String.format("Estado cambiado de %s a Finalizada", estadoAnterior));
                 }, () -> log.warn("No se encontró campaña telefónica para finalizar. Gestión ID: {}",
                         idCampanaGestion));
     }

@@ -10,6 +10,9 @@ import pe.unmsm.crm.marketing.campanas.gestor.domain.model.PlantillaCampana;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.port.input.IPlantillaUseCase;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.port.output.PlantillaRepositoryPort;
 import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
+import pe.unmsm.crm.marketing.shared.logging.AccionLog;
+import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
+import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
 
 import java.util.List;
 
@@ -24,11 +27,18 @@ import java.util.List;
 public class PlantillaService implements IPlantillaUseCase {
 
     private final PlantillaRepositoryPort plantillaRepository;
+    private final AuditoriaService auditoriaService;
 
     @Override
     public PlantillaCampana crear(PlantillaCampana plantilla) {
         log.debug("Creando plantilla: {}", plantilla.getNombre());
         PlantillaCampana saved = plantillaRepository.save(plantilla);
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CREAR,
+                saved.getIdPlantilla().longValue(), null,
+                "Plantilla creada: " + saved.getNombre());
+
         log.info("Plantilla creada con ID: {}", saved.getIdPlantilla());
         return saved;
     }
@@ -43,7 +53,9 @@ public class PlantillaService implements IPlantillaUseCase {
     @Override
     @Transactional(readOnly = true)
     public Page<PlantillaCampana> listar(String nombre, String canalEjecucion, int page, int size) {
-        return plantillaRepository.findByFiltros(nombre, canalEjecucion, PageRequest.of(page, size));
+        return plantillaRepository.findByFiltros(nombre, canalEjecucion,
+                PageRequest.of(page, size, org.springframework.data.domain.Sort
+                        .by(org.springframework.data.domain.Sort.Direction.DESC, "fechaCreacion")));
     }
 
     @Override
@@ -71,6 +83,12 @@ public class PlantillaService implements IPlantillaUseCase {
         }
 
         PlantillaCampana updated = plantillaRepository.save(existente);
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.ACTUALIZAR, idPlantilla.longValue(),
+                null,
+                "Plantilla actualizada: " + existente.getNombre());
+
         log.info("Plantilla {} actualizada", idPlantilla);
         return updated;
     }
@@ -82,6 +100,11 @@ public class PlantillaService implements IPlantillaUseCase {
         }
 
         plantillaRepository.deleteById(idPlantilla);
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.ELIMINAR, idPlantilla.longValue(), null,
+                "Plantilla eliminada");
+
         log.info("Plantilla {} eliminada", idPlantilla);
     }
 }

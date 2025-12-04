@@ -41,6 +41,7 @@ public interface ColaLlamadaRepository extends JpaRepository<ColaLlamadaEntity, 
                         "WHERE c.idCampania = :idCampania " +
                         "AND c.estadoEnCola = 'PENDIENTE' " +
                         "AND (c.idAgenteActual IS NULL OR c.idAgenteActual = :idAgente) " +
+                        "AND (c.fechaProgramada IS NULL OR c.fechaProgramada <= CURRENT_TIMESTAMP) " +
                         "ORDER BY CASE c.prioridadCola " +
                         "  WHEN 'ALTA' THEN 1 " +
                         "  WHEN 'MEDIA' THEN 2 " +

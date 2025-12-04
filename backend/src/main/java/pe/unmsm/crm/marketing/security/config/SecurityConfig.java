@@ -26,11 +26,10 @@ import java.util.List;
 
 /**
  * Configuración principal de Spring Security
- * 
- * Configura:
+ * * Configura:
  * - Autenticación JWT sin sesiones (stateless)
  * - CORS habilitado
- * - Rutas públicas y protegidas
+ * - Rutas públicas y protegidas (incluyendo WebSockets)
  * - Encriptación de contraseñas con BCrypt
  */
 @Configuration
@@ -65,6 +64,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/internal/**").permitAll() // Permitir llamadas internas (cache, batch)
                         .requestMatchers("/api/v1/mailing/webhooks/**").permitAll()
                         .requestMatchers("/api/v1/mailing/track/**").permitAll()                        
+
+                        .requestMatchers("/ws/**").permitAll()
+
                         // Todas las demás rutas requieren autenticación
                         .anyRequest().authenticated())
 
@@ -87,8 +89,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration
-                .setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000", "http://localhost:5600"));
+
+        configuration.setAllowedOriginPatterns(List.of(
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "http://localhost:5600",
+                "https://*.vercel.app"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -125,4 +131,7 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
+
 }
+
+    

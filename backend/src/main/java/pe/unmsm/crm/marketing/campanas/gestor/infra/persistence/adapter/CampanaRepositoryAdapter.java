@@ -97,4 +97,10 @@ public class CampanaRepositoryAdapter implements CampanaRepositoryPort {
         return jpaRepository.findProgramadasParaActivar(
                 new pe.unmsm.crm.marketing.campanas.gestor.domain.state.EstadoProgramada(), ahora);
     }
+
+    @Override
+    public List<Campana> findProgramadasPendientes() {
+        return jpaRepository.findProgramadasPendientes(
+                new pe.unmsm.crm.marketing.campanas.gestor.domain.state.EstadoProgramada());
+    }
 }

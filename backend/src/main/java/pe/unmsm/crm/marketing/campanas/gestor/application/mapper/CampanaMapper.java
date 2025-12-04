@@ -100,6 +100,7 @@ public class CampanaMapper {
                         historial.getCampana() != null ? historial.getCampana().getNombre() : "Campaña eliminada")
                 .fechaAccion(historial.getFechaAccion())
                 .tipoAccion(historial.getTipoAccion().name())
+                .usuarioResponsable(historial.getUsuarioResponsable())
                 .descripcionDetalle(historial.getDescripcionDetalle())
                 .build();
     }

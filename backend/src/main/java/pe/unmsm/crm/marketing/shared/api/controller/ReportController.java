@@ -23,7 +23,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/reportes")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
+
 public class ReportController {
 
     private final PdfReportService pdfReportService;

@@ -330,12 +330,28 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                 throw new AccessDeniedException("Contacto en cola no pertenece a la campaÃ±a");
                         }
 
-                        contacto.setEstadoEnCola("COMPLETADO");
-                        contacto.setIdAgenteActual(null); // Liberar asignaciÃ³n
-                        colaRepo.save(contacto);
+                        // Verificar si hay reagendamiento
+                        if (request.getFechaReagendamiento() != null) {
+                                // REAGENDAR: Volver a PENDIENTE con fecha programada
+                                contacto.setEstadoEnCola("PENDIENTE");
+                                contacto.setFechaProgramada(request.getFechaReagendamiento());
+                                contacto.setPrioridadCola("ALTA"); // Alta prioridad para reagendados
+                                contacto.setIdAgenteActual(null); // Liberar al pool
 
-                        log.info("Estado de contacto actualizado a COMPLETADO [contactoId={}]",
-                                        request.getIdContactoCola());
+                                log.info("Contacto reagendado para {} [contactoId={}]",
+                                                request.getFechaReagendamiento(), request.getIdContactoCola());
+                        } else {
+                                // COMPLETAR: Marcar como completado
+                                contacto.setEstadoEnCola("COMPLETADO");
+                                log.info("Estado de contacto actualizado a COMPLETADO [contactoId={}]",
+                                                request.getIdContactoCola());
+                        }
+
+                        // Actualizar última interacción
+                        contacto.setFechaUltimaLlamada(request.getInicio());
+                        contacto.setResultadoUltimaLlamada(request.getResultado());
+
+                        colaRepo.save(contacto);
                 }
 
                 return mapper.toLlamadaDTO(savedLlamada);

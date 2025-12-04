@@ -15,11 +15,11 @@ public class WebConfig {
             @Override
             public void addCorsMappings(@NonNull CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins(
-                                "http://localhost:5173", // Frontend principal
-                                "http://localhost:5174", // Frontend alternativo
-                                "http://localhost:5600" // Frontend encuestas públicas
-                )
+                        .allowedOriginPatterns(
+                                "http://localhost:5173",
+                                "http://localhost:5174",
+                                "http://localhost:5600",
+                                "https://*.vercel.app")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                         .allowedHeaders("*")
                         .allowCredentials(true);

@@ -234,7 +234,9 @@ public class CampanaController {
                         @RequestParam(defaultValue = "20") int size) {
 
                 Page<HistorialCampana> historialPage = historialRepository.findByFiltros(
-                                idCampana, tipoAccion, fechaDesde, fechaHasta, PageRequest.of(page, size));
+                                idCampana, tipoAccion, fechaDesde, fechaHasta,
+                                PageRequest.of(page, size, org.springframework.data.domain.Sort.by(
+                                                org.springframework.data.domain.Sort.Direction.DESC, "fechaAccion")));
 
                 // Convertir a DTOs
                 List<HistorialItemResponse> content = historialPage.getContent().stream()

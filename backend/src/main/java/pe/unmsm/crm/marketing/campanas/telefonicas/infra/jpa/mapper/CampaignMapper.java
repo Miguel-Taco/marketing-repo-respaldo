@@ -71,6 +71,8 @@ public class CampaignMapper {
                 .idLead(entity.getIdLead())
                 .estadoCampania(entity.getEstadoEnCola())
                 .prioridad(entity.getPrioridadCola())
+                .fechaUltimaLlamada(entity.getFechaUltimaLlamada())
+                .resultadoUltimaLlamada(entity.getResultadoUltimaLlamada())
                 .numeroIntentos(0); // TODO: calcular desde historial
 
         // Obtener datos del Lead

@@ -180,9 +180,13 @@ public class SegmentoRepositoryImpl implements SegmentoRepository {
                 String campoNormalizado = simple.getCampo().toLowerCase().trim();
                 System.out.println("Buscando en catálogo con campo normalizado: '" + campoNormalizado + "'");
 
-                Optional<JpaCatalogoFiltroEntity> catalogo = jpaCatalogoFiltroRepository.findByCampo(campoNormalizado);
-                if (catalogo.isPresent()) {
-                    idFiltro = catalogo.get().getIdFiltro();
+                List<JpaCatalogoFiltroEntity> catalogos = jpaCatalogoFiltroRepository.findByCampo(campoNormalizado);
+                if (!catalogos.isEmpty()) {
+                    if (catalogos.size() > 1) {
+                        System.out.println("⚠ ADVERTENCIA: Se encontraron " + catalogos.size()
+                                + " filtros duplicados para '" + campoNormalizado + "'. Usando el primero.");
+                    }
+                    idFiltro = catalogos.get(0).getIdFiltro();
                     System.out.println("✓ Filtro encontrado! ID: " + idFiltro);
                 } else {
                     System.err.println(

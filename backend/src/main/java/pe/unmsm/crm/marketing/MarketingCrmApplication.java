@@ -12,7 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class MarketingCrmApplication {
 
     static {
-        Dotenv dotenv = Dotenv.configure().load();
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         dotenv.entries().forEach(entry -> {
             System.setProperty(entry.getKey(), entry.getValue());
         });

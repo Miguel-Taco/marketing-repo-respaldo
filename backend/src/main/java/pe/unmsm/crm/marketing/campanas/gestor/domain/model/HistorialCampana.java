@@ -39,6 +39,9 @@ public class HistorialCampana {
     @Column(name = "tipo_accion", nullable = false, length = 100)
     private TipoAccion tipoAccion;
 
+    @Column(name = "usuario_responsable", length = 100)
+    private String usuarioResponsable;
+
     @Column(name = "descripcion_detalle", columnDefinition = "TEXT")
     private String descripcionDetalle;
 

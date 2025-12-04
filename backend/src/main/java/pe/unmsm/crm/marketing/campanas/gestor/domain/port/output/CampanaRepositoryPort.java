@@ -48,4 +48,9 @@ public interface CampanaRepositoryPort {
      * Busca campañas programadas listas para activar
      */
     List<Campana> findProgramadasParaActivar(java.time.LocalDateTime ahora);
+
+    /**
+     * Busca todas las campañas en estado Programada
+     */
+    List<Campana> findProgramadasPendientes();
 }

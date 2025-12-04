@@ -23,4 +23,5 @@ public class CampanaEstadoCambiadoEvent {
     private String tipoAccion; // ACTIVACION, PAUSA, etc.
     private LocalDateTime timestamp;
     private String motivo; // Opcional, ej. razón de cancelación
+    private String usuarioResponsable;
 }

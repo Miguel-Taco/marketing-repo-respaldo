@@ -12,6 +12,9 @@ import pe.unmsm.crm.marketing.leads.domain.enums.EstadoLead;
 import pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository;
 import pe.unmsm.crm.marketing.shared.infra.exception.BusinessException;
 import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
+import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
+import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
+import pe.unmsm.crm.marketing.shared.logging.AccionLog;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,6 +25,7 @@ public class LeadManagementService {
 
     private final LeadRepository leadRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditoriaService auditoriaService;
 
     @Transactional
     public void cualificarLead(@NonNull Long leadId, @NonNull EstadoLead nuevoEstado, String motivo) {
@@ -43,6 +47,16 @@ public class LeadManagementService {
         // PATRÓN OBSERVER: Notificamos el cambio
         eventPublisher.publishEvent(new LeadEstadoCambiadoEvent(
                 lead.getId(), estadoAnterior, nuevoEstado, motivo != null ? motivo : "Cambio manual Agente"));
+
+        // AUDITORÍA: Registrar cambio de estado
+        auditoriaService.registrarEvento(
+                ModuloLog.LEADS,
+                AccionLog.CAMBIAR_ESTADO,
+                leadId,
+                null, // TODO: Agregar ID de usuario cuando esté disponible en el contexto de
+                      // seguridad
+                String.format("Estado cambiado de %s a %s. Motivo: %s",
+                        estadoAnterior, nuevoEstado, motivo != null ? motivo : "Cambio manual"));
     }
 
     // Sobrecarga para mantener compatibilidad si es necesario, o eliminar si todos
@@ -74,6 +88,14 @@ public class LeadManagementService {
         // Al borrar el Lead, la BD borrará el historial automáticamente por el ON
         // DELETE CASCADE
         leadRepository.deleteById(id);
+
+        // AUDITORÍA: Registrar eliminación
+        auditoriaService.registrarEvento(
+                ModuloLog.LEADS,
+                AccionLog.ELIMINAR,
+                id,
+                null, // TODO: Agregar ID de usuario cuando esté disponible
+                "Lead eliminado");
     }
 
     public Lead findLeadById(@NonNull Long id) {
@@ -92,6 +114,18 @@ public class LeadManagementService {
                 eliminados++;
             }
         }
+
+        // AUDITORÍA: Registrar eliminación en lote
+        if (eliminados > 0) {
+            auditoriaService.registrarEvento(
+                    ModuloLog.LEADS,
+                    AccionLog.ELIMINAR,
+                    null, // Operación en lote, no hay un solo ID
+                    null, // TODO: Agregar ID de usuario
+                    String.format("Eliminación en lote: %d leads eliminados de %d solicitados",
+                            eliminados, ids.size()));
+        }
+
         return eliminados;
     }
 
@@ -112,6 +146,19 @@ public class LeadManagementService {
                 }
             }
         }
+
+        // AUDITORÍA: Registrar calificación en lote
+        if (actualizados > 0) {
+            auditoriaService.registrarEvento(
+                    ModuloLog.LEADS,
+                    AccionLog.CAMBIAR_ESTADO,
+                    null, // Operación en lote
+                    null, // TODO: Agregar ID de usuario
+                    String.format(
+                            "Calificación en lote: %d leads actualizados a estado %s de %d solicitados. Motivo: %s",
+                            actualizados, nuevoEstado, ids.size(), motivo != null ? motivo : "No especificado"));
+        }
+
         return actualizados;
     }
 

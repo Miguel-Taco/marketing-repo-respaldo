@@ -9,6 +9,9 @@ import pe.unmsm.crm.marketing.leads.domain.model.Lead;
 import pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository;
 import pe.unmsm.crm.marketing.shared.domain.model.Distrito;
 import pe.unmsm.crm.marketing.shared.domain.repository.DistritoRepository;
+import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
+import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
+import pe.unmsm.crm.marketing.shared.logging.AccionLog;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,6 +26,7 @@ public class LeadIntegrationService {
 
         private final LeadRepository leadRepository;
         private final DistritoRepository distritoRepository;
+        private final AuditoriaService auditoriaService;
 
         @Transactional(readOnly = true)
         public List<LeadIntegrationDTO> obtenerLeadsParaSegmentacion(
@@ -47,39 +51,49 @@ public class LeadIntegrationService {
                                 nivelEducativo, estadoCivil);
 
                 // 4. Mapear a DTO
-                return leads.stream()
+                List<LeadIntegrationDTO> resultado = leads.stream()
                                 .map(this::mapToDTO)
                                 .collect(Collectors.toList());
+
+                // AUDITORÍA: Registrar consulta para segmentación
+                auditoriaService.registrarEvento(
+                                ModuloLog.LEADS,
+                                AccionLog.ACTUALIZAR, // Operación de lectura/consulta
+                                null, // No hay un solo lead, es una consulta general
+                                null,
+                                String.format("Leads consultados para segmentación: %d leads encontrados. Filtros - Fecha: %s a %s, Edad: %s-%s, Género: %s",
+                                                resultado.size(), fechaDesde, fechaHasta,
+                                                edadMin != null ? edadMin : "N/A",
+                                                edadMax != null ? edadMax : "N/A",
+                                                genero != null ? genero : "N/A"));
+
+                return resultado;
         }
 
+        @SuppressWarnings("null")
         private LeadIntegrationDTO mapToDTO(Lead lead) {
                 // Obtener nombres de ubicación si hay distrito
-                String distritoNombre = null;
-                String provinciaNombre = null;
-                String departamentoNombre = null;
+                String distritoNombre = "";
+                String provinciaNombre = "";
+                String departamentoNombre = "";
 
                 if (lead.getDemograficos() != null && lead.getDemograficos().getDistrito() != null) {
                         String distritoId = lead.getDemograficos().getDistrito();
-                        distritoRepository.findById(distritoId).ifPresent(distrito -> {
-                                // El nombre del distrito viene directo
-                                // distritoNombre = distrito.getNombre(); // Se asignará abajo
 
-                                // Para provincia y departamento, extraemos del código
-                                // Formato: DDPPDD (Departamento-Provincia-Distrito)
-                                // Ejemplo: "150101" = Lima (15), Lima (01), Cercado (01)
-                        });
+                        // Obtener nombre del distrito desde el repositorio
+                        distritoNombre = distritoRepository.findById(distritoId)
+                                        .map(Distrito::getNombre)
+                                        .orElse("");
 
                         // Mapeo temporal basado en códigos conocidos
+                        // Formato: DDPPDD (Departamento-Provincia-Distrito)
+                        // Ejemplo: "150101" = Lima (15), Lima (01), Cercado (01)
                         if (distritoId.startsWith("15")) {
                                 departamentoNombre = "Lima";
                                 if (distritoId.startsWith("1501")) {
                                         provinciaNombre = "Lima";
                                 }
                         }
-                        // Obtener nombre del distrito
-                        distritoNombre = distritoRepository.findById(distritoId)
-                                        .map(Distrito::getNombre)
-                                        .orElse(null);
                 }
 
                 return LeadIntegrationDTO.builder()

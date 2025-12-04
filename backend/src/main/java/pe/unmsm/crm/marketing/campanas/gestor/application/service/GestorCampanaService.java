@@ -12,6 +12,12 @@ import pe.unmsm.crm.marketing.campanas.gestor.domain.model.Campana;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.model.TipoAccion;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.port.input.IGestorCampanaUseCase;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.port.output.CampanaRepositoryPort;
+import pe.unmsm.crm.marketing.shared.application.service.UserContextService;
+import pe.unmsm.crm.marketing.campanas.gestor.infra.scheduler.CampaignActivationManager;
+import pe.unmsm.crm.marketing.shared.logging.AccionLog;
+import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
+import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
+
 import pe.unmsm.crm.marketing.campanas.gestor.domain.port.output.ICanalEjecucionPort;
 import pe.unmsm.crm.marketing.campanas.gestor.domain.port.output.IConsultaRecursosPort;
 import pe.unmsm.crm.marketing.shared.infra.exception.BusinessException;
@@ -19,7 +25,6 @@ import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
 import pe.unmsm.crm.marketing.shared.infra.exception.ValidationException;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * Servicio de aplicación principal del Gestor de campanas.
@@ -36,6 +41,9 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
     private final IConsultaRecursosPort consultaRecursosPort;
     private final ICanalEjecucionPort canalEjecucionPort;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserContextService userContextService;
+    private final CampaignActivationManager activationManager;
+    private final AuditoriaService auditoriaService;
 
     @Override
     public Campana crear(Campana campana) {
@@ -46,6 +54,10 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
 
         // Publicar evento de creación
         publicarEvento(saved.getIdCampana(), null, "Borrador", TipoAccion.CREACION, "Campaña creada");
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CREAR, saved.getIdCampana(), null,
+                "Campaña creada: " + saved.getNombre());
 
         log.info("Campaña creada con ID: {}", saved.getIdCampana());
         return saved;
@@ -68,7 +80,8 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         }
 
         return campanaRepository.findByFiltros(nombre, estado, prioridad, canalEjecucion, esArchivado,
-                PageRequest.of(page, size));
+                PageRequest.of(page, size, org.springframework.data.domain.Sort
+                        .by(org.springframework.data.domain.Sort.Direction.DESC, "fechaCreacion")));
     }
 
     @Override
@@ -110,6 +123,10 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         publicarEvento(idCampana, existente.getEstado().getNombre(),
                 existente.getEstado().getNombre(), TipoAccion.EDICION, "Campaña editada");
 
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.ACTUALIZAR, idCampana, null,
+                "Campaña actualizada: " + existente.getNombre());
+
         log.info("Campaña {} editada", idCampana);
         return updated;
     }
@@ -142,12 +159,22 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         // Publicar evento
         publicarEvento(idCampana, estadoAnterior, "Programada", TipoAccion.PROGRAMACION, null);
 
+        // Programar activación dinámica
+        activationManager.scheduleActivation(idCampana, fechaInicio);
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CAMBIAR_ESTADO, idCampana, null,
+                "Estado cambiado a Programada. Inicio: " + fechaInicio);
+
         log.info("Campaña {} programada para {} - {}", idCampana, fechaInicio, fechaFin);
         return updated;
     }
 
     @Override
     public Campana activar(Long idCampana) {
+        // Cancelar tarea programada si existe (ya que se está activando)
+        activationManager.cancelActivation(idCampana);
+
         Campana campana = obtenerPorId(idCampana);
         String estadoAnterior = campana.getEstado().getNombre();
 
@@ -165,6 +192,10 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
                     "Error al delegar ejecución al canal");
         } else {
             publicarEvento(idCampana, estadoAnterior, "Vigente", TipoAccion.ACTIVACION, null);
+
+            // AUDITORÍA
+            auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CAMBIAR_ESTADO, idCampana, null,
+                    "Estado cambiado a Vigente");
         }
 
         log.info("Campaña {} activada", idCampana);
@@ -173,6 +204,7 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
 
     @Override
     public Campana pausar(Long idCampana, String motivo) {
+        activationManager.cancelActivation(idCampana);
         Campana campana = obtenerPorId(idCampana);
         String estadoAnterior = campana.getEstado().getNombre();
 
@@ -186,6 +218,10 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
 
         // Publicar evento
         publicarEvento(idCampana, estadoAnterior, "Pausada", TipoAccion.PAUSA, motivo);
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CAMBIAR_ESTADO, idCampana, null,
+                "Estado cambiado a Pausada. Motivo: " + motivo);
 
         log.info("Campaña {} pausada. Motivo: {}", idCampana, motivo);
         return campana;
@@ -207,12 +243,17 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         // Publicar evento
         publicarEvento(idCampana, estadoAnterior, "Vigente", TipoAccion.REANUDACION, null);
 
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CAMBIAR_ESTADO, idCampana, null,
+                "Estado cambiado a Vigente (Reanudada)");
+
         log.info("Campaña {} reanudada", idCampana);
         return campana;
     }
 
     @Override
     public Campana cancelar(Long idCampana, String motivo) {
+        activationManager.cancelActivation(idCampana);
         Campana campana = obtenerPorId(idCampana);
         String estadoAnterior = campana.getEstado().getNombre();
 
@@ -227,12 +268,17 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         // Publicar evento
         publicarEvento(idCampana, estadoAnterior, "Cancelada", TipoAccion.CANCELACION, motivo);
 
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CAMBIAR_ESTADO, idCampana, null,
+                "Estado cambiado a Cancelada. Motivo: " + motivo);
+
         log.info("Campaña {} cancelada. Motivo: {}", idCampana, motivo);
         return campana;
     }
 
     @Override
     public Campana finalizar(Long idCampana) {
+        activationManager.cancelActivation(idCampana);
         Campana campana = obtenerPorId(idCampana);
         String estadoAnterior = campana.getEstado().getNombre();
 
@@ -243,6 +289,10 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
 
         // Publicar evento
         publicarEvento(idCampana, estadoAnterior, "Finalizada", TipoAccion.FINALIZACION, null);
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CAMBIAR_ESTADO, idCampana, null,
+                "Estado cambiado a Finalizada");
 
         log.info("Campaña {} finalizada", idCampana);
         return campana;
@@ -279,6 +329,13 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         // Publicar evento
         publicarEvento(idCampana, estadoAnterior, "Programada", TipoAccion.REPROGRAMACION, null);
 
+        // Reprogramar activación dinámica
+        activationManager.scheduleActivation(idCampana, nuevaFechaInicio);
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CAMBIAR_ESTADO, idCampana, null,
+                "Estado cambiado a Programada (Reprogramada). Inicio: " + nuevaFechaInicio);
+
         log.info("Campaña {} reprogramada para {} - {}", idCampana, nuevaFechaInicio, nuevaFechaFin);
         return campana;
     }
@@ -295,6 +352,10 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         // Publicar evento
         publicarEvento(idCampana, campana.getEstado().getNombre(),
                 campana.getEstado().getNombre(), TipoAccion.ARCHIVO, "Campaña archivada");
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CAMBIAR_ESTADO, idCampana, null,
+                "Campaña archivada");
 
         log.info("Campaña {} archivada", idCampana);
         return campana;
@@ -323,6 +384,10 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         publicarEvento(saved.getIdCampana(), null, "Borrador", TipoAccion.DUPLICACION,
                 "Duplicada desde campaña " + idCampana);
 
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.CREAR, saved.getIdCampana(), null,
+                "Campaña duplicada desde ID " + idCampana);
+
         log.info("Campaña {} duplicada. Nueva ID: {}", idCampana, saved.getIdCampana());
         return saved;
     }
@@ -337,6 +402,11 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         }
 
         campanaRepository.deleteById(idCampana);
+
+        // AUDITORÍA
+        auditoriaService.registrarEvento(ModuloLog.CAMPANIAS_GESTOR, AccionLog.ELIMINAR, idCampana, null,
+                "Campaña eliminada físicamente");
+
         log.info("Campaña {} eliminada físicamente", idCampana);
     }
 
@@ -391,6 +461,7 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
                 .tipoAccion(tipoAccion.name())
                 .timestamp(LocalDateTime.now())
                 .motivo(motivo)
+                .usuarioResponsable(userContextService.getCurrentUsername().orElse("SISTEMA"))
                 .build();
 
         eventPublisher.publishEvent(event);

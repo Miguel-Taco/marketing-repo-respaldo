@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import pe.unmsm.crm.marketing.segmentacion.domain.model.*;
@@ -118,6 +119,12 @@ public class LeadCacheService {
         return getAllLeads().stream()
                 .filter(lead -> matchesSegmentRules(lead, segmento))
                 .count();
+    }
+
+    @Scheduled(fixedRate = 300000) // 5 minutos
+    public void scheduledRefresh() {
+        log.info("=== Ejecutando actualización programada de caché de leads (cada 5 min) ===");
+        loadAllLeadsIntoCache();
     }
 
     public void refreshCache() {

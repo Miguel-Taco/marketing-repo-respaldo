@@ -44,4 +44,7 @@ public interface JpaCampanaRepository extends JpaRepository<Campana, Long> {
         @Query("SELECT c FROM Campana c WHERE c.estado = :estado AND c.canalEjecucion = 'Llamadas' AND c.fechaProgramadaInicio <= :ahora")
         List<Campana> findProgramadasParaActivar(@Param("estado") EstadoCampana estado,
                         @Param("ahora") java.time.LocalDateTime ahora);
+
+        @Query("SELECT c FROM Campana c WHERE c.estado = :estado")
+        List<Campana> findProgramadasPendientes(@Param("estado") EstadoCampana estado);
 }
