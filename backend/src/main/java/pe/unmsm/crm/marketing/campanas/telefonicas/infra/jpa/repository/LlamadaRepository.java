@@ -64,6 +64,19 @@ public interface LlamadaRepository extends JpaRepository<LlamadaEntity, Integer>
                         @Param("desde") LocalDateTime desde);
 
         /**
+         * Obtiene métricas por campaña desde una fecha específica (GLOBAL)
+         */
+        @Query("SELECT new map(" +
+                        "COUNT(l) as totalLlamadas, " +
+                        "AVG(TIMESTAMPDIFF(SECOND, l.inicio, l.fin)) as duracionPromedio) " +
+                        "FROM LlamadaEntity l " +
+                        "WHERE l.idCampania = :idCampania " +
+                        "AND l.inicio >= :desde")
+        Map<String, Object> getMetricasByCampaniaAndDate(
+                        @Param("idCampania") Integer idCampania,
+                        @Param("desde") LocalDateTime desde);
+
+        /**
          * Cuenta llamadas por resultado en una campaña
          * Retorna: [resultado (código), nombre (display), count]
          */
@@ -105,6 +118,30 @@ public interface LlamadaRepository extends JpaRepository<LlamadaEntity, Integer>
         Long countLlamadasEfectivasHoy(
                         @Param("idCampania") Integer idCampania,
                         @Param("idAgente") Integer idAgente,
+                        @Param("inicioDia") LocalDateTime inicioDia,
+                        @Param("finDia") LocalDateTime finDia);
+
+        /**
+         * Cuenta llamadas realizadas hoy por campaña (GLOBAL)
+         */
+        @Query("SELECT COUNT(l) FROM LlamadaEntity l " +
+                        "WHERE l.idCampania = :idCampania " +
+                        "AND l.inicio BETWEEN :inicioDia AND :finDia")
+        Long countLlamadasHoyPorCampania(
+                        @Param("idCampania") Integer idCampania,
+                        @Param("inicioDia") LocalDateTime inicioDia,
+                        @Param("finDia") LocalDateTime finDia);
+
+        /**
+         * Cuenta llamadas efectivas hoy por campaña (GLOBAL)
+         */
+        @Query("SELECT COUNT(l) FROM LlamadaEntity l " +
+                        "JOIN l.resultado r " +
+                        "WHERE l.idCampania = :idCampania " +
+                        "AND l.inicio BETWEEN :inicioDia AND :finDia " +
+                        "AND r.resultado IN ('CONTACTADO', 'INTERESADO')")
+        Long countLlamadasEfectivasHoyPorCampania(
+                        @Param("idCampania") Integer idCampania,
                         @Param("inicioDia") LocalDateTime inicioDia,
                         @Param("finDia") LocalDateTime finDia);
 

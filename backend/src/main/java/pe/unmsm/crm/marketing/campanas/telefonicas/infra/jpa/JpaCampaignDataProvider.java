@@ -28,7 +28,6 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         private final LlamadaRepository llamadaRepo;
         private final GuionRepository guionRepo;
         private final ResultadoLlamadaRepository resultadoRepo;
-        private final CampaniaAgenteRepository campaniaAgenteRepo;
         private final CampaignMapper mapper;
         private final pe.unmsm.crm.marketing.campanas.telefonicas.application.service.EncuestaLlamadaService encuestaLlamadaService;
         private final pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository leadRepository;
@@ -406,17 +405,29 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                 idCampania, idAgente);
 
                 LocalDateTime desde = LocalDateTime.now().minusDays(30);
-                Integer agenteId = requireAgent(idAgente);
+                Integer agenteId = (idAgente != null) ? requireAgent(idAgente) : null;
 
                 java.util.Map<String, Object> metricas;
                 if (idCampania != null) {
                         ensureCampaniaAccess(idCampania);
-                        metricas = llamadaRepo.getMetricasByAgenteAndCampania(
-                                        agenteId,
-                                        idCampania.intValue(),
-                                        desde);
+                        if (agenteId != null) {
+                                metricas = llamadaRepo.getMetricasByAgenteAndCampania(
+                                                agenteId,
+                                                idCampania.intValue(),
+                                                desde);
+                        } else {
+                                // Admin: Métricas globales de la campaña en los últimos 30 días
+                                metricas = llamadaRepo.getMetricasByCampaniaAndDate(
+                                                idCampania.intValue(),
+                                                desde);
+                        }
                 } else {
-                        metricas = llamadaRepo.getMetricasByAgente(agenteId, desde);
+                        if (agenteId != null) {
+                                metricas = llamadaRepo.getMetricasByAgente(agenteId, desde);
+                        } else {
+                                // Admin global metrics (placeholder or implementation if needed)
+                                metricas = java.util.Map.of("totalLlamadas", 0L, "duracionPromedio", 0.0);
+                        }
                 }
 
                 return mapper.toMetricasAgenteDTO(metricas);
@@ -428,7 +439,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 log.info("Obteniendo mÃ©tricas diarias [campaniaId={}, agenteId={}]",
                                 idCampania, idAgente);
                 ensureCampaniaAccess(idCampania);
-                Integer agenteId = requireAgent(idAgente);
+                Integer agenteId = (idAgente != null) ? requireAgent(idAgente) : null;
 
                 // Calcular rango de "hoy" en Java para evitar problemas de timezone
                 LocalDateTime ahora = LocalDateTime.now();
@@ -438,19 +449,35 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 // Contar pendientes
                 Long pendientes = colaRepo.countByEstadoAndCampaign(idCampania.intValue(), "PENDIENTE");
 
-                // Contar llamadas realizadas hoy (con rango de fechas)
-                Long realizadasHoy = llamadaRepo.countLlamadasHoy(
-                                idCampania.intValue(),
-                                agenteId,
-                                inicioDia,
-                                finDia);
+                Long realizadasHoy;
+                Long efectivasHoy;
 
-                // Contar llamadas efectivas hoy (con rango de fechas)
-                Long efectivasHoy = llamadaRepo.countLlamadasEfectivasHoy(
-                                idCampania.intValue(),
-                                agenteId,
-                                inicioDia,
-                                finDia);
+                if (agenteId != null) {
+                        // Contar llamadas realizadas hoy (con rango de fechas)
+                        realizadasHoy = llamadaRepo.countLlamadasHoy(
+                                        idCampania.intValue(),
+                                        agenteId,
+                                        inicioDia,
+                                        finDia);
+
+                        // Contar llamadas efectivas hoy (con rango de fechas)
+                        efectivasHoy = llamadaRepo.countLlamadasEfectivasHoy(
+                                        idCampania.intValue(),
+                                        agenteId,
+                                        inicioDia,
+                                        finDia);
+                } else {
+                        // Admin: Métricas globales de hoy para la campaña
+                        realizadasHoy = llamadaRepo.countLlamadasHoyPorCampania(
+                                        idCampania.intValue(),
+                                        inicioDia,
+                                        finDia);
+
+                        efectivasHoy = llamadaRepo.countLlamadasEfectivasHoyPorCampania(
+                                        idCampania.intValue(),
+                                        inicioDia,
+                                        finDia);
+                }
 
                 return MetricasDiariasDTO.builder()
                                 .pendientes(pendientes != null ? pendientes : 0L)

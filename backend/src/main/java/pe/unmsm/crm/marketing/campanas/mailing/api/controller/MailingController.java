@@ -35,7 +35,7 @@ public class MailingController {
 
     // ============ PANEL: Listar campañas por estado ============
     @PreAuthorize("hasAnyRole('ADMIN','AGENTE')")
-    @GetMapping("/campa?as")
+    @GetMapping("/campañas")
     public ResponseEntity<List<CampanaMailingResponse>> listarCampanas(
             @RequestParam(required = false) String estado) {
 

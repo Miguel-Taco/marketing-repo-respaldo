@@ -30,7 +30,7 @@ CREATE TABLE `Encuesta` (
   `fecha_creacion` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `fecha_modificacion` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id_encuesta`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -39,7 +39,7 @@ CREATE TABLE `Encuesta` (
 
 LOCK TABLES `Encuesta` WRITE;
 /*!40000 ALTER TABLE `Encuesta` DISABLE KEYS */;
-INSERT INTO `Encuesta` VALUES (2,'Qualify: Prioridad y Driver de Velocidad','Ayúdanos a entender tu consumo de internet para ofrecerte la velocidad ideal.','ACTIVA','2025-11-23 06:35:23','2025-11-23 06:35:23'),(3,'Reactivación: Decisión y Horario','Cuéntanos qué faltó para convencerte y retomemos.\n','ACTIVA','2025-11-23 06:40:24','2025-11-23 06:40:24'),(4,' Cualificación: Valor del Paquete Familiar','Informanos sobre tu plan familiar ideal','ACTIVA','2025-11-23 06:43:29','2025-11-23 06:43:29'),(5,'Lead-Nurturing: Confirmación de Canal - Editado','Personaliza cómo recibes nuestras novedades.','BORRADOR','2025-11-23 06:50:36','2025-11-24 02:21:43'),(6,'Interés en el Precio (Banda de Gasto)','Encuentra el plan que se ajusta a tu bolsillo.\n','BORRADOR','2025-11-23 06:56:18','2025-11-23 06:56:18'),(7,'test','test','ARCHIVADA','2025-11-27 01:57:22','2025-12-01 17:30:11'),(8,'test2','test222','ARCHIVADA','2025-11-30 21:55:46','2025-12-01 17:46:14');
+INSERT INTO `Encuesta` VALUES (2,'Qualify: Prioridad y Driver de Velocidad','Ayúdanos a entender tu consumo de internet para ofrecerte la velocidad ideal.','ACTIVA','2025-11-23 06:35:23','2025-11-23 06:35:23'),(3,'Reactivación: Decisión y Horario','Cuéntanos qué faltó para convencerte y retomemos.\n','ACTIVA','2025-11-23 06:40:24','2025-11-23 06:40:24'),(4,' Cualificación: Valor del Paquete Familiar','Informanos sobre tu plan familiar ideal','ACTIVA','2025-11-23 06:43:29','2025-11-23 06:43:29'),(5,'Lead-Nurturing: Confirmación de Canal - Editado','Personaliza cómo recibes nuestras novedades.','BORRADOR','2025-11-23 06:50:36','2025-11-24 02:21:43'),(6,'Interés en el Precio (Banda de Gasto)','Encuentra el plan que se ajusta a tu bolsillo.\n','BORRADOR','2025-11-23 06:56:18','2025-11-23 06:56:18'),(7,'test','test','ARCHIVADA','2025-11-27 01:57:22','2025-12-01 17:30:11'),(8,'test2','test222','ARCHIVADA','2025-11-30 21:55:46','2025-12-01 17:46:14'),(9,'Encuesta A','test aaaaa','ARCHIVADA','2025-12-02 01:55:55','2025-12-02 01:58:33'),(10,'Captación: Internet Residencial','Esta breve encuesta nos ayuda a encontrar el plan de Internet perfecto para ti. Solo te tomará unos segundos. Indícanos tu prioridad principal y tus preferencias de contacto.','ACTIVA','2025-12-02 05:09:52','2025-12-02 05:40:37'),(11,'Captación: Planes Móviles','Ayúdanos a encontrar el mejor plan móvil con la tarifa y los datos que necesitas. Solo te tomará unos segundos.','ACTIVA','2025-12-02 05:22:58','2025-12-02 05:42:22'),(12,'Retención: Lealtad Renovación Plan Móvil','Hemos preparado una oferta exclusiva para ti. Ayúdanos a elegir el mejor beneficio y el momento ideal para renovar tu plan.','ACTIVA','2025-12-02 05:30:15','2025-12-02 05:43:14'),(13,'Mejora de Plan: Upgrade Equipos Móviles','Hemos seleccionado una oferta de upgrade exclusiva para ti. Indícanos tu prioridad en el nuevo equipo y cuándo deseas recibir los detalles de la renovación.','ACTIVA','2025-12-02 05:37:22','2025-12-02 05:41:22'),(14,'Mejora de Plan: Aumento Velocidad Fibra','Hemos identificado una oportunidad exclusiva para mejorar la velocidad de su servicio actual. Por favor, responda estas 3 preguntas clave.','BORRADOR','2025-12-02 05:46:08','2025-12-02 05:46:08'),(15,'Retención: Prevención Fuga Servicio Internet','Valoramos su fidelidad. Por favor, indíquenos honestamente la razón por la que ha considerado un cambio para poder mejorar su plan actual.','BORRADOR','2025-12-02 05:48:50','2025-12-02 05:48:50'),(16,'test b','testb testb testb testb testb testb testb testb testb testb testb testb testb testb testb testb','BORRADOR','2025-12-02 16:07:26','2025-12-02 16:07:26'),(17,'Test4','test4test4test4test4test4test4test4test4test4test4test4test4test4test4test4test4','ARCHIVADA','2025-12-04 01:29:18','2025-12-04 01:30:13'),(18,'test5','test5 test5 test55','ARCHIVADA','2025-12-04 01:35:09','2025-12-04 01:35:49');
 /*!40000 ALTER TABLE `Encuesta` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -60,7 +60,7 @@ CREATE TABLE `Opcion` (
   UNIQUE KEY `idx_orden_pregunta` (`id_pregunta`,`orden`),
   UNIQUE KEY `UK9tpvhnhudfqifx9d4tmm0vda9` (`id_pregunta`,`orden`),
   CONSTRAINT `fk_opcion_pregunta` FOREIGN KEY (`id_pregunta`) REFERENCES `Pregunta` (`id_pregunta`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=65 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=144 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -69,7 +69,7 @@ CREATE TABLE `Opcion` (
 
 LOCK TABLES `Opcion` WRITE;
 /*!40000 ALTER TABLE `Opcion` DISABLE KEYS */;
-INSERT INTO `Opcion` VALUES (4,2,'Trabajo remoto / Videollamadas',1,0),(5,2,'Gaming / Streaming 4K',2,0),(6,2,'Uso básico (Redes sociales)',3,0),(7,3,'La velocidad de subida',1,0),(8,3,'La estabilidad sin cortes',2,0),(9,3,'El precio bajo',3,0),(10,4,' Encontré una oferta más barata',1,0),(11,4,'No me convenció la permanencia',2,0),(12,4,'Dudas sobre la tecnología',3,0),(13,5,'Sí, quisiera recibir una llamada ya',1,1),(14,5,'Mandenme la nueva oferta por correo',2,0),(15,6,' Tener muchos datos (Gigas)',1,0),(16,6,'Pagar lo menos posible',2,0),(17,7,'Líneas adicionales',1,0),(18,7,'Apps incluidas (Streaming)',2,0),(19,8,'Sí, urgente',1,1),(20,8,'No',2,0),(40,18,' Hasta $50 - editar',1,0),(41,18,'Hasta $80',2,0),(42,18,'Más de $100 - evaluar',3,0),(43,19,'Menos velocidad',1,0),(44,19,'Sin TV / Streaming',2,0),(45,20,' Sí',1,1),(46,20,'No',2,0),(47,21,'Solo WhatsApp',1,0),(48,21,'Solo Correo electrónico',2,0),(49,21,'Llamadas breves',3,0),(50,22,'Fibra Óptica Hogar',1,0),(51,22,'Planes Móviles',2,0),(52,22,'Renovación de Equipos',3,1),(53,23,'test1',1,0),(54,23,'test1',2,0),(55,24,'o1',1,0),(56,24,'o2',2,0),(57,24,'o3',3,0),(58,24,'o4',4,0),(59,24,'o5',5,0),(60,24,'o6',6,1),(61,25,'o11',1,0),(62,25,'o23',2,0),(63,25,'o33',3,1),(64,25,'o44',4,0);
+INSERT INTO `Opcion` VALUES (4,2,'Trabajo remoto / Videollamadas',1,0),(5,2,'Gaming / Streaming 4K',2,0),(6,2,'Uso básico (Redes sociales)',3,0),(7,3,'La velocidad de subida',1,0),(8,3,'La estabilidad sin cortes',2,0),(9,3,'El precio bajo',3,0),(10,4,' Encontré una oferta más barata',1,0),(11,4,'No me convenció la permanencia',2,0),(12,4,'Dudas sobre la tecnología',3,0),(13,5,'Sí, quisiera recibir una llamada ya',1,1),(14,5,'Mandenme la nueva oferta por correo',2,0),(15,6,' Tener muchos datos (Gigas)',1,0),(16,6,'Pagar lo menos posible',2,0),(17,7,'Líneas adicionales',1,0),(18,7,'Apps incluidas (Streaming)',2,0),(19,8,'Sí, urgente',1,1),(20,8,'No',2,0),(40,18,' Hasta $50 - editar',1,0),(41,18,'Hasta $80',2,0),(42,18,'Más de $100 - evaluar',3,0),(43,19,'Menos velocidad',1,0),(44,19,'Sin TV / Streaming',2,0),(45,20,' Sí',1,1),(46,20,'No',2,0),(47,21,'Solo WhatsApp',1,0),(48,21,'Solo Correo electrónico',2,0),(49,21,'Llamadas breves',3,0),(50,22,'Fibra Óptica Hogar',1,0),(51,22,'Planes Móviles',2,0),(52,22,'Renovación de Equipos',3,1),(53,23,'test1',1,0),(54,23,'test1',2,0),(55,24,'o1',1,0),(56,24,'o2',2,0),(57,24,'o3',3,0),(58,24,'o4',4,0),(59,24,'o5',5,0),(60,24,'o6',6,1),(61,25,'o11',1,0),(62,25,'o23',2,0),(63,25,'o33',3,1),(64,25,'o44',4,0),(70,30,'test A',1,0),(71,30,'test A',2,0),(72,30,'test a',3,0),(73,31,'test enA',1,0),(74,31,'test AAA',2,1),(98,45,'Email',1,0),(99,45,'Llamada (Diario/Tarde)',2,0),(100,45,'WhatsApp',3,0),(101,47,'Sí, estoy disponible ahora mismo.',1,1),(102,47,'No estoy interesado.',2,0),(103,48,'Batería de Larga Duración',1,0),(104,48,'Mejor Calidad de Cámara',2,0),(105,48,'Mayor Memoria/Almacenamiento',3,0),(106,48,'Conexión 5G avanzada',4,0),(107,50,'Sí, llámenme.',1,1),(108,50,'No, gracias.',2,0),(109,52,'Cantidad de Datos/GB',1,0),(110,52,'Costo Mensual Fijo',2,0),(111,52,'Cobertura 5G',3,0),(112,52,'Servicios Ilimitados (Redes Sociales/Llamadas)',4,0),(113,53,'Sí, llámenme ahora.',1,1),(114,53,'No estoy interesado.',2,0),(115,54,'Sí, quiero los detalles ahora',1,1),(116,54,'No, gracias.',2,0),(117,55,'Descuento Fijo Mensual en la tarifa.',1,0),(118,55,'Nuevo Equipo Móvil Subsidiado.',2,0),(119,55,'Más Datos/GB por el mismo precio.',3,0),(120,55,'Mantener la tarifa actual sin cambios por un año más.',4,0),(121,57,'Uso de Streaming en 4K/Gaming',1,0),(122,57,'Múltiples Dispositivos Conectados',2,0),(123,57,'Subida de Archivos Pesados (Trabajo)',3,0),(124,57,'Video llamadas/Clases sin interrupciones',4,0),(125,58,'No, gracias.',1,0),(126,58,'Sí, quiero los detalles ahora.',2,1),(127,60,'Problemas de Estabilidad/Caídas de servicio',1,0),(128,60,'El Precio de la Competencia',2,0),(129,60,'Necesito Más Velocidad',3,0),(130,60,'Requisito de Permanencia',4,0),(131,62,'Sí, necesito los detalles ahora.',1,1),(132,62,'No, gracias.',2,0),(133,63,'tb1',1,0),(134,63,'tb2',2,0),(135,64,'tb22',1,0),(136,64,'tb23',2,0),(137,64,'tb21',3,0),(138,65,'test4o1',1,0),(139,65,'test4o2',2,0),(142,67,'test5o1',1,0),(143,67,'test5o2',2,0);
 /*!40000 ALTER TABLE `Opcion` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -90,7 +90,7 @@ CREATE TABLE `Pregunta` (
   UNIQUE KEY `idx_orden_encuesta` (`id_encuesta`,`orden`),
   UNIQUE KEY `UK59ha389vm0fweq8ql3y2g6d5w` (`id_encuesta`,`orden`),
   CONSTRAINT `fk_pregunta_encuesta` FOREIGN KEY (`id_encuesta`) REFERENCES `Encuesta` (`id_encuesta`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=68 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -99,7 +99,7 @@ CREATE TABLE `Pregunta` (
 
 LOCK TABLES `Pregunta` WRITE;
 /*!40000 ALTER TABLE `Pregunta` DISABLE KEYS */;
-INSERT INTO `Pregunta` VALUES (2,2,'¿Para qué actividades principales usas internet?','MULTIPLE',1),(3,2,'¿Cuál es el factor más importante para contratar?','MULTIPLE',2),(4,3,'¿Qué te impidió contratar la última vez?','MULTIPLE',1),(5,3,'¿Te interesaría retomar si mejoramos esa condición hoy?','UNICA',2),(6,4,'¿Cuál es el factor decisivo para tu plan familiar?','UNICA',1),(7,4,'¿Qué servicios extra son imprescindibles?','MULTIPLE',2),(8,4,'¿Quieres cotizar este paquete ahora?','UNICA',3),(18,6,'¿Cuál es tu presupuesto máximo mensual?','UNICA',1),(19,6,' ¿Qué características puedes sacrificar para bajar precio? - pregunta borrador','MULTIPLE',2),(20,6,' Tenemos una oferta exacta para tu presupuesto. ¿Te llamamos? ','MULTIPLE',3),(21,5,'A partir de ahora, ¿cuál es tu canal preferido para ofertas?','UNICA',1),(22,5,'¿Qué producto te interesa más actualmente?','UNICA',2),(23,7,'test','UNICA',1),(24,8,'test2','MULTIPLE',1),(25,8,'test22','UNICA',2),(26,8,'test333','ESCALA',3);
+INSERT INTO `Pregunta` VALUES (2,2,'¿Para qué actividades principales usas internet?','MULTIPLE',1),(3,2,'¿Cuál es el factor más importante para contratar?','MULTIPLE',2),(4,3,'¿Qué te impidió contratar la última vez?','MULTIPLE',1),(5,3,'¿Te interesaría retomar si mejoramos esa condición hoy?','UNICA',2),(6,4,'¿Cuál es el factor decisivo para tu plan familiar?','UNICA',1),(7,4,'¿Qué servicios extra son imprescindibles?','MULTIPLE',2),(8,4,'¿Quieres cotizar este paquete ahora?','UNICA',3),(18,6,'¿Cuál es tu presupuesto máximo mensual?','UNICA',1),(19,6,' ¿Qué características puedes sacrificar para bajar precio? - pregunta borrador','MULTIPLE',2),(20,6,' Tenemos una oferta exacta para tu presupuesto. ¿Te llamamos? ','MULTIPLE',3),(21,5,'A partir de ahora, ¿cuál es tu canal preferido para ofertas?','UNICA',1),(22,5,'¿Qué producto te interesa más actualmente?','UNICA',2),(23,7,'test','UNICA',1),(24,8,'test2','MULTIPLE',1),(25,8,'test22','UNICA',2),(26,8,'test333','ESCALA',3),(30,9,'Pregunta 1','MULTIPLE',1),(31,9,'Pregunta 2 a','UNICA',2),(32,9,'Pregunta 3 A','ESCALA',3),(45,10,'¿Cuál es el canal principal por el que prefiere recibir promociones futuras?','MULTIPLE',1),(46,10,'En una escala del 1 al 5, ¿qué tan crítico es para usted la estabilidad total de la conexión (evitar caídas de servicio)?','ESCALA',2),(47,10,'¿Desea que un asesor le contacte hoy mismo para conocer nuestras ofertas de Internet Residencial?','UNICA',3),(48,13,'Para su próximo equipo móvil, ¿cuál es la característica principal que más valora?','MULTIPLE',1),(49,13,'En una escala del 1 al 5, ¿qué tan crítico es el precio del equipo subsidiado en su decisión de upgrade?','ESCALA',2),(50,13,'¿Desea que un asesor le llame lo más pronto posible para detallarle su plan exclusivo de renovación y verificar stock del equipo?','UNICA',3),(51,11,'En una escala del 1 al 5, ¿qué tan frecuente es aceptable que le enviemos ofertas de nuevos planes móviles?','ESCALA',1),(52,11,'¿Cuál es su prioridad principal al elegir un nuevo plan móvil?','MULTIPLE',2),(53,11,'¿Desea que un asesor le llame hoy mismo para recibir la información completa y detallada de las ofertas de Planes Móviles?','UNICA',3),(54,12,'¿Deseas que un asesor te llame lo más pronto posible para detallarte la oferta exclusiva de renovación?','UNICA',1),(55,12,'Para renovar tu plan hoy, ¿cuál de estos beneficios sería tu incentivo clave?','MULTIPLE',2),(56,12,'En una escala del 1 al 5, ¿qué tan importante es que te contactemos antes de la fecha límite de renovación?','ESCALA',3),(57,14,'¿Cuál es la principal razón por la que necesitaría un aumento de velocidad en su conexión actual?','MULTIPLE',1),(58,14,'¿Desea que le llamemos hoy para detallarle la oferta exclusiva de aumento de velocidad?','UNICA',2),(59,14,'En una escala del 1 al 5, ¿qué tan crítico es el costo adicional de la mejora en su decisión final?','ESCALA',3),(60,15,'¿Cuál es la razón principal por la que ha considerado cambiar su servicio de Internet?','MULTIPLE',1),(61,15,'En una escala del 1 al 5, ¿qué tan frecuente es aceptable que le contactemos para ofrecerle una solución de retención?','ESCALA',2),(62,15,'¿Desea que un especialista le llame hoy para detallarle la contraoferta de retención y estabilizar su servicio?','UNICA',3),(63,16,'test b1','MULTIPLE',1),(64,16,'test b2','UNICA',2),(65,17,'test4p1','MULTIPLE',1),(67,18,'test5p1','MULTIPLE',1);
 /*!40000 ALTER TABLE `Pregunta` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -123,7 +123,7 @@ CREATE TABLE `Respuesta_Detalle` (
   CONSTRAINT `fk_detalle_opcion` FOREIGN KEY (`id_opcion`) REFERENCES `Opcion` (`id_opcion`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_detalle_pregunta` FOREIGN KEY (`id_pregunta`) REFERENCES `Pregunta` (`id_pregunta`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_detalle_respuesta_encuesta` FOREIGN KEY (`id_respuesta_encuesta`) REFERENCES `Respuesta_Encuesta` (`id_respuesta_encuesta`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=44 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -132,7 +132,7 @@ CREATE TABLE `Respuesta_Detalle` (
 
 LOCK TABLES `Respuesta_Detalle` WRITE;
 /*!40000 ALTER TABLE `Respuesta_Detalle` DISABLE KEYS */;
-INSERT INTO `Respuesta_Detalle` VALUES (1,2,4,12,NULL),(2,2,5,14,NULL),(3,3,2,4,NULL),(4,3,3,7,NULL),(5,4,4,11,NULL),(6,4,5,13,NULL),(7,5,24,56,NULL),(8,5,25,63,NULL),(9,5,26,NULL,2),(10,6,24,57,NULL),(11,6,25,61,NULL),(12,6,26,NULL,5),(13,7,24,60,NULL),(14,7,24,59,NULL),(15,7,24,58,NULL),(16,7,25,64,NULL),(17,7,26,NULL,4),(18,8,24,56,NULL),(19,8,24,57,NULL),(20,8,25,64,NULL),(21,8,26,NULL,1);
+INSERT INTO `Respuesta_Detalle` VALUES (1,2,4,12,NULL),(2,2,5,14,NULL),(3,3,2,4,NULL),(4,3,3,7,NULL),(5,4,4,11,NULL),(6,4,5,13,NULL),(7,5,24,56,NULL),(8,5,25,63,NULL),(9,5,26,NULL,2),(10,6,24,57,NULL),(11,6,25,61,NULL),(12,6,26,NULL,5),(13,7,24,60,NULL),(14,7,24,59,NULL),(15,7,24,58,NULL),(16,7,25,64,NULL),(17,7,26,NULL,4),(18,8,24,56,NULL),(19,8,24,57,NULL),(20,8,25,64,NULL),(21,8,26,NULL,1),(22,9,45,100,NULL),(23,9,45,99,NULL),(24,9,46,NULL,3),(25,9,47,102,NULL),(26,10,45,98,NULL),(27,10,46,NULL,5),(28,10,47,102,NULL),(29,11,45,99,NULL),(30,11,45,100,NULL),(31,11,46,NULL,3),(32,11,47,102,NULL),(33,12,45,98,NULL),(34,12,46,NULL,4),(35,12,47,102,NULL),(36,13,45,99,NULL),(37,13,45,100,NULL),(38,13,46,NULL,3),(39,13,47,101,NULL),(40,14,51,NULL,3),(41,14,52,110,NULL),(42,14,52,109,NULL),(43,14,53,114,NULL);
 /*!40000 ALTER TABLE `Respuesta_Detalle` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -153,7 +153,7 @@ CREATE TABLE `Respuesta_Encuesta` (
   KEY `fk_respuesta_encuesta_lead` (`lead_id`),
   CONSTRAINT `fk_respuesta_encuesta_encuesta` FOREIGN KEY (`id_encuesta`) REFERENCES `Encuesta` (`id_encuesta`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_respuesta_encuesta_lead` FOREIGN KEY (`lead_id`) REFERENCES `leads` (`lead_id`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -162,7 +162,7 @@ CREATE TABLE `Respuesta_Encuesta` (
 
 LOCK TABLES `Respuesta_Encuesta` WRITE;
 /*!40000 ALTER TABLE `Respuesta_Encuesta` DISABLE KEYS */;
-INSERT INTO `Respuesta_Encuesta` VALUES (2,3,24,'2025-11-28 18:55:19'),(3,2,148,'2025-11-30 04:58:00'),(4,3,147,'2025-11-30 05:03:57'),(5,8,150,'2025-11-30 22:26:59'),(6,8,151,'2025-11-30 22:30:55'),(7,8,152,'2025-11-30 22:56:56'),(8,8,153,'2025-11-30 23:01:38');
+INSERT INTO `Respuesta_Encuesta` VALUES (2,3,24,'2025-11-28 18:55:19'),(3,2,148,'2025-11-30 04:58:00'),(4,3,147,'2025-11-30 05:03:57'),(5,8,150,'2025-11-30 22:26:59'),(6,8,151,'2025-11-30 22:30:55'),(7,8,152,'2025-11-30 22:56:56'),(8,8,153,'2025-11-30 23:01:38'),(9,10,175,'2025-12-02 05:52:26'),(10,10,174,'2025-12-02 05:52:58'),(11,10,173,'2025-12-02 05:53:23'),(12,10,172,'2025-12-02 05:53:48'),(13,10,171,'2025-12-02 05:54:07'),(14,11,175,'2025-12-02 16:38:26');
 /*!40000 ALTER TABLE `Respuesta_Encuesta` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -190,7 +190,7 @@ CREATE TABLE `agente_marketing` (
   PRIMARY KEY (`id_agente`),
   KEY `fk_agente_usuario` (`id_usuario`),
   CONSTRAINT `fk_agente_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Configuración de agentes de Marketing ligada a Trabajador RRHH';
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Configuración de agentes de Marketing ligada a Trabajador RRHH';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -199,7 +199,7 @@ CREATE TABLE `agente_marketing` (
 
 LOCK TABLES `agente_marketing` WRITE;
 /*!40000 ALTER TABLE `agente_marketing` DISABLE KEYS */;
-INSERT INTO `agente_marketing` VALUES (1,3,1,'101','Llamadas',80,1,'2025-11-27 21:35:16','2025-12-01 08:59:33',_binary '','agente1@empresa.com','Agente Callcenter 1','900000001');
+INSERT INTO `agente_marketing` VALUES (1,3,1,'101','Llamadas',80,1,'2025-11-27 21:35:16','2025-12-01 08:59:33',_binary '','agente1@empresa.com','Agente Callcenter 1','900000001'),(2,10,2344668,NULL,'Llamadas',100,1,'2025-12-03 16:08:22','2025-12-03 16:08:22',_binary '','david.aldana@unmsm.edu.pe','David Joel Aldana Ch vez','982465102');
 /*!40000 ALTER TABLE `agente_marketing` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -297,7 +297,7 @@ CREATE TABLE `campanas_mailing` (
 
 LOCK TABLES `campanas_mailing` WRITE;
 /*!40000 ALTER TABLE `campanas_mailing` DISABLE KEYS */;
-INSERT INTO `campanas_mailing` VALUES (1,36,18,NULL,1,1,'Media','CON TU PREPAGO PAGO DE ENTEL!','Mayor disponibilidad de megas.','Internet','2025-12-03 13:00:00','2025-12-03 21:00:00','','<p class=\"text-gray-800 text-base leading-relaxed py-1\"></p>','','http://localhost:3000/encuesta/null','2025-11-30 18:39:58','2025-12-01 00:41:33'),(2,37,39,NULL,1,1,'Alta','EJEMPLOX','ejemplooo','ejemplox','2025-12-05 18:00:00','2025-12-06 13:00:00','Abre este correo :)','<p class=\"text-gray-800 text-base leading-relaxed py-1\">Buenas tardes señor<br><br><br></p>','ME INTERESA','http://localhost:3000/encuesta/null','2025-11-30 18:50:33','2025-12-01 01:01:08'),(4,42,8,3,1,6,'Media','prueba cancelar',NULL,'test','2025-12-05 04:05:00','2025-12-06 04:05:00',NULL,NULL,NULL,'http://localhost:3000/encuesta/3','2025-12-01 04:05:48','2025-12-01 04:06:27');
+INSERT INTO `campanas_mailing` VALUES (1,36,18,NULL,1,4,'Media','CON TU PREPAGO PAGO DE ENTEL!','Mayor disponibilidad de megas.','Internet','2025-12-03 13:00:00','2025-12-03 21:00:00','','<p class=\"text-gray-800 text-base leading-relaxed py-1\"></p>','','http://localhost:3000/encuesta/null','2025-11-30 18:39:58','2025-12-03 15:40:48'),(2,37,39,NULL,1,1,'Alta','EJEMPLOX','ejemplooo','ejemplox','2025-12-05 18:00:00','2025-12-06 13:00:00','Abre este correo :)','<p class=\"text-gray-800 text-base leading-relaxed py-1\">Buenas tardes señor<br><br><br></p>','ME INTERESA','http://localhost:3000/encuesta/null','2025-11-30 18:50:33','2025-12-01 01:01:08'),(4,42,8,3,1,6,'Media','prueba cancelar',NULL,'test','2025-12-05 04:05:00','2025-12-06 04:05:00',NULL,NULL,NULL,'http://localhost:3000/encuesta/3','2025-12-01 04:05:48','2025-12-01 04:06:27');
 /*!40000 ALTER TABLE `campanas_mailing` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1293,7 +1293,7 @@ CREATE TABLE `usuario_rol` (
 
 LOCK TABLES `usuario_rol` WRITE;
 /*!40000 ALTER TABLE `usuario_rol` DISABLE KEYS */;
-INSERT INTO `usuario_rol` VALUES (2,1),(3,2);
+INSERT INTO `usuario_rol` VALUES (2,1),(3,2),(10,2);
 /*!40000 ALTER TABLE `usuario_rol` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1314,7 +1314,7 @@ CREATE TABLE `usuarios` (
   PRIMARY KEY (`id_usuario`),
   UNIQUE KEY `username` (`username`),
   KEY `idx_username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1323,7 +1323,7 @@ CREATE TABLE `usuarios` (
 
 LOCK TABLES `usuarios` WRITE;
 /*!40000 ALTER TABLE `usuarios` DISABLE KEYS */;
-INSERT INTO `usuarios` VALUES (2,'admin','$2a$12$BUDuMKuQ8ijHy6Z155tRLOnY/tcrInOQVflHwd3GkN2gPy/XtOsV.',_binary '','2025-12-01 08:45:49','2025-12-01 20:58:23'),(3,'agente1','$2a$12$XEP1m0sKQU4qywvsjNDxbeRTYcM.xqfHbw8k.Mlv7BaB/I/XAM0Mu',_binary '','2025-12-01 08:45:52','2025-12-01 20:58:25');
+INSERT INTO `usuarios` VALUES (2,'admin','$2a$12$BUDuMKuQ8ijHy6Z155tRLOnY/tcrInOQVflHwd3GkN2gPy/XtOsV.',_binary '','2025-12-01 08:45:49','2025-12-01 20:58:23'),(3,'agente1','$2a$12$XEP1m0sKQU4qywvsjNDxbeRTYcM.xqfHbw8k.Mlv7BaB/I/XAM0Mu',_binary '','2025-12-01 08:45:52','2025-12-01 20:58:25'),(10,'david.aldana','$2a$12$3fNSEViM.pxrVdgzBmjyJuAv4Gc5wkLhBNM8fdt9X4nE5CwmMVueW',_binary '','2025-12-03 16:08:20','2025-12-03 16:08:20');
 /*!40000 ALTER TABLE `usuarios` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -1336,4 +1336,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-01 16:38:22
+-- Dump completed on 2025-12-03 20:46:29

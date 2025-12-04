@@ -240,9 +240,13 @@ public class TelemarketingController {
 
     @GetMapping("/agentes/me/metricas-campania")
     public ResponseEntity<Map<String, Object>> obtenerMetricasGeneralesAgenteActual() {
+        if (userAuthorizationService.isAdmin()) {
+            MetricasAgenteDTO metricas = service.obtenerMetricasAgente(null, null);
+            return ResponseUtils.success(metricas, "Métricas generales obtenidas exitosamente");
+        }
         Long currentAgent = requireCurrentAgent();
         MetricasAgenteDTO metricas = service.obtenerMetricasAgente(null, currentAgent);
-        return ResponseUtils.success(metricas, "M??tricas generales obtenidas exitosamente");
+        return ResponseUtils.success(metricas, "Métricas generales obtenidas exitosamente");
     }
 
     @GetMapping("/campanias-telefonicas/{id}/metricas-diarias")
@@ -543,6 +547,9 @@ public class TelemarketingController {
 
     private Long resolveAgentOrCurrent(Long idAgente) {
         if (idAgente == null) {
+            if (userAuthorizationService.isAdmin()) {
+                return null;
+            }
             return requireCurrentAgent();
         }
         return requireAgentAccess(idAgente);
