@@ -102,4 +102,13 @@ public class MailingController {
         service.cancelarPorGestor(idCampanaGestion);
         return ResponseEntity.ok().build();
     }
+    // ============ Reprogramar campaña desde Gestor ============
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/campañas/gestion/{idCampanaGestion}/reprogramar")
+    public ResponseEntity<Void> reprogramarPorGestor(
+            @PathVariable Long idCampanaGestion,
+            @Valid @RequestBody ReprogramarCampanaRequest req) {
+        service.reprogramarPorGestor(idCampanaGestion, req);
+        return ResponseEntity.ok().build();
+    }
 }

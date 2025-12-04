@@ -318,4 +318,14 @@ public class WebhookResendService {
         }
         eventosProcessados.add(key);
     }
+    
+    private boolean yaExisteInteraccion(Integer idCampana, String email, Integer tipoEvento) {
+        Long idLead = leadPort.findLeadIdByEmail(email);
+        if (idLead == null) return false;
+        
+        // Verificar en BD si ya existe esta combinación
+        return interaccionRepo.existsByIdCampanaMailingIdAndIdContactoCrmAndIdTipoEvento(
+            idCampana, idLead, tipoEvento
+        );
+    }
 }

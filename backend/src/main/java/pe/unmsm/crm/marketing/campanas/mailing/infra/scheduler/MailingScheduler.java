@@ -48,7 +48,7 @@ public class MailingScheduler {
 
     private final JpaCampanaMailingRepository campanaRepo;
     private final JpaMetricaMailingRepository metricasRepo;
-    private final IMailingPort mailAdapter;  // → ResendMailAdapter
+    private final IMailingPort mailAdapter;
     private final ISegmentoPort segmentoPort;
     private final IGestorCampanaPort gestorPort;
 

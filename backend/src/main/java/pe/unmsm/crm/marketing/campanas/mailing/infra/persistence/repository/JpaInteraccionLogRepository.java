@@ -17,4 +17,6 @@ public interface JpaInteraccionLogRepository extends JpaRepository<InteraccionLo
 
     @Query("SELECT i FROM InteraccionLog i WHERE i.idCampanaMailingId = :idCampana AND i.idTipoEvento = :idTipo")
     List<InteraccionLog> findByCampanaAndTipo(@Param("idCampana") Integer idCampana, @Param("idTipo") Integer idTipo);
+
+    boolean existsByIdCampanaMailingIdAndIdContactoCrmAndIdTipoEvento(Integer idCampana, Long idContacto, Integer idTipo);
 }
