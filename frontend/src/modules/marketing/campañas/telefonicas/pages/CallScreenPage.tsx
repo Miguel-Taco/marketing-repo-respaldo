@@ -7,6 +7,7 @@ import { Button } from '../../../../../shared/components/ui/Button';
 import { generateMarkdownFromScript } from '../utils/markdownGenerator';
 import { MarkdownViewer } from '../components/MarkdownViewer';
 import { useCampaignsContext } from '../context/CampaignsContext';
+import { useAuth } from '../../../../../shared/context/AuthContext';
 
 export const CallScreenPage: React.FC = () => {
     const { id, idContacto } = useParams<{ id: string; idContacto: string }>();
@@ -19,8 +20,8 @@ export const CallScreenPage: React.FC = () => {
     const [showResultModal, setShowResultModal] = useState(false);
     const [tiempoInicio, setTiempoInicio] = useState<Date | null>(null);
     const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
-
-    const idAgente = 1; // TODO: Get from auth context (using existing agent ID from database)
+    const { user } = useAuth();
+    const hasAgent = Boolean(user?.agentId);
 
     useEffect(() => {
         if (id && idContacto) {
@@ -83,13 +84,13 @@ export const CallScreenPage: React.FC = () => {
                 idContactoCola: contacto?.id
             };
 
-            await telemarketingApi.registrarResultado(Number(id), idAgente, requestCompleto);
+            await telemarketingApi.registrarResultado(Number(id), requestCompleto);
             setShowResultModal(false);
             setEnLlamada(false);
             setTiempoInicio(null);
 
             if (abrirSiguiente) {
-                const siguiente = await telemarketingApi.getSiguienteContacto(Number(id), idAgente);
+                const siguiente = await telemarketingApi.getSiguienteContacto(Number(id));
                 if (siguiente) {
                     navigate(`/marketing/campanas/telefonicas/campanias/${id}/llamar/${siguiente.id}`);
                 } else {
@@ -108,6 +109,20 @@ export const CallScreenPage: React.FC = () => {
         if (!tiempoInicio) return 0;
         return Math.floor((new Date().getTime() - tiempoInicio.getTime()) / 1000);
     };
+
+    if (!hasAgent) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="max-w-md text-center space-y-4">
+                    <h2 className="text-2xl font-bold text-gray-900">No tienes un agente asignado</h2>
+                    <p className="text-gray-600">Solicita al administrador que te asigne a una campaña para ingresar al módulo telefónico.</p>
+                    <Button variant="primary" onClick={() => navigate('/leads')}>
+                        Volver al panel
+                    </Button>
+                </div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (

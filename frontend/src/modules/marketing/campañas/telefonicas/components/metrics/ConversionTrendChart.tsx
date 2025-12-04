@@ -13,7 +13,10 @@ export const ConversionTrendChart: React.FC<ConversionTrendChartProps> = ({ data
         tasa: d.totalLlamadas > 0 ? (d.llamadasEfectivas / d.totalLlamadas) * 100 : 0
     }));
 
-    const tasaPromedio = conversionData.reduce((sum, d) => sum + d.tasa, 0) / conversionData.length;
+    // FIXED: Prevent NaN when no data is available
+    const tasaPromedio = conversionData.length > 0
+        ? conversionData.reduce((sum, d) => sum + d.tasa, 0) / conversionData.length
+        : 0;
 
     // Agrupar por semanas para el eje X
     const semanas = Math.ceil(data.length / 7);

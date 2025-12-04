@@ -7,10 +7,12 @@ import { ChangeStatusModal } from '../components/ChangeStatusModal';
 import { leadsApi } from '../services/leads.api';
 import { Button } from '../../../../shared/components/ui/Button';
 import { Tabs } from '../../../../shared/components/ui/Tabs';
+import { useAuth } from '../../../../shared/context/AuthContext';
 
 export const LeadsListPage: React.FC = () => {
     const { leads, loading, refresh, setFilter, totalPages, totalElements, currentPage } = useLeads();
     const navigate = useNavigate();
+    const { hasRole } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
@@ -24,6 +26,8 @@ export const LeadsListPage: React.FC = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isChangingStatus, setIsChangingStatus] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+
+    const isAdmin = hasRole('ADMIN');
 
     // Manejo de búsqueda con debounce simple
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,16 +162,18 @@ export const LeadsListPage: React.FC = () => {
                     <h1 className="text-3xl font-bold text-dark">Gestión de Leads</h1>
                     <p className="text-gray-500 mt-1">Administra, cualifica y procesa todos los prospectos entrantes.</p>
                 </div>
-                <div className="flex space-x-3">
-                    <Button variant="secondary" onClick={() => navigate('/leads/import')}>
-                        <span className="material-symbols-outlined text-lg mr-1.5">upload</span>
-                        Importar Leads
-                    </Button>
-                    <Button variant="primary" onClick={() => navigate('/leads/new')}>
-                        <span className="material-symbols-outlined text-lg mr-1.5">add</span>
-                        Registrar Lead
-                    </Button>
-                </div>
+                {isAdmin && (
+                    <div className="flex space-x-3">
+                        <Button variant="secondary" onClick={() => navigate('/leads/import')}>
+                            <span className="material-symbols-outlined text-lg mr-1.5">upload</span>
+                            Importar Leads
+                        </Button>
+                        <Button variant="primary" onClick={() => navigate('/leads/new')}>
+                            <span className="material-symbols-outlined text-lg mr-1.5">add</span>
+                            Registrar Lead
+                        </Button>
+                    </div>
+                )}
             </header>
 
             {/* Nivel 2.5: Tabs de Navegación */}
@@ -267,8 +273,8 @@ export const LeadsListPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Barra de acciones de selección */}
-                {selectedIds.length > 0 && (
+                {/* Barra de acciones de selección - Solo ADMIN */}
+                {selectedIds.length > 0 && isAdmin && (
                     <div className="p-4 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
                         <span className="text-sm font-medium text-blue-900">
                             {selectedIds.length} lead(s) seleccionado(s)
@@ -304,8 +310,8 @@ export const LeadsListPage: React.FC = () => {
                     isLoading={loading}
                     onViewDetail={(id) => navigate(`/leads/${id}`)}
                     selectedIds={selectedIds}
-                    onSelectionChange={setSelectedIds}
-                    onDelete={handleDeleteSingle}
+                    onSelectionChange={isAdmin ? setSelectedIds : () => { }} // Deshabilitar selección si no es admin
+                    onDelete={isAdmin ? handleDeleteSingle : undefined} // Ocultar delete si no es admin
                 />
 
                 {/* Paginación (Footer) */}

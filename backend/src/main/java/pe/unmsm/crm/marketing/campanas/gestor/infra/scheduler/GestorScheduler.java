@@ -15,6 +15,7 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@org.springframework.context.annotation.Profile("!console")
 public class GestorScheduler {
 
     private final CampanaRepositoryPort campanaRepository;

@@ -3,6 +3,7 @@ package pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.telefonicas.api.dto.*;
@@ -10,6 +11,7 @@ import pe.unmsm.crm.marketing.campanas.telefonicas.domain.CampaignDataProvider;
 import pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.entity.*;
 import pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.mapper.CampaignMapper;
 import pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.repository.*;
+import pe.unmsm.crm.marketing.security.service.UserAuthorizationService;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -30,12 +32,24 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         private final CampaignMapper mapper;
         private final pe.unmsm.crm.marketing.campanas.telefonicas.application.service.EncuestaLlamadaService encuestaLlamadaService;
         private final pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository leadRepository;
+        private final UserAuthorizationService userAuthorizationService;
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<CampaniaTelefonicaDTO> obtenerTodasLasCampanias() {
+                log.info("Obteniendo todas las campañas (Admin)");
+                List<CampaniaTelefonicaEntity> entities = campaniaRepo.findAll();
+                return entities.stream()
+                                .map(mapper::toDTO)
+                                .collect(Collectors.toList());
+        }
 
         @Override
         @Transactional(readOnly = true)
         public List<CampaniaTelefonicaDTO> obtenerCampaniasPorAgente(Long idAgente) {
-                log.info("Obteniendo campañas para agente: {}", idAgente);
-                List<CampaniaTelefonicaEntity> entities = campaniaRepo.findByAgenteId();
+                log.info("Obteniendo campaÃ±as para agente: {}", idAgente);
+                Integer agenteId = requireAgent(idAgente);
+                List<CampaniaTelefonicaEntity> entities = campaniaRepo.findVisibleByAgenteId(agenteId);
                 return entities.stream()
                                 .map(mapper::toDTO)
                                 .collect(Collectors.toList());
@@ -44,16 +58,17 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Override
         @Transactional(readOnly = true)
         public CampaniaTelefonicaDTO obtenerCampaniaPorId(Long id) {
-                log.info("Obteniendo campaña por ID: {}", id);
+                log.info("Obteniendo campaÃ±a por ID: {}", id);
+                ensureCampaniaAccess(id);
                 return campaniaRepo.findById(id.intValue())
                                 .map(mapper::toDTO)
-                                .orElseThrow(() -> new RuntimeException("Campaña no encontrada: " + id));
+                                .orElseThrow(() -> new RuntimeException("CampaÃ±a no encontrada: " + id));
         }
 
         @Override
         @Transactional
         public CampaniaTelefonicaDTO crearCampania(CreateCampaniaTelefonicaRequest request) {
-                log.info("Creando nueva campaña: {}", request.getNombre());
+                log.info("Creando nueva campaÃ±a: {}", request.getNombre());
 
                 CampaniaTelefonicaEntity entity = new CampaniaTelefonicaEntity();
                 entity.setNombre(request.getNombre());
@@ -66,7 +81,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 entity.setPrioridad(mapPrioridad(request.getPrioridadColaDefault()));
 
                 CampaniaTelefonicaEntity saved = campaniaRepo.save(entity);
-                log.info("Campaña creada con ID: {}", saved.getId());
+                log.info("CampaÃ±a creada con ID: {}", saved.getId());
 
                 // Procesar leads iniciales
                 if (request.getLeadsIniciales() != null && !request.getLeadsIniciales().isEmpty()) {
@@ -92,7 +107,8 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Override
         @Transactional(readOnly = true)
         public List<ContactoDTO> obtenerContactosDeCampania(Long idCampania) {
-                log.info("Obteniendo contactos de campaña: {}", idCampania);
+                log.info("Obteniendo contactos de campaÃ±a: {}", idCampania);
+                ensureCampaniaAccess(idCampania);
 
                 List<ColaLlamadaEntity> cola = colaRepo.findByCampaniaAndEstadoOrderByPrioridad(
                                 idCampania.intValue(),
@@ -108,15 +124,20 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         public ContactoDTO obtenerContactoPorId(Long idContacto) {
                 log.info("Obteniendo contacto por ID: {}", idContacto);
 
-                return colaRepo.findById(idContacto.intValue())
-                                .map(mapper::toContactoDTO)
+                ColaLlamadaEntity contacto = colaRepo.findById(idContacto.intValue())
                                 .orElseThrow(() -> new RuntimeException("Contacto no encontrado: " + idContacto));
+
+                Integer campaniaId = contacto.getIdCampania();
+                ensureCampaniaAccess(campaniaId != null ? campaniaId.longValue() : null);
+
+                return mapper.toContactoDTO(contacto);
         }
 
         @Override
         @Transactional(readOnly = true)
         public List<ContactoDTO> obtenerCola(Long idCampania) {
-                log.info("Obteniendo cola de campaña: {}", idCampania);
+                log.info("Obteniendo cola de campaÃ±a: {}", idCampania);
+                ensureCampaniaAccess(idCampania);
 
                 List<ColaLlamadaEntity> pendientes = colaRepo.findByCampaniaAndEstadoOrderByPrioridad(
                                 idCampania.intValue(),
@@ -130,23 +151,25 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Override
         @Transactional
         public ContactoDTO obtenerSiguienteContacto(Long idCampania, Long idAgente) {
-                log.info("Obteniendo siguiente contacto para campaña: {}, agente: {}", idCampania, idAgente);
+                log.info("Obteniendo siguiente contacto para campaÃ±a: {}, agente: {}", idCampania, idAgente);
+                ensureCampaniaAccess(idCampania);
+                Integer agenteId = requireAgent(idAgente);
 
-                // Verificar estado de la campaña
+                // Verificar estado de la campaÃ±a
                 CampaniaTelefonicaEntity campania = campaniaRepo.findById(idCampania.intValue())
-                                .orElseThrow(() -> new RuntimeException("Campaña no encontrada: " + idCampania));
+                                .orElseThrow(() -> new RuntimeException("CampaÃ±a no encontrada: " + idCampania));
 
-                // Solo permitir obtener contactos si la campaña está VIGENTE
+                // Solo permitir obtener contactos si la campaÃ±a estÃ¡ VIGENTE
                 // Se valida tanto el string como el ID para mayor seguridad
                 if (!"Vigente".equalsIgnoreCase(campania.getEstado()) && campania.getIdEstado() != 2) {
-                        log.warn("Campaña {} no está VIGENTE (Estado: {}). No se entregarán contactos.",
+                        log.warn("CampaÃ±a {} no estÃ¡ VIGENTE (Estado: {}). No se entregarÃ¡n contactos.",
                                         idCampania, campania.getEstado());
                         return null;
                 }
 
                 return colaRepo.findNextAvailableContact(
                                 idCampania.intValue(),
-                                idAgente.intValue(),
+                                agenteId,
                                 PageRequest.of(0, 1))
                                 .stream()
                                 .findFirst()
@@ -159,18 +182,25 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         public ContactoDTO tomarContacto(Long idCampania, Long idContacto, Long idAgente) {
                 log.info("Asignando contacto [campaniaId={}, contactoId={}, agenteId={}]",
                                 idCampania, idContacto, idAgente);
+                ensureCampaniaAccess(idCampania);
+                Integer agenteId = requireAgent(idAgente);
 
                 ColaLlamadaEntity contacto = colaRepo.findById(idContacto.intValue())
                                 .orElseThrow(() -> new RuntimeException("Contacto no encontrado: " + idContacto));
 
-                // Validar que esté pendiente
+                Integer contactoCampaniaId = contacto.getIdCampania();
+                if (contactoCampaniaId == null || !contactoCampaniaId.equals(idCampania.intValue())) {
+                        throw new AccessDeniedException("El contacto no pertenece a la campaÃ±a indicada");
+                }
+
+                // Validar que estÃ© pendiente
                 if (!"PENDIENTE".equals(contacto.getEstadoEnCola())) {
                         throw new RuntimeException(
-                                        "Contacto ya está en estado: " + contacto.getEstadoEnCola());
+                                        "Contacto ya estÃ¡ en estado: " + contacto.getEstadoEnCola());
                 }
 
                 // Asignar al agente
-                contacto.setIdAgenteActual(idAgente.intValue());
+                contacto.setIdAgenteActual(agenteId);
                 contacto.setEstadoEnCola("EN_PROCESO");
                 colaRepo.save(contacto);
 
@@ -183,13 +213,17 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Override
         @Transactional
         public void pausarCola(Long idAgente, Long idCampania) {
-                log.info("Pausando cola para agente: {}, campaña: {}", idAgente, idCampania);
+                log.info("Pausando cola para agente: {}, campaÃ±a: {}", idAgente, idCampania);
+                ensureCampaniaAccess(idCampania);
+                requireAgent(idAgente);
         }
 
         @Override
         @Transactional
         public void reanudarCola(Long idAgente, Long idCampania) {
-                log.info("Reanudando cola para agente: {}, campaña: {}", idAgente, idCampania);
+                log.info("Reanudando cola para agente: {}, campaÃ±a: {}", idAgente, idCampania);
+                ensureCampaniaAccess(idCampania);
+                requireAgent(idAgente);
         }
 
         @Override
@@ -197,9 +231,12 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         public LlamadaDTO obtenerLlamada(Long idLlamada) {
                 log.info("Obteniendo llamada por ID: {}", idLlamada);
 
-                return llamadaRepo.findById(idLlamada.intValue())
-                                .map(mapper::toLlamadaDTO)
+                LlamadaEntity llamada = llamadaRepo.findById(idLlamada.intValue())
                                 .orElseThrow(() -> new RuntimeException("Llamada no encontrada: " + idLlamada));
+
+                ensureLlamadaAccess(llamada);
+
+                return mapper.toLlamadaDTO(llamada);
         }
 
         @Override
@@ -207,12 +244,14 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         public LlamadaDTO registrarResultadoLlamada(Long idCampania, Long idAgente, ResultadoLlamadaRequest request) {
                 log.info("Registrando resultado de llamada [campaniaId={}, agenteId={}]",
                                 idCampania, idAgente);
+                ensureCampaniaAccess(idCampania);
+                Integer agenteId = requireAgent(idAgente);
 
                 // 1. Crear registro de llamada
                 LlamadaEntity llamada = new LlamadaEntity();
                 llamada.setInicio(request.getInicio());
                 llamada.setFin(request.getFin());
-                llamada.setIdAgente(idAgente.intValue());
+                llamada.setIdAgente(agenteId);
                 llamada.setIdLead(request.getIdLead());
                 llamada.setIdCampania(idCampania.intValue());
 
@@ -223,14 +262,14 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 if (request.getIdResultado() != null) {
                         idResultado = request.getIdResultado().intValue();
                 }
-                // 2. Si no viene ID, buscar por código (string)
+                // 2. Si no viene ID, buscar por cÃ³digo (string)
                 else if (request.getResultado() != null) {
                         idResultado = resultadoRepo.findByResultado(request.getResultado())
                                         .map(ResultadoLlamadaEntity::getId)
                                         .orElse(null);
 
                         if (idResultado == null) {
-                                log.warn("Código de resultado no encontrado: {}", request.getResultado());
+                                log.warn("CÃ³digo de resultado no encontrado: {}", request.getResultado());
                         }
                 }
 
@@ -241,17 +280,17 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 LlamadaEntity savedLlamada = llamadaRepo.save(llamada);
                 log.info("Llamada registrada con ID: {}", savedLlamada.getId());
 
-                // 2. Procesar envío de encuesta si está habilitado
+                // 2. Procesar envÃ­o de encuesta si estÃ¡ habilitado
                 if (Boolean.TRUE.equals(request.getEnviarEncuesta())) {
-                        log.info("Procesando envío de encuesta para llamada ID: {}", savedLlamada.getId());
+                        log.info("Procesando envÃ­o de encuesta para llamada ID: {}", savedLlamada.getId());
 
-                        // Obtener ID de encuesta de la campaña
+                        // Obtener ID de encuesta de la campaÃ±a
                         CampaniaTelefonicaEntity campania = campaniaRepo.findById(idCampania.intValue())
                                         .orElseThrow(() -> new RuntimeException(
-                                                        "Campaña no encontrada: " + idCampania));
+                                                        "CampaÃ±a no encontrada: " + idCampania));
 
                         if (campania.getIdEncuesta() != null) {
-                                // Obtener teléfono del lead (usar array para hacerlo efectivamente final)
+                                // Obtener telÃ©fono del lead (usar array para hacerlo efectivamente final)
                                 final String[] telefonoArray = new String[1];
                                 if (request.getIdLead() != null) {
                                         leadRepository.findById(request.getIdLead()).ifPresent(lead -> {
@@ -262,7 +301,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                 }
                                 String telefono = telefonoArray[0];
 
-                                // Procesar envío de encuesta (simulado)
+                                // Procesar envÃ­o de encuesta (simulado)
                                 pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.entity.EnvioEncuestaEntity envio = encuestaLlamadaService
                                                 .procesarEnvioEncuesta(
                                                                 savedLlamada.getId(),
@@ -278,7 +317,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
 
                                 log.info("Encuesta procesada exitosamente para llamada ID: {}", savedLlamada.getId());
                         } else {
-                                log.warn("Campaña {} no tiene encuesta asociada, se omite envío", idCampania);
+                                log.warn("CampaÃ±a {} no tiene encuesta asociada, se omite envÃ­o", idCampania);
                         }
                 }
 
@@ -287,8 +326,13 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                         ColaLlamadaEntity contacto = colaRepo.findById(request.getIdContactoCola().intValue())
                                         .orElseThrow(() -> new RuntimeException("Contacto en cola no encontrado"));
 
+                        Integer contactoCampaniaId = contacto.getIdCampania();
+                        if (contactoCampaniaId == null || !contactoCampaniaId.equals(idCampania.intValue())) {
+                                throw new AccessDeniedException("Contacto en cola no pertenece a la campaÃ±a");
+                        }
+
                         contacto.setEstadoEnCola("COMPLETADO");
-                        contacto.setIdAgenteActual(null); // Liberar asignación
+                        contacto.setIdAgenteActual(null); // Liberar asignaciÃ³n
                         colaRepo.save(contacto);
 
                         log.info("Estado de contacto actualizado a COMPLETADO [contactoId={}]",
@@ -306,16 +350,18 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
 
                 Integer campaniaId = idCampania != null ? idCampania.intValue() : null;
                 if (campaniaId == null) {
-                        throw new IllegalArgumentException("El id de campaña es requerido para obtener el historial");
+                        throw new IllegalArgumentException("El id de campaÃ±a es requerido para obtener el historial");
                 }
+                ensureCampaniaAccess(idCampania);
+                Integer agenteFiltro = resolveAgentForQuery(idAgente);
 
                 List<LlamadaEntity> llamadas;
-                if (idAgente == null) {
+                if (agenteFiltro == null) {
                         llamadas = llamadaRepo.findByIdCampaniaOrderByInicioDesc(campaniaId);
                 } else {
                         llamadas = llamadaRepo.findByIdCampaniaAndIdAgenteOrderByInicioDesc(
                                         campaniaId,
-                                        idAgente.intValue());
+                                        agenteFiltro);
                 }
 
                 return llamadas.stream()
@@ -326,17 +372,18 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Override
         @Transactional(readOnly = true)
         public GuionDTO obtenerGuionDeCampania(Long idCampania) {
-                log.info("Obteniendo guión de campaña: {}", idCampania);
+                log.info("Obteniendo guiÃ³n de campaÃ±a: {}", idCampania);
+                ensureCampaniaAccess(idCampania);
 
-                // Buscar guion activo asociado a la campaña
+                // Buscar guion activo asociado a la campaÃ±a
                 List<GuionEntity> guiones = guionRepo.findByIdCampaniaAndActivoTrue(idCampania);
 
                 if (guiones.isEmpty()) {
-                        log.warn("No se encontró guión activo para campaña: {}", idCampania);
+                        log.warn("No se encontrÃ³ guiÃ³n activo para campaÃ±a: {}", idCampania);
                         return null;
                 }
 
-                // Si hay múltiples activos, tomar el más reciente por ID
+                // Si hay mÃºltiples activos, tomar el mÃ¡s reciente por ID
                 GuionEntity guion = guiones.stream()
                                 .max((g1, g2) -> Integer.compare(g1.getId(), g2.getId()))
                                 .orElse(null);
@@ -355,14 +402,22 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Override
         @Transactional(readOnly = true)
         public MetricasAgenteDTO obtenerMetricasAgente(Long idCampania, Long idAgente) {
-                log.info("Obteniendo métricas de agente [campaniaId={}, agenteId={}]",
+                log.info("Obteniendo mÃ©tricas de agente [campaniaId={}, agenteId={}]",
                                 idCampania, idAgente);
 
                 LocalDateTime desde = LocalDateTime.now().minusDays(30);
-                var metricas = llamadaRepo.getMetricasByAgenteAndCampania(
-                                idAgente.intValue(),
-                                idCampania.intValue(),
-                                desde);
+                Integer agenteId = requireAgent(idAgente);
+
+                java.util.Map<String, Object> metricas;
+                if (idCampania != null) {
+                        ensureCampaniaAccess(idCampania);
+                        metricas = llamadaRepo.getMetricasByAgenteAndCampania(
+                                        agenteId,
+                                        idCampania.intValue(),
+                                        desde);
+                } else {
+                        metricas = llamadaRepo.getMetricasByAgente(agenteId, desde);
+                }
 
                 return mapper.toMetricasAgenteDTO(metricas);
         }
@@ -370,8 +425,10 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Override
         @Transactional(readOnly = true)
         public MetricasDiariasDTO obtenerMetricasDiarias(Long idCampania, Long idAgente) {
-                log.info("Obteniendo métricas diarias [campaniaId={}, agenteId={}]",
+                log.info("Obteniendo mÃ©tricas diarias [campaniaId={}, agenteId={}]",
                                 idCampania, idAgente);
+                ensureCampaniaAccess(idCampania);
+                Integer agenteId = requireAgent(idAgente);
 
                 // Calcular rango de "hoy" en Java para evitar problemas de timezone
                 LocalDateTime ahora = LocalDateTime.now();
@@ -384,14 +441,14 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 // Contar llamadas realizadas hoy (con rango de fechas)
                 Long realizadasHoy = llamadaRepo.countLlamadasHoy(
                                 idCampania.intValue(),
-                                idAgente.intValue(),
+                                agenteId,
                                 inicioDia,
                                 finDia);
 
                 // Contar llamadas efectivas hoy (con rango de fechas)
                 Long efectivasHoy = llamadaRepo.countLlamadasEfectivasHoy(
                                 idCampania.intValue(),
-                                idAgente.intValue(),
+                                agenteId,
                                 inicioDia,
                                 finDia);
 
@@ -405,7 +462,8 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Override
         @Transactional(readOnly = true)
         public MetricasCampaniaDTO obtenerMetricasCampania(Long idCampania, Integer dias) {
-                log.info("Obteniendo métricas de campaña [campaniaId={}, dias={}]", idCampania, dias);
+                log.info("Obteniendo mÃ©tricas de campaÃ±a [campaniaId={}, dias={}]", idCampania, dias);
+                ensureCampaniaAccess(idCampania);
 
                 Integer campaniaId = idCampania.intValue();
 
@@ -420,12 +478,12 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                 ? duracionPromedioNum.intValue()
                                 : 0;
 
-                // 2. Distribución de resultados
+                // 2. DistribuciÃ³n de resultados
                 List<Object[]> resultadosRaw = llamadaRepo.countByResultadoAndCampania(campaniaId);
                 java.util.Map<String, ResultadoDistribucionDTO> distribucionResultados = new java.util.HashMap<>();
 
                 for (Object[] row : resultadosRaw) {
-                        String resultado = (String) row[0]; // Código (ej. "CONTACTADO")
+                        String resultado = (String) row[0]; // CÃ³digo (ej. "CONTACTADO")
                         String nombre = (String) row[1]; // Nombre display (ej. "Contactado")
                         Long count = (Long) row[2]; // Count
 
@@ -435,7 +493,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                         if (nombre == null)
                                 nombre = "Sin Resultado";
 
-                        // DEBUG: Log para ver qué valores devuelve la BD
+                        // DEBUG: Log para ver quÃ© valores devuelve la BD
                         log.info("DEBUG - Resultado de BD: resultado='{}', nombre='{}', count={}", resultado, nombre,
                                         count);
 
@@ -443,7 +501,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                         ? (count.doubleValue() / totalLlamadas.doubleValue()) * 100
                                         : 0.0;
 
-                        // Usar 'resultado' (código) como key para que el filtro funcione correctamente
+                        // Usar 'resultado' (cÃ³digo) como key para que el filtro funcione correctamente
                         distribucionResultados.put(resultado, ResultadoDistribucionDTO.builder()
                                         .resultado(resultado)
                                         .nombre(nombre)
@@ -462,13 +520,13 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
 
                 // DEBUG: Log para ver el resultado del filtrado
                 log.info("DEBUG - Leads contactados calculados: {}", leadsContactados);
-                log.info("DEBUG - Distribución completa: {}", distribucionResultados.keySet());
+                log.info("DEBUG - DistribuciÃ³n completa: {}", distribucionResultados.keySet());
 
                 Double porcentajeAvance = totalLeads > 0
                                 ? (leadsContactados.doubleValue() / totalLeads.doubleValue()) * 100
                                 : 0.0;
 
-                // 3. Análisis temporal
+                // 3. AnÃ¡lisis temporal
                 // FIXED: Extend to end of tomorrow to account for UTC-5 timezone offset
                 // Calls made late today (local time) are stored as "tomorrow" in UTC
                 LocalDateTime fin = LocalDateTime.now().plusDays(1).toLocalDate().atTime(23, 59, 59);
@@ -525,7 +583,8 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                 })
                                 .collect(Collectors.toList());
 
-                // 5. Métricas de calidad - FIXED: usar llamadas efectivas en lugar de cualquier
+                // 5. MÃ©tricas de calidad - FIXED: usar llamadas efectivas en lugar de
+                // cualquier
                 // resultado
                 Long llamadasConResultado = (Long) metricasGenerales.get("conResultado");
                 Double tasaContactoGlobal = totalLlamadas > 0
@@ -584,26 +643,26 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 log.info("Agregando contacto urgente [idLead={}, idEncuesta={}]",
                                 request.getIdLead(), request.getIdEncuesta());
 
-                // 1. Buscar la campaña telefónica asociada a la encuesta
+                // 1. Buscar la campaÃ±a telefÃ³nica asociada a la encuesta
                 List<CampaniaTelefonicaEntity> campanias = campaniaRepo.findByIdEncuesta(request.getIdEncuesta());
 
                 if (campanias.isEmpty()) {
                         throw new IllegalArgumentException(
-                                        "No existe campaña telefónica asociada a la encuesta ID: "
+                                        "No existe campaÃ±a telefÃ³nica asociada a la encuesta ID: "
                                                         + request.getIdEncuesta());
                 }
 
-                // Si hay múltiples campañas, tomar la primera activa (VIGENTE)
+                // Si hay mÃºltiples campaÃ±as, tomar la primera activa (VIGENTE)
                 CampaniaTelefonicaEntity campania = campanias.stream()
                                 .filter(c -> "Vigente".equalsIgnoreCase(c.getEstado()) && !c.getEsArchivado())
                                 .findFirst()
                                 .orElseThrow(() -> new IllegalArgumentException(
-                                                "No hay campañas VIGENTES para la encuesta ID: "
+                                                "No hay campaÃ±as VIGENTES para la encuesta ID: "
                                                                 + request.getIdEncuesta()));
 
                 Integer idCampania = campania.getId();
 
-                // 2. Verificar si el lead ya está en la cola
+                // 2. Verificar si el lead ya estÃ¡ en la cola
                 java.util.Optional<ColaLlamadaEntity> existente = colaRepo.findByIdCampaniaAndIdLead(
                                 idCampania,
                                 request.getIdLead());
@@ -621,7 +680,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                 colaEntity.setIdAgenteActual(null); // Liberar agente
                         }
 
-                        log.info("Actualizando prioridad a ALTA para lead {} en campaña {}",
+                        log.info("Actualizando prioridad a ALTA para lead {} en campaÃ±a {}",
                                         request.getIdLead(), idCampania);
                 } else {
                         // Si no existe, crear nueva entrada con prioridad ALTA
@@ -631,7 +690,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                         colaEntity.setPrioridadCola("ALTA");
                         colaEntity.setEstadoEnCola("PENDIENTE");
 
-                        log.info("Agregando nuevo lead {} a cola de campaña {} con prioridad ALTA",
+                        log.info("Agregando nuevo lead {} a cola de campaÃ±a {} con prioridad ALTA",
                                         request.getIdLead(), idCampania);
                 }
 
@@ -659,6 +718,38 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                         case "MEDIA":
                         default:
                                 return CampaniaTelefonicaEntity.PrioridadEnum.Media;
+                }
+        }
+
+        private Integer requireAgent(Long idAgente) {
+                if (idAgente == null) {
+                        throw new IllegalArgumentException("El idAgente es obligatorio para esta operación");
+                }
+                return userAuthorizationService.ensureAgentAccess(idAgente).intValue();
+        }
+
+        private Integer resolveAgentForQuery(Long idAgente) {
+                return userAuthorizationService.resolveAgentId(idAgente);
+        }
+
+        private void ensureCampaniaAccess(Long idCampania) {
+                if (idCampania != null) {
+                        userAuthorizationService.ensureCampaniaTelefonicaAccess(idCampania);
+                }
+        }
+
+        private void ensureLlamadaAccess(LlamadaEntity llamada) {
+                if (llamada == null) {
+                        return;
+                }
+                Integer campaniaId = llamada.getIdCampania();
+                if (campaniaId != null) {
+                        ensureCampaniaAccess(campaniaId.longValue());
+                        return;
+                }
+                Integer agenteId = llamada.getIdAgente();
+                if (agenteId != null) {
+                        userAuthorizationService.ensureAgentAccess(agenteId.longValue());
                 }
         }
 }

@@ -10,7 +10,7 @@ import java.util.List;
 @Repository
 public interface EncuestaRepository extends JpaRepository<Encuesta, Integer> {
 
-    @Query("SELECT e, COUNT(r) FROM Encuesta e LEFT JOIN RespuestaEncuesta r ON e.idEncuesta = r.encuesta.idEncuesta GROUP BY e.idEncuesta")
+    @Query("SELECT e, COUNT(r) FROM Encuesta e LEFT JOIN RespuestaEncuesta r ON e.idEncuesta = r.encuesta.idEncuesta GROUP BY e.idEncuesta ORDER BY CASE WHEN e.estado = 'ACTIVA' THEN 1 WHEN e.estado = 'BORRADOR' THEN 2 WHEN e.estado = 'ARCHIVADA' THEN 3 ELSE 4 END ASC, e.fechaModificacion DESC")
     List<Object[]> findAllWithResponseCount();
 
     /**
@@ -19,6 +19,6 @@ public interface EncuestaRepository extends JpaRepository<Encuesta, Integer> {
      * 
      * @return Lista de arrays de objetos donde [0] = idEncuesta, [1] = titulo
      */
-    @Query("SELECT e.idEncuesta, e.titulo FROM Encuesta e WHERE e.estado = 'ACTIVA'")
+    @Query("SELECT e.idEncuesta, e.titulo FROM Encuesta e WHERE e.estado = 'ACTIVA' ORDER BY e.fechaModificacion DESC")
     List<Object[]> findActiveSurveys();
 }

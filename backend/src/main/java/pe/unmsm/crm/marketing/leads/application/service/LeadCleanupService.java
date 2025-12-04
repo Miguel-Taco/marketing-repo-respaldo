@@ -16,6 +16,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@org.springframework.context.annotation.Profile("!console")
 public class LeadCleanupService {
 
     private final LeadRepository leadRepository;

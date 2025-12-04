@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+﻿import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { CampaniaTelefonica } from '../types';
 import { telemarketingApi } from '../services/telemarketingApi';
+import { useAuth } from '../../../../../shared/context/AuthContext';
 
 interface CampaignsContextProps {
     campanias: CampaniaTelefonica[];
@@ -38,7 +39,9 @@ export const CampaignsProvider: React.FC<{ children: ReactNode }> = ({ children 
     const [autoNext, setAutoNext] = useState(false);
 
     // TODO: Obtener el ID del agente actual del contexto/autenticación
-    const idAgente = 1; // TODO: Get from auth context (using existing agent ID from database)
+    const { user, hasRole } = useAuth();
+    const idAgente = user?.agentId ?? null;
+    const isAdmin = hasRole('ADMIN');
 
     const fetchCampanias = useCallback(async (force = false) => {
         // Si ya tenemos datos y no es forzado, no hacemos nada (cache hit)
@@ -48,7 +51,12 @@ export const CampaignsProvider: React.FC<{ children: ReactNode }> = ({ children 
 
         setLoading(true);
         try {
-            const data = await telemarketingApi.getCampaniasAgente(idAgente);
+            if (!idAgente && !isAdmin) {
+                setError('No hay agente asignado para campañas telefónicas');
+                return;
+            }
+            setError(null);
+            const data = await telemarketingApi.getCampaniasAsignadas();
             setCampanias(data);
             setHasLoaded(true);
         } catch (err: any) {
@@ -57,7 +65,7 @@ export const CampaignsProvider: React.FC<{ children: ReactNode }> = ({ children 
         } finally {
             setLoading(false);
         }
-    }, [hasLoaded, idAgente]);
+    }, [hasLoaded, idAgente, isAdmin]);
 
     // Efecto para cargar cuando cambian los filtros
     // En este caso, los filtros son solo para UI (filtrado en frontend),
@@ -69,7 +77,12 @@ export const CampaignsProvider: React.FC<{ children: ReactNode }> = ({ children 
 
             setLoading(true);
             try {
-                const data = await telemarketingApi.getCampaniasAgente(idAgente);
+                if (!idAgente && !isAdmin) {
+                    setError('No hay agente asignado para campañas telefónicas');
+                    return;
+                }
+                setError(null);
+                const data = await telemarketingApi.getCampaniasAsignadas();
                 setCampanias(data);
                 setHasLoaded(true);
             } catch (err: any) {
@@ -81,7 +94,7 @@ export const CampaignsProvider: React.FC<{ children: ReactNode }> = ({ children 
         };
 
         load();
-    }, [hasLoaded, idAgente]);
+    }, [hasLoaded, idAgente, isAdmin]);
 
     const setFilter = (key: string, value: any) => {
         setFilters(prev => {
@@ -95,7 +108,12 @@ export const CampaignsProvider: React.FC<{ children: ReactNode }> = ({ children 
     const refresh = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await telemarketingApi.getCampaniasAgente(idAgente);
+            if (!idAgente && !isAdmin) {
+                setError('No hay agente asignado para campañas telefónicas');
+                return;
+            }
+            setError(null);
+            const data = await telemarketingApi.getCampaniasAsignadas();
             setCampanias(data);
             setHasLoaded(true);
         } catch (err: any) {
@@ -104,7 +122,7 @@ export const CampaignsProvider: React.FC<{ children: ReactNode }> = ({ children 
         } finally {
             setLoading(false);
         }
-    }, [idAgente]);
+    }, [idAgente, isAdmin]);
 
     return (
         <CampaignsContext.Provider value={{
@@ -129,3 +147,6 @@ export const useCampaignsContext = () => {
     }
     return context;
 };
+
+
+

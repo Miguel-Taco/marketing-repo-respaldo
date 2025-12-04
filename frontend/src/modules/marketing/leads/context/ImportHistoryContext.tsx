@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { LoteImportacion } from '../types/lead.types';
 import { leadsApi } from '../services/leads.api';
+import { useAuth } from '../../../../shared/context/AuthContext';
 
 interface ImportHistoryContextProps {
     history: LoteImportacion[];
@@ -15,6 +16,7 @@ interface ImportHistoryContextProps {
 const ImportHistoryContext = createContext<ImportHistoryContextProps | undefined>(undefined);
 
 export const ImportHistoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { isAuthenticated } = useAuth();
     const [history, setHistory] = useState<LoteImportacion[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -50,10 +52,18 @@ export const ImportHistoryProvider: React.FC<{ children: ReactNode }> = ({ child
 
     // Cargar la primera vez
     React.useEffect(() => {
-        if (!hasLoaded) {
+        if (isAuthenticated && !hasLoaded) {
             loadHistory(0);
         }
-    }, [hasLoaded, loadHistory]);
+    }, [hasLoaded, loadHistory, isAuthenticated]);
+
+    // Clear state on logout
+    React.useEffect(() => {
+        if (!isAuthenticated) {
+            setHistory([]);
+            setHasLoaded(false);
+        }
+    }, [isAuthenticated]);
 
     return (
         <ImportHistoryContext.Provider value={{

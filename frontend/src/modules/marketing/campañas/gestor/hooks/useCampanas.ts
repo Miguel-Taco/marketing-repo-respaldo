@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
-import { campanasApi } from '../services/campanas.api';
+import { useCampanasGestorContext } from '../context/CampanasGestorContext';
 import { CampanaListItem } from '../types/campana.types';
 
 interface UseCampanasReturn {
@@ -11,70 +10,33 @@ interface UseCampanasReturn {
     totalPages: number;
     totalElements: number;
     currentPage: number;
+    filtros: any; // Or define a specific type if available
 }
 
 export const useCampanas = (): UseCampanasReturn => {
-    const [campanas, setCampanas] = useState<CampanaListItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
-    const [currentPage, setCurrentPage] = useState(0);
-
-    const [filters, setFilters] = useState<{
-        nombre?: string;
-        estado?: string;
-        prioridad?: string;
-        canalEjecucion?: string;
-        page: number;
-        size: number;
-    }>({
-        page: 0,
-        size: 10,
-    });
-
-    const fetchCampanas = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            const data = await campanasApi.getAll(filters);
-            setCampanas(data.content);
-            setTotalPages(data.totalPages);
-            setTotalElements(data.totalElements);
-            setCurrentPage(data.page);
-        } catch (err: any) {
-            setError(err.message || 'Error al cargar campañas');
-            console.error('Error fetching campanas:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [filters]);
-
-    useEffect(() => {
-        fetchCampanas();
-    }, [fetchCampanas]);
+    const { campanas, fetchCampanas, setCampanasFilter, setCampanasPage } = useCampanasGestorContext();
 
     const setFilter = (key: string, value: any) => {
-        setFilters(prev => ({
-            ...prev,
-            [key]: value,
-            page: key === 'page' ? value : 0, // Reset to page 0 when changing filters
-        }));
+        if (key === 'page') {
+            setCampanasPage(value);
+        } else {
+            setCampanasFilter(key, value);
+        }
     };
 
     const refresh = async () => {
-        await fetchCampanas();
+        await fetchCampanas(true);
     };
 
     return {
-        campanas,
-        loading,
-        error,
+        campanas: campanas.data,
+        loading: campanas.loading,
+        error: null, // Context doesn't currently track error explicitly in state interface but logs it
         refresh,
         setFilter,
-        totalPages,
-        totalElements,
-        currentPage,
+        totalPages: campanas.pagination.totalPages,
+        totalElements: campanas.pagination.totalElements,
+        currentPage: campanas.pagination.page,
+        filtros: campanas.filters, // Expose filters
     };
 };

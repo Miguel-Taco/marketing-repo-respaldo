@@ -13,21 +13,19 @@ import { Segmento } from '../../../../../shared/types/segmento.types';
 import { EncuestaDisponible } from '../../../../../shared/types/encuesta.types';
 import { PlantillaDetailModal } from './PlantillaDetailModal';
 
+import { useCampanasGestorContext } from '../context/CampanasGestorContext';
+
 interface PlantillasTabProps {
     onTotalElementsChange?: (total: number) => void;
     refreshTrigger?: number;
 }
 
 export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsChange, refreshTrigger = 0 }) => {
-    const [plantillas, setPlantillas] = useState<PlantillaCampana[]>([]);
+    const { plantillas, fetchPlantillas, setPlantillasFilter, setPlantillasPage } = useCampanasGestorContext();
+
+    // Metadata state (kept local)
     const [segmentos, setSegmentos] = useState<Segmento[]>([]);
     const [encuestas, setEncuestas] = useState<EncuestaDisponible[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [canalFilter, setCanalFilter] = useState('');
-    const [currentPage, setCurrentPage] = useState(0);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
 
     // Modal states
     const [selectedPlantilla, setSelectedPlantilla] = useState<PlantillaCampana | null>(null);
@@ -38,6 +36,20 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
     useEffect(() => {
         loadMetadata();
     }, []);
+
+    // Sync total elements with parent
+    useEffect(() => {
+        if (onTotalElementsChange) {
+            onTotalElementsChange(plantillas.pagination.totalElements);
+        }
+    }, [plantillas.pagination.totalElements, onTotalElementsChange]);
+
+    // Refresh trigger
+    useEffect(() => {
+        if (refreshTrigger > 0) {
+            fetchPlantillas(true);
+        }
+    }, [refreshTrigger, fetchPlantillas]);
 
     const loadMetadata = async () => {
         try {
@@ -52,34 +64,6 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
         }
     };
 
-    const fetchPlantillas = async () => {
-        setLoading(true);
-        try {
-            const response = await plantillasApi.getAll({
-                nombre: searchTerm || undefined,
-                canalEjecucion: canalFilter || undefined,
-                page: currentPage,
-                size: 10,
-            });
-
-            setPlantillas(response.content);
-            setTotalPages(response.total_pages);
-            setTotalElements(response.total_elements);
-
-            if (onTotalElementsChange) {
-                onTotalElementsChange(response.total_elements);
-            }
-        } catch (error) {
-            console.error('Error fetching plantillas:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchPlantillas();
-    }, [currentPage, searchTerm, canalFilter, refreshTrigger]);
-
     const getSegmentoNombre = (id?: number) => {
         if (!id) return 'Sin asignar';
         const segmento = segmentos.find(s => s.id === id);
@@ -93,18 +77,16 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchTerm(e.target.value);
-        setCurrentPage(0);
+        setPlantillasFilter('nombre', e.target.value);
     };
 
     const handleCanalFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setCanalFilter(e.target.value);
-        setCurrentPage(0);
+        setPlantillasFilter('canalEjecucion', e.target.value);
     };
 
     const goToPage = (page: number) => {
-        if (page >= 0 && page < totalPages) {
-            setCurrentPage(page);
+        if (page >= 0 && page < plantillas.pagination.totalPages) {
+            setPlantillasPage(page);
         }
     };
 
@@ -115,7 +97,7 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
         try {
             await plantillasApi.delete(plantillaToDelete);
             setPlantillaToDelete(null);
-            await fetchPlantillas();
+            await fetchPlantillas(true); // Force refresh
         } catch (error) {
             console.error('Error deleting plantilla:', error);
             alert('Hubo un error al eliminar la plantilla. Por favor intenta de nuevo.');
@@ -148,7 +130,7 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
                             type="text"
                             placeholder="Buscar por nombre..."
                             className="w-full pl-10 pr-4 py-2 border border-separator rounded-lg focus:ring-2 focus:ring-primary focus:outline-none transition-all"
-                            value={searchTerm}
+                            value={plantillas.filters.nombre}
                             onChange={handleSearchChange}
                         />
                     </div>
@@ -157,7 +139,7 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
                     <div className="flex items-center gap-2">
                         <select
                             className="border border-separator rounded-lg px-3 py-2 text-sm text-gray-600 focus:outline-none focus:border-primary"
-                            value={canalFilter}
+                            value={plantillas.filters.canalEjecucion}
                             onChange={handleCanalFilterChange}
                         >
                             <option value="">Todos los canales</option>
@@ -166,7 +148,7 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
                             <option value="Llamadas">Llamadas</option>
                         </select>
 
-                        <Button variant="secondary" onClick={fetchPlantillas} title="Actualizar lista">
+                        <Button variant="secondary" onClick={() => fetchPlantillas(true)} title="Actualizar lista">
                             <span className="material-symbols-outlined text-xl">refresh</span>
                         </Button>
                     </div>
@@ -174,52 +156,52 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
 
                 {/* Table */}
                 <div className="overflow-x-auto">
-                    {loading ? (
+                    {plantillas.loading ? (
                         <div className="p-8 text-center">
                             <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-solid border-primary border-r-transparent"></div>
                             <p className="mt-2 text-gray-500">Cargando plantillas...</p>
                         </div>
-                    ) : plantillas.length === 0 ? (
+                    ) : plantillas.data.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">
                             No se encontraron plantillas.
                         </div>
                     ) : (
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b border-separator">
+                        <table className="w-full text-left">
+                            <thead className="bg-table-header">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">
                                         Nombre
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">
                                         Temática
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">
                                         Canal
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">
                                         Segmento
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">
                                         Encuesta
                                     </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">
                                         Acciones
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-separator">
-                                {plantillas.map((plantilla) => (
+                            <tbody className="divide-y divide-separator">
+                                {plantillas.data.map((plantilla) => (
                                     <tr key={plantilla.idPlantilla} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{plantilla.nombre}</div>
+                                        <td className="p-4 font-medium text-dark whitespace-nowrap">
+                                            {plantilla.nombre}
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-900">{plantilla.tematica}</div>
+                                        <td className="p-4 text-gray-600">
+                                            <div className="text-sm">{plantilla.tematica}</div>
                                             {plantilla.descripcion && (
                                                 <div className="text-xs text-gray-500 mt-1">{plantilla.descripcion}</div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="p-4 whitespace-nowrap">
                                             {plantilla.canalEjecucion ? (
                                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${plantilla.canalEjecucion === 'Mailing'
                                                     ? 'bg-blue-100 text-blue-800'
@@ -231,27 +213,29 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
                                                 <span className="text-sm text-gray-400">Sin asignar</span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                        <td className="p-4 text-gray-600 whitespace-nowrap">
                                             {getSegmentoNombre(plantilla.idSegmento)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                        <td className="p-4 text-gray-600 whitespace-nowrap">
                                             {getEncuestaTitulo(plantilla.idEncuesta)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button
-                                                onClick={() => openDetailModal(plantilla)}
-                                                className="text-primary hover:text-primary/80 mr-3"
-                                                title="Ver detalles"
-                                            >
-                                                <span className="material-symbols-outlined text-xl">visibility</span>
-                                            </button>
-                                            <button
-                                                onClick={() => setPlantillaToDelete(plantilla.idPlantilla)}
-                                                className="text-red-600 hover:text-red-800"
-                                                title="Eliminar"
-                                            >
-                                                <span className="material-symbols-outlined text-xl">delete</span>
-                                            </button>
+                                        <td className="p-4 whitespace-nowrap">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => openDetailModal(plantilla)}
+                                                    className="p-1.5 text-primary hover:bg-blue-50 rounded transition-colors"
+                                                    title="Ver detalles"
+                                                >
+                                                    <span className="material-symbols-outlined text-xl">visibility</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => setPlantillaToDelete(plantilla.idPlantilla)}
+                                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                    title="Eliminar"
+                                                >
+                                                    <span className="material-symbols-outlined text-xl">delete</span>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -265,57 +249,59 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
                     <div className="text-gray-600">
                         Mostrando{' '}
                         <span className="font-semibold">
-                            {plantillas.length > 0 ? currentPage * 10 + 1 : 0}
+                            {plantillas.data.length > 0
+                                ? `${plantillas.pagination.page * 10 + 1}-${Math.min(plantillas.pagination.page * 10 + plantillas.data.length, plantillas.pagination.totalElements)}`
+                                : '0'}
                         </span>{' '}
-                        de <span className="font-semibold">{totalElements}</span> resultados totales
-                        {totalPages > 1 && (
+                        de <span className="font-semibold">{plantillas.pagination.totalElements}</span> resultados totales
+                        {plantillas.pagination.totalPages > 1 && (
                             <span className="ml-2">
-                                (Página {currentPage + 1} de {totalPages})
+                                (Página {plantillas.pagination.page + 1} de {plantillas.pagination.totalPages})
                             </span>
                         )}
                     </div>
 
                     {/* Pagination Controls */}
-                    {totalPages > 1 && (
+                    {plantillas.pagination.totalPages > 1 && (
                         <div className="flex items-center gap-1">
                             <button
                                 className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 onClick={() => goToPage(0)}
-                                disabled={currentPage === 0 || loading}
+                                disabled={plantillas.pagination.page === 0 || plantillas.loading}
                             >
                                 « Inicio
                             </button>
                             <button
                                 className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => goToPage(currentPage - 1)}
-                                disabled={currentPage === 0 || loading}
+                                onClick={() => goToPage(plantillas.pagination.page - 1)}
+                                disabled={plantillas.pagination.page === 0 || plantillas.loading}
                             >
                                 ‹ Anterior
                             </button>
 
                             {/* Page numbers */}
                             <div className="flex gap-1">
-                                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                                {Array.from({ length: Math.min(plantillas.pagination.totalPages, 5) }, (_, i) => {
                                     let pageNum;
-                                    if (totalPages <= 5) {
+                                    if (plantillas.pagination.totalPages <= 5) {
                                         pageNum = i;
-                                    } else if (currentPage < 3) {
+                                    } else if (plantillas.pagination.page < 3) {
                                         pageNum = i;
-                                    } else if (currentPage >= totalPages - 3) {
-                                        pageNum = totalPages - 5 + i;
+                                    } else if (plantillas.pagination.page >= plantillas.pagination.totalPages - 3) {
+                                        pageNum = plantillas.pagination.totalPages - 5 + i;
                                     } else {
-                                        pageNum = currentPage - 2 + i;
+                                        pageNum = plantillas.pagination.page - 2 + i;
                                     }
 
                                     return (
                                         <button
                                             key={pageNum}
-                                            className={`px-3 py-1.5 border rounded-md transition-colors ${currentPage === pageNum
+                                            className={`px-3 py-1.5 border rounded-md transition-colors ${plantillas.pagination.page === pageNum
                                                 ? 'bg-primary text-white border-primary'
                                                 : 'bg-white hover:bg-gray-50 text-gray-600 border-separator'
                                                 }`}
                                             onClick={() => goToPage(pageNum)}
-                                            disabled={loading}
+                                            disabled={plantillas.loading}
                                         >
                                             {pageNum + 1}
                                         </button>
@@ -325,15 +311,15 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
 
                             <button
                                 className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => goToPage(currentPage + 1)}
-                                disabled={currentPage >= totalPages - 1 || loading}
+                                onClick={() => goToPage(plantillas.pagination.page + 1)}
+                                disabled={plantillas.pagination.page >= plantillas.pagination.totalPages - 1 || plantillas.loading}
                             >
                                 Siguiente ›
                             </button>
                             <button
                                 className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => goToPage(totalPages - 1)}
-                                disabled={currentPage >= totalPages - 1 || loading}
+                                onClick={() => goToPage(plantillas.pagination.totalPages - 1)}
+                                disabled={plantillas.pagination.page >= plantillas.pagination.totalPages - 1 || plantillas.loading}
                             >
                                 Fin »
                             </button>
@@ -347,7 +333,7 @@ export const PlantillasTab: React.FC<PlantillasTabProps> = ({ onTotalElementsCha
                 isOpen={isDetailModalOpen}
                 onClose={handleDetailModalClose}
                 plantilla={selectedPlantilla}
-                onUpdate={fetchPlantillas}
+                onUpdate={() => fetchPlantillas(true)}
             />
 
             {/* Delete Confirmation Modal */}

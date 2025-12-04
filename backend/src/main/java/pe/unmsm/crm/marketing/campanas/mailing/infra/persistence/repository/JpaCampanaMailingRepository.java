@@ -32,5 +32,14 @@ public interface JpaCampanaMailingRepository extends JpaRepository<CampanaMailin
                                                       @Param("idEstado") Integer idEstado,
                                                       @Param("nombre") String nombre);
 
+    List<CampanaMailing> findByIdInOrderByFechaInicio(List<Integer> ids);
+
+    List<CampanaMailing> findByIdInAndIdEstado(List<Integer> ids, Integer idEstado);
+
     Optional<CampanaMailing> findByIdCampanaGestion(Long idCampanaGestion);
+
+    @Query("SELECT c.id FROM CampanaMailing c WHERE c.idAgenteAsignado = :idAgente")
+    List<Integer> findIdsByIdAgenteAsignado(@Param("idAgente") Integer idAgente);
+
+    boolean existsByIdAndIdAgenteAsignado(Integer id, Integer idAgente);
 }

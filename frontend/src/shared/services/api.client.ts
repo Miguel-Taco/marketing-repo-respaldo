@@ -8,6 +8,20 @@ export const apiClient: AxiosInstance = axios.create({
     timeout: 30000, // 30 segundos
 });
 
+// Interceptor de request para agregar el token JWT
+apiClient.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('jwt_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
 // Interceptor de respuesta mejorado
 apiClient.interceptors.response.use(
     (response) => response,
@@ -18,7 +32,12 @@ apiClient.interceptors.response.use(
 
         if (status === 401) {
             console.error('Sesión expirada');
-            // Aquí podrías redirigir a login si implementas autenticación
+            // Limpiar localStorage y redirigir a login
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_info');
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
         } else if (status === 404) {
             console.error('Recurso no encontrado:', message);
         } else if (status && status >= 500) {

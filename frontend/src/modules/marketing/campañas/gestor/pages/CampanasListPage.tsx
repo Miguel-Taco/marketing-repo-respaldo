@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useCampanas } from '../hooks/useCampanas';
 import { CampanaTable } from '../components/CampanaTable';
 import { CampanaDetailModal } from '../components/CampanaDetailModal';
@@ -22,13 +22,42 @@ export const CampanasListPage: React.FC = () => {
         totalPages,
         totalElements,
         currentPage,
+        filtros,
     } = useCampanas();
 
     const navigate = useNavigate();
-    const [searchTerm, setSearchTerm] = useState('');
+    const { tab } = useParams<{ tab: string }>();
+
+    // Map URL params to internal tab values
+    const getTabFromUrl = (urlTab?: string) => {
+        switch (urlTab) {
+            case 'segmentos': return 'segments';
+            case 'plantillas': return 'templates';
+            case 'historial': return 'history';
+            default: return 'campaigns';
+        }
+    };
+
+    // Map internal tab values to URL params
+    const getUrlFromTab = (tabValue: string) => {
+        switch (tabValue) {
+            case 'segments': return 'segmentos';
+            case 'templates': return 'plantillas';
+            case 'history': return 'historial';
+            default: return '';
+        }
+    };
+
+    const activeTab = getTabFromUrl(tab);
+
+    const handleTabChange = (value: string) => {
+        const path = getUrlFromTab(value);
+        navigate(path ? `/marketing/campanas/${path}` : '/marketing/campanas');
+    };
+
+    const [searchTerm, setSearchTerm] = useState(filtros.nombre || '');
     const [campanaToDelete, setCampanaToDelete] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [activeTab, setActiveTab] = useState('campaigns');
     const [historialTotalElements, setHistorialTotalElements] = useState(0);
     const [plantillasTotalElements, setPlantillasTotalElements] = useState(0);
 
@@ -147,7 +176,7 @@ export const CampanasListPage: React.FC = () => {
                     { label: 'Historial', value: 'history' },
                 ]}
                 activeValue={activeTab}
-                onChange={(value) => setActiveTab(value)}
+                onChange={handleTabChange}
             />
 
             {/* Content based on active tab */}
@@ -173,6 +202,7 @@ export const CampanasListPage: React.FC = () => {
                         <div className="flex items-center gap-2">
                             <select
                                 className="border border-separator rounded-lg px-3 py-2 text-sm text-gray-600 focus:outline-none focus:border-primary"
+                                value={filtros.prioridad || ''}
                                 onChange={(e) => setFilter('prioridad', e.target.value)}
                             >
                                 <option value="">Todas las prioridades</option>
@@ -183,6 +213,7 @@ export const CampanasListPage: React.FC = () => {
 
                             <select
                                 className="border border-separator rounded-lg px-3 py-2 text-sm text-gray-600 focus:outline-none focus:border-primary"
+                                value={filtros.estado || ''}
                                 onChange={(e) => setFilter('estado', e.target.value)}
                             >
                                 <option value="">Todos los estados</option>
@@ -196,6 +227,7 @@ export const CampanasListPage: React.FC = () => {
 
                             <select
                                 className="border border-separator rounded-lg px-3 py-2 text-sm text-gray-600 focus:outline-none focus:border-primary"
+                                value={filtros.canalEjecucion || ''}
                                 onChange={(e) => setFilter('canalEjecucion', e.target.value)}
                             >
                                 <option value="">Todos los canales</option>
@@ -222,7 +254,9 @@ export const CampanasListPage: React.FC = () => {
                         <div className="text-gray-600">
                             Mostrando{' '}
                             <span className="font-semibold">
-                                {campanas.length > 0 ? currentPage * 10 + 1 : 0}
+                                {campanas.length > 0
+                                    ? `${currentPage * 10 + 1}-${Math.min(currentPage * 10 + campanas.length, totalElements)}`
+                                    : '0'}
                             </span>{' '}
                             de <span className="font-semibold">{totalElements}</span> resultados totales
                             {totalPages > 1 && (

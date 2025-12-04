@@ -16,6 +16,7 @@ import java.util.List;
 @Component
 @Primary
 @RequiredArgsConstructor
+@org.springframework.context.annotation.Profile("!console")
 public class RestLeadAdapter implements LeadServicePort {
 
     private final LeadCacheService cacheService;

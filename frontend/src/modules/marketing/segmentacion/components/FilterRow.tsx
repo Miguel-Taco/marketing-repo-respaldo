@@ -22,6 +22,10 @@ const FILTER_OPTIONS = [
     { value: 'estado_civil', label: 'Estado Civil', type: 'select', options: ['Soltero(a)', 'Casado(a)', 'Divorciado(a)', 'Viudo(a)'] },
     { value: 'distrito', label: 'Distrito', type: 'text' },
     { value: 'departamento', label: 'Departamento', type: 'text' },
+    { value: 'utmSource', label: 'Fuente de Campaña', type: 'text' },
+    { value: 'utmMedium', label: 'Medio de Campaña', type: 'text' },
+    { value: 'utmCampaign', label: 'Nombre de Campaña', type: 'text' },
+    { value: 'tipoFuente', label: 'Tipo de Origen', type: 'select', options: ['WEB', 'MANUAL', 'IMPORTACION'] },
 ];
 
 // Operadores disponibles según el tipo de campo

@@ -7,6 +7,8 @@ import { Input } from '../../../../shared/components/ui/Input';
 import { Select } from '../../../../shared/components/ui/Select';
 import { encuestasApi } from './services/encuestas.api';
 import { Encuesta } from './types';
+import { AnalyticsTab } from './components/AnalyticsTab';
+import { Modal } from '../../../../shared/components/ui/Modal';
 
 export const EncuestaPage: React.FC = () => {
     const navigate = useNavigate();
@@ -20,8 +22,13 @@ export const EncuestaPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(0);
     const pageSize = 10;
 
-    // Selection state
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+
+    // Archive Modal State
+    const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+    const [selectedEncuesta, setSelectedEncuesta] = useState<Encuesta | null>(null);
+    const [errorModalOpen, setErrorModalOpen] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
     useEffect(() => {
         loadEncuestas();
@@ -59,44 +66,48 @@ export const EncuestaPage: React.FC = () => {
         }
     };
 
-    // Selection Logic
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            const newSelected = new Set(selectedIds);
-            paginatedEncuestas.forEach(enc => newSelected.add(enc.idEncuesta));
-            setSelectedIds(newSelected);
-        } else {
-            const newSelected = new Set(selectedIds);
-            paginatedEncuestas.forEach(enc => newSelected.delete(enc.idEncuesta));
-            setSelectedIds(newSelected);
-        }
-    };
 
-    const handleSelectRow = (id: number) => {
-        const newSelected = new Set(selectedIds);
-        if (newSelected.has(id)) {
-            newSelected.delete(id);
-        } else {
-            newSelected.add(id);
-        }
-        setSelectedIds(newSelected);
-    };
-
-    const clearSelection = () => {
-        setSelectedIds(new Set());
-    };
-
-    const isAllSelected = paginatedEncuestas.length > 0 && paginatedEncuestas.every(enc => selectedIds.has(enc.idEncuesta));
 
     // Reset pagination when filters change
     useEffect(() => {
         setCurrentPage(0);
-        clearSelection();
     }, [filterEstado, searchTerm]);
 
     const totalEncuestas = encuestas.length;
     const encuestasActivas = encuestas.filter(e => e.estado === 'ACTIVA').length;
     const totalRespuestas = encuestas.reduce((acc, curr) => acc + (curr.totalRespuestas || 0), 0);
+
+    const handleArchiveClick = (encuesta: Encuesta) => {
+        setSelectedEncuesta(encuesta);
+        setArchiveModalOpen(true);
+    };
+
+    const confirmArchive = async () => {
+        if (!selectedEncuesta) return;
+
+        try {
+            // 1. Validar si tiene campañas activas antes de intentar archivar
+            const campanas = await encuestasApi.getCampanas(selectedEncuesta.idEncuesta);
+            const campanasActivas = campanas.filter(c => c.estado !== 'Finalizada');
+
+            if (campanasActivas.length > 0) {
+                setArchiveModalOpen(false);
+                setErrorMessage('No se puede archivar la encuesta porque tiene campañas asociadas que no están finalizadas.');
+                setErrorModalOpen(true);
+                return;
+            }
+
+            // 2. Si pasa la validación, proceder a archivar
+            await encuestasApi.archivar(selectedEncuesta.idEncuesta);
+            setArchiveModalOpen(false);
+            loadEncuestas(); // Refresh list
+        } catch (error: any) {
+            console.error('Error archiving encuesta:', error);
+            setArchiveModalOpen(false);
+            setErrorMessage(error.message || 'No se pudo archivar la encuesta.');
+            setErrorModalOpen(true);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -136,232 +147,260 @@ export const EncuestaPage: React.FC = () => {
                 </div>
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center justify-center">
                     <span className="text-4xl font-bold text-gray-900">{totalRespuestas.toLocaleString()}</span>
-                    <span className="text-sm text-gray-500 mt-1">Total Respuestas</span>
+                    <span className="text-sm text-gray-500 mt-1">Total Respuestas Global</span>
                 </div>
             </div>
 
-            {/* Filters & Search */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                {/* Search - Left */}
-                <div className="w-full md:w-1/3 relative">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                        search
-                    </span>
-                    <Input
-                        placeholder="Buscar por título..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10"
-                    />
-                </div>
+            {activeTab === 'Analíticas' ? (
+                <AnalyticsTab />
+            ) : (
+                <>
+                    {/* Filters & Search */}
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                        {/* Search - Left */}
+                        <div className="w-full md:w-1/3 relative">
+                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                search
+                            </span>
+                            <Input
+                                placeholder="Buscar por título..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10"
+                            />
+                        </div>
 
-                {/* Filter - Right */}
-                <div className="w-full md:w-1/4">
-                    <Select
-                        options={[
-                            { value: 'Todas', label: 'Todos los Estados' },
-                            { value: 'ACTIVA', label: 'Activa' },
-                            { value: 'BORRADOR', label: 'Borrador' },
-                            { value: 'ARCHIVADA', label: 'Archivada' }
-                        ]}
-                        value={filterEstado}
-                        onChange={(e) => setFilterEstado(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            {/* Selection Bar */}
-            {selectedIds.size > 0 && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
-                    <span className="text-sm font-medium text-blue-900">
-                        {selectedIds.size} encuesta(s) seleccionada(s)
-                    </span>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="secondary"
-                            onClick={clearSelection}
-                        >
-                            Limpiar selección
-                        </Button>
-                        <Button
-                            variant="danger"
-                            onClick={() => console.log('Delete multiple')}
-                        >
-                            <span className="material-symbols-outlined text-lg mr-1">delete</span>
-                            Eliminar seleccionados
-                        </Button>
+                        {/* Filter - Right */}
+                        <div className="w-full md:w-1/4">
+                            <Select
+                                options={[
+                                    { value: 'Todas', label: 'Todos los Estados' },
+                                    { value: 'ACTIVA', label: 'Activa' },
+                                    { value: 'BORRADOR', label: 'Borrador' },
+                                    { value: 'ARCHIVADA', label: 'Archivada' }
+                                ]}
+                                value={filterEstado}
+                                onChange={(e) => setFilterEstado(e.target.value)}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
 
-            {/* Custom Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-separator overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-table-header">
-                            <tr>
-                                <th className="p-4 w-12">
-                                    <input
-                                        type="checkbox"
-                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
-                                        checked={isAllSelected}
-                                        onChange={handleSelectAll}
-                                    />
-                                </th>
-                                <th className="p-4 text-sm font-semibold text-dark tracking-wide">Título / Descripción</th>
-                                <th className="p-4 text-sm font-semibold text-dark tracking-wide">Estado</th>
-                                <th className="p-4 text-sm font-semibold text-dark tracking-wide">Respuestas</th>
-                                <th className="p-4 text-sm font-semibold text-dark tracking-wide">Fecha Creación</th>
-                                <th className="p-4 text-sm font-semibold text-dark tracking-wide">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-separator">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-500">Cargando encuestas...</td>
-                                </tr>
-                            ) : paginatedEncuestas.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-500">No se encontraron encuestas</td>
-                                </tr>
-                            ) : (
-                                paginatedEncuestas.map((encuesta) => (
-                                    <tr key={encuesta.idEncuesta} className={`hover:bg-gray-50 transition-colors ${selectedIds.has(encuesta.idEncuesta) ? 'bg-blue-50/30' : ''}`}>
-                                        <td className="p-4">
-                                            <input
-                                                type="checkbox"
-                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
-                                                checked={selectedIds.has(encuesta.idEncuesta)}
-                                                onChange={() => handleSelectRow(encuesta.idEncuesta)}
-                                            />
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-medium text-gray-900">
-                                                    {encuesta.titulo}
-                                                </span>
-                                                <span className="text-xs text-gray-500 mt-0.5">
-                                                    {encuesta.descripcion || 'Sin descripción'}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="p-4">
-                                            <Badge variant={
-                                                encuesta.estado === 'ACTIVA' ? 'success' :
-                                                    encuesta.estado === 'BORRADOR' ? 'default' : 'default'
-                                            }>
-                                                {encuesta.estado.charAt(0) + encuesta.estado.slice(1).toLowerCase()}
-                                            </Badge>
-                                        </td>
-                                        <td className="p-4 text-sm text-gray-600">
-                                            {(encuesta.totalRespuestas || 0).toLocaleString()}
-                                        </td>
-                                        <td className="p-4 text-sm text-gray-600">
-                                            {new Date(encuesta.fechaModificacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex items-center gap-2">
-                                                {encuesta.estado === 'BORRADOR' ? (
-                                                    <button
-                                                        className="font-medium text-blue-600 hover:underline"
-                                                        onClick={() => navigate(`/encuestas/edit/${encuesta.idEncuesta}`)}
-                                                    >
-                                                        Editar
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        className="font-medium text-blue-600 hover:underline"
-                                                        onClick={() => console.log('View detail', encuesta.idEncuesta)}
-                                                    >
-                                                        Ver Detalle
-                                                    </button>
-                                                )}
-                                                <button className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors">
-                                                    <span className="material-symbols-outlined text-xl">delete</span>
-                                                </button>
-                                            </div>
-                                        </td>
+
+
+                    {/* Custom Table */}
+                    <div className="bg-white rounded-lg shadow-sm border border-separator overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-table-header">
+                                    <tr>
+
+                                        <th className="p-4 text-sm font-semibold text-dark tracking-wide">Título / Descripción</th>
+                                        <th className="p-4 text-sm font-semibold text-dark tracking-wide">Estado</th>
+                                        <th className="p-4 text-sm font-semibold text-dark tracking-wide">Respuestas</th>
+                                        <th className="p-4 text-sm font-semibold text-dark tracking-wide">Fecha Creación</th>
+                                        <th className="p-4 text-sm font-semibold text-dark tracking-wide">Acciones</th>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                </thead>
+                                <tbody className="divide-y divide-separator">
+                                    {loading ? (
+                                        <tr>
+                                            <td colSpan={6} className="p-8 text-center text-gray-500">Cargando encuestas...</td>
+                                        </tr>
+                                    ) : paginatedEncuestas.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="p-8 text-center text-gray-500">No se encontraron encuestas</td>
+                                        </tr>
+                                    ) : (
+                                        paginatedEncuestas.map((encuesta) => (
+                                            <tr key={encuesta.idEncuesta} className={`hover:bg-gray-50 transition-colors`}>
 
-                {/* Pagination Footer - Exact Leads Style */}
-                <div className="p-5 border-t border-separator flex justify-between items-center text-sm">
-                    <div className="text-gray-600">
-                        Mostrando <span className="font-semibold">{paginatedEncuestas.length > 0 ? ((currentPage * pageSize) + 1) : 0}</span> de <span className="font-semibold">{totalElements}</span> resultados totales
-                        {totalPages > 1 && (
-                            <span className="ml-2">(Página {currentPage + 1} de {totalPages})</span>
-                        )}
-                    </div>
+                                                <td className="p-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-medium text-gray-900">
+                                                            {encuesta.titulo}
+                                                        </span>
+                                                        <span className="text-xs text-gray-500 mt-0.5" title={encuesta.descripcion}>
+                                                            {encuesta.descripcion
+                                                                ? (encuesta.descripcion.length > 60
+                                                                    ? `${encuesta.descripcion.substring(0, 60)}...`
+                                                                    : encuesta.descripcion)
+                                                                : 'Sin descripción'}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <Badge variant={
+                                                        encuesta.estado === 'ACTIVA' ? 'success' :
+                                                            encuesta.estado === 'BORRADOR' ? 'default' : 'default'
+                                                    }>
+                                                        {encuesta.estado.charAt(0) + encuesta.estado.slice(1).toLowerCase()}
+                                                    </Badge>
+                                                </td>
+                                                <td className="p-4 text-sm text-gray-600">
+                                                    {(encuesta.totalRespuestas || 0).toLocaleString()}
+                                                </td>
+                                                <td className="p-4 text-sm text-gray-600">
+                                                    {new Date(encuesta.fechaModificacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        {/* View Button - Always visible, enabled for all except maybe logic doesn't say disabled ever for view? 
+                                                            Wait, "para las encuestas BORRADOR... también se podrá ver los detalles"
+                                                            "ARCHIVADA, solo estará habilitado el botón de visibility"
+                                                            So View is always enabled.
+                                                        */}
+                                                        <button
+                                                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                            onClick={() => navigate(`/encuestas/view/${encuesta.idEncuesta}`)}
+                                                            title="Ver detalle"
+                                                        >
+                                                            <span className="material-symbols-outlined text-xl">visibility</span>
+                                                        </button>
 
-                    {/* Numeric Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center gap-1">
-                            <button
-                                className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => handlePageChange(0)}
-                                disabled={currentPage === 0}
-                            >
-                                « Inicio
-                            </button>
-                            <button
-                                className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => handlePageChange(currentPage - 1)}
-                                disabled={currentPage === 0}
-                            >
-                                &lsaquo; Anterior
-                            </button>
+                                                        {/* Edit Button */}
+                                                        <button
+                                                            className={`p-1.5 rounded transition-colors ${encuesta.estado === 'BORRADOR'
+                                                                ? 'text-blue-600 hover:bg-blue-50 cursor-pointer'
+                                                                : 'text-gray-400 cursor-not-allowed'
+                                                                }`}
+                                                            onClick={() => {
+                                                                if (encuesta.estado === 'BORRADOR') {
+                                                                    navigate(`/encuestas/edit/${encuesta.idEncuesta}`);
+                                                                }
+                                                            }}
+                                                            disabled={encuesta.estado !== 'BORRADOR'}
+                                                            title={encuesta.estado === 'BORRADOR' ? "Editar encuesta" : "Edición deshabilitada"}
+                                                        >
+                                                            <span className="material-symbols-outlined text-xl">edit</span>
+                                                        </button>
 
-                            {/* Page numbers */}
-                            <div className="flex gap-1">
-                                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                                    let pageNum;
-                                    if (totalPages <= 5) {
-                                        pageNum = i;
-                                    } else if (currentPage < 3) {
-                                        pageNum = i;
-                                    } else if (currentPage >= totalPages - 3) {
-                                        pageNum = totalPages - 5 + i;
-                                    } else {
-                                        pageNum = currentPage - 2 + i;
-                                    }
+                                                        {/* Delete Button */}
+                                                        <button
+                                                            className={`p-1.5 rounded transition-colors ${encuesta.estado === 'ARCHIVADA'
+                                                                ? 'text-gray-400 cursor-not-allowed'
+                                                                : 'text-red-500 hover:bg-red-50 cursor-pointer'
+                                                                }`}
+                                                            onClick={() => {
+                                                                if (encuesta.estado !== 'ARCHIVADA') {
+                                                                    handleArchiveClick(encuesta);
+                                                                }
+                                                            }}
+                                                            disabled={encuesta.estado === 'ARCHIVADA'}
+                                                            title={encuesta.estado === 'ARCHIVADA' ? "Eliminación deshabilitada" : "Archivar encuesta"}
+                                                        >
+                                                            <span className="material-symbols-outlined text-xl">delete</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
 
-                                    return (
-                                        <button
-                                            key={pageNum}
-                                            className={`px-3 py-1.5 border rounded-md transition-colors ${currentPage === pageNum
-                                                ? 'bg-blue-600 text-white border-blue-600'
-                                                : 'bg-white hover:bg-gray-50 text-gray-600 border-separator'
-                                                }`}
-                                            onClick={() => handlePageChange(pageNum)}
-                                        >
-                                            {pageNum + 1}
-                                        </button>
-                                    );
-                                })}
+                        {/* Pagination Footer - Exact Leads Style */}
+                        <div className="p-5 border-t border-separator flex justify-between items-center text-sm">
+                            <div className="text-gray-600">
+                                Mostrando <span className="font-semibold">
+                                    {paginatedEncuestas.length > 0
+                                        ? `${(currentPage * pageSize) + 1}-${Math.min((currentPage + 1) * pageSize, totalElements)}`
+                                        : '0'}
+                                </span> de <span className="font-semibold">{totalElements}</span> resultados totales
+                                {totalPages > 1 && (
+                                    <span className="ml-2">(Página {currentPage + 1} de {totalPages})</span>
+                                )}
                             </div>
 
-                            <button
-                                className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage >= totalPages - 1}
-                            >
-                                Siguiente &rsaquo;
-                            </button>
-                            <button
-                                className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => handlePageChange(totalPages - 1)}
-                                disabled={currentPage >= totalPages - 1}
-                            >
-                                Fin &raquo;
-                            </button>
+                            {/* Numeric Pagination */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        onClick={() => handlePageChange(0)}
+                                        disabled={currentPage === 0}
+                                    >
+                                        « Inicio
+                                    </button>
+                                    <button
+                                        className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 0}
+                                    >
+                                        &lsaquo; Anterior
+                                    </button>
+
+                                    {/* Page numbers */}
+                                    <div className="flex gap-1">
+                                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                                            let pageNum;
+                                            if (totalPages <= 5) {
+                                                pageNum = i;
+                                            } else if (currentPage < 3) {
+                                                pageNum = i;
+                                            } else if (currentPage >= totalPages - 3) {
+                                                pageNum = totalPages - 5 + i;
+                                            } else {
+                                                pageNum = currentPage - 2 + i;
+                                            }
+
+                                            return (
+                                                <button
+                                                    key={pageNum}
+                                                    className={`px-3 py-1.5 border rounded-md transition-colors ${currentPage === pageNum
+                                                        ? 'bg-blue-600 text-white border-blue-600'
+                                                        : 'bg-white hover:bg-gray-50 text-gray-600 border-separator'
+                                                        }`}
+                                                    onClick={() => handlePageChange(pageNum)}
+                                                >
+                                                    {pageNum + 1}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <button
+                                        className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage >= totalPages - 1}
+                                    >
+                                        Siguiente &rsaquo;
+                                    </button>
+                                    <button
+                                        className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        onClick={() => handlePageChange(totalPages - 1)}
+                                        disabled={currentPage >= totalPages - 1}
+                                    >
+                                        Fin &raquo;
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
-            </div>
+                    </div>
+                </>
+            )}
+
+            {/* Archive Confirmation Modal */}
+            <Modal
+                isOpen={archiveModalOpen}
+                onClose={() => setArchiveModalOpen(false)}
+                onConfirm={confirmArchive}
+                title="Confirmar Archivación"
+                confirmText="Sí, archivar"
+                variant="danger"
+            >
+                <p>¿Estás seguro que deseas archivar la encuesta <strong>{selectedEncuesta?.titulo}</strong>?</p>
+            </Modal>
+
+            {/* Error Modal */}
+            <Modal
+                isOpen={errorModalOpen}
+                onConfirm={() => setErrorModalOpen(false)}
+                title="No se puede archivar"
+                confirmText="Entendido"
+            >
+                <p>{errorMessage}</p>
+            </Modal>
         </div>
     );
 };

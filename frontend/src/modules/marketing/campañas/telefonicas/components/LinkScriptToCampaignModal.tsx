@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Link, AlertCircle } from 'lucide-react';
 import { GuionDTO } from '../types/guiones.types';
 import { telemarketingApi } from '../services/telemarketingApi';
+import { useAuth } from '../../../../../shared/context/AuthContext';
 import { guionesApi } from '../services/guiones.api';
 import { CampaniaTelefonica } from '../types';
 
@@ -19,6 +20,8 @@ export const LinkScriptToCampaignModal: React.FC<LinkScriptToCampaignModalProps>
     onSuccess,
 }) => {
     const [campanias, setCampanias] = useState<CampaniaTelefonica[]>([]);
+    const { user } = useAuth();
+    const idAgente = user?.agentId;
     const [selectedCampania, setSelectedCampania] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [linking, setLinking] = useState(false);
@@ -30,13 +33,18 @@ export const LinkScriptToCampaignModal: React.FC<LinkScriptToCampaignModalProps>
             setSelectedCampania(null);
             setError(null);
         }
-    }, [isOpen]);
+    }, [isOpen, idAgente]);
 
     const loadCampanias = async () => {
         try {
             setLoading(true);
-            // TODO: Usar ID de agente real
-            const data = await telemarketingApi.getCampaniasAgente(1);
+            if (!idAgente) {
+                setCampanias([]);
+                setError('No hay agente asignado para cargar campa?as');
+                setLoading(false);
+                return;
+            }
+            const data = await telemarketingApi.getCampaniasAsignadas();
             setCampanias(data);
         } catch (err) {
             console.error('Error cargando campañas:', err);

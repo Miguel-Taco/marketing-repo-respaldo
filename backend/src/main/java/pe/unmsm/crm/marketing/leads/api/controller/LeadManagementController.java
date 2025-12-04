@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -105,6 +106,7 @@ public class LeadManagementController {
     }
 
     // --- ENDPOINT 3: CAMBIAR ESTADO ---
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/estado")
     public ResponseEntity<Map<String, Object>> cambiarEstado(
             @PathVariable Long id,
@@ -117,6 +119,7 @@ public class LeadManagementController {
     }
 
     // --- ENDPOINT 4: CAMBIAR ESTADO EN LOTE ---
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/batch/estado")
     public ResponseEntity<Map<String, Object>> cambiarEstadoEnLote(
             @RequestBody @Valid CambioEstadoLoteRequest request) {
@@ -132,6 +135,7 @@ public class LeadManagementController {
     }
 
     // --- ENDPOINT 5: ELIMINAR LEAD ---
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarLead(@PathVariable Long id) {
         managementService.eliminarLead(id);
@@ -139,6 +143,7 @@ public class LeadManagementController {
     }
 
     // --- ENDPOINT 6: ELIMINAR LEADS EN LOTE ---
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/batch")
     public ResponseEntity<Map<String, Object>> eliminarLeadsEnLote(@RequestBody Map<String, List<Long>> request) {
         List<Long> ids = request.get("ids");
@@ -154,6 +159,7 @@ public class LeadManagementController {
     }
 
     // --- ENDPOINT 7: EXPORTAR TODOS LOS LEADS ---
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/export")
     public ResponseEntity<byte[]> exportarTodosLosLeads(
             @RequestParam(required = false) EstadoLead estado,
@@ -172,6 +178,7 @@ public class LeadManagementController {
     }
 
     // --- ENDPOINT 8: EXPORTAR LEADS SELECCIONADOS ---
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/export/selected")
     public ResponseEntity<byte[]> exportarLeadsSeleccionados(@RequestBody Map<String, List<Long>> request)
             throws IOException {

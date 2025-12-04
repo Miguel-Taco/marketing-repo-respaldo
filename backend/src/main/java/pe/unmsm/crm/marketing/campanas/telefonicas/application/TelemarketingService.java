@@ -44,6 +44,10 @@ public class TelemarketingService {
         return campaignDataProvider.obtenerCampaniasPorAgente(idAgente);
     }
 
+    public List<CampaniaTelefonicaDTO> obtenerTodasLasCampanias() {
+        return campaignDataProvider.obtenerTodasLasCampanias();
+    }
+
     public CampaniaTelefonicaDTO obtenerCampaniaPorId(Long id) {
         return campaignDataProvider.obtenerCampaniaPorId(id);
     }

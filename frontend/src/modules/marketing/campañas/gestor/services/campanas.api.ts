@@ -1,36 +1,38 @@
-import axios from 'axios';
+import { apiClient } from '../../../../../shared/services/api.client';
 import { CampanaListResponse, CreateCampanaDTO, UpdateCampanaDTO } from '../types/campana.types';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1/campanas';
+const API_BASE_URL = '/campanas';
 
 export const campanasApi = {
     // GET /api/v1/campanas - List campaigns with filters
     getAll: async (params?: {
         nombre?: string;
         estado?: string;
+        prioridad?: string;
         canalEjecucion?: string;
+        esArchivado?: boolean;
         page?: number;
         size?: number;
     }): Promise<CampanaListResponse> => {
-        const response = await axios.get<CampanaListResponse>(API_BASE_URL, { params });
+        const response = await apiClient.get<CampanaListResponse>(API_BASE_URL, { params });
         return response.data;
     },
 
     // POST /api/v1/campanas - Create new campaign
     create: async (data: CreateCampanaDTO) => {
-        const response = await axios.post(API_BASE_URL, data);
+        const response = await apiClient.post(API_BASE_URL, data);
         return response.data;
     },
 
     // PUT /api/v1/campanas/{id} - Update campaign
     update: async (id: number, data: UpdateCampanaDTO) => {
-        const response = await axios.put(`${API_BASE_URL}/${id}`, data);
+        const response = await apiClient.put(`${API_BASE_URL}/${id}`, data);
         return response.data;
     },
 
     // DELETE /api/v1/campanas/{id} - Delete campaign
     delete: async (id: number) => {
-        await axios.delete(`${API_BASE_URL}/${id}`);
+        await apiClient.delete(`${API_BASE_URL}/${id}`);
     },
 
     // POST /api/v1/campanas/{id}/programar
@@ -41,31 +43,31 @@ export const campanasApi = {
         idSegmento?: number;
         idEncuesta?: number;
     }) => {
-        const response = await axios.post(`${API_BASE_URL}/${id}/programar`, data);
+        const response = await apiClient.post(`${API_BASE_URL}/${id}/programar`, data);
         return response.data;
     },
 
     // POST /api/v1/campanas/{id}/pausar
     pausar: async (id: number, motivo?: string) => {
-        const response = await axios.post(`${API_BASE_URL}/${id}/pausar`, { motivo });
+        const response = await apiClient.post(`${API_BASE_URL}/${id}/pausar`, { motivo });
         return response.data;
     },
 
     // POST /api/v1/campanas/{id}/reanudar
     reanudar: async (id: number) => {
-        const response = await axios.post(`${API_BASE_URL}/${id}/reanudar`);
+        const response = await apiClient.post(`${API_BASE_URL}/${id}/reanudar`);
         return response.data;
     },
 
     // POST /api/v1/campanas/{id}/cancelar
     cancelar: async (id: number, motivo?: string) => {
-        const response = await axios.post(`${API_BASE_URL}/${id}/cancelar`, { motivo });
+        const response = await apiClient.post(`${API_BASE_URL}/${id}/cancelar`, { motivo });
         return response.data;
     },
 
     // GET /api/v1/campanas/{id} - Get campaign details
     getById: async (id: number) => {
-        const response = await axios.get(`${API_BASE_URL}/${id}`);
+        const response = await apiClient.get(`${API_BASE_URL}/${id}`);
         return response.data;
     },
 
@@ -78,7 +80,7 @@ export const campanasApi = {
         page?: number;
         size?: number;
     }) => {
-        const response = await axios.get(`${API_BASE_URL}/historial`, { params });
+        const response = await apiClient.get(`${API_BASE_URL}/historial`, { params });
         return response.data;
     },
 
@@ -87,19 +89,19 @@ export const campanasApi = {
         nuevaFechaInicio: string;
         nuevaFechaFin: string;
     }) => {
-        const response = await axios.post(`${API_BASE_URL}/${id}/reprogramar`, data);
+        const response = await apiClient.post(`${API_BASE_URL}/${id}/reprogramar`, data);
         return response.data;
     },
 
     // POST /api/v1/campanas/{id}/archivar
     archivar: async (id: number) => {
-        const response = await axios.post(`${API_BASE_URL}/${id}/archivar`);
+        const response = await apiClient.post(`${API_BASE_URL}/${id}/archivar`);
         return response.data;
     },
 
     // POST /api/v1/campanas/{id}/duplicar
     duplicar: async (id: number) => {
-        const response = await axios.post(`${API_BASE_URL}/${id}/duplicar`);
+        const response = await apiClient.post(`${API_BASE_URL}/${id}/duplicar`);
         return response.data;
     },
 };

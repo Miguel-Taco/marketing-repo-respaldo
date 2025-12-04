@@ -4,25 +4,30 @@ import { telemarketingApi } from '../services/telemarketingApi';
 import type { Contacto, CampaniaTelefonica, MetricasDiarias } from '../types';
 import { Button } from '../../../../../shared/components/ui/Button';
 import { useCampaignsContext } from '../context/CampaignsContext';
+import { useCampaignAccessControl } from '../hooks/useCampaignAccessControl';
+import { useAuth } from '../../../../../shared/context/AuthContext';
 
 export const CallQueuePage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { autoNext, setAutoNext } = useCampaignsContext();
+    const { isChecking: checkingAccess } = useCampaignAccessControl(id);
     const [cola, setCola] = useState<Contacto[]>([]);
     const [campanias, setCampanias] = useState<CampaniaTelefonica[]>([]);
     const [metricas, setMetricas] = useState<MetricasDiarias | null>(null);
     const [loading, setLoading] = useState(true);
     const [colaPausada, setColaPausada] = useState(false);
-
-    const idAgente = 1; // TODO: Get from auth context (using existing agent ID from database)
+    const { user } = useAuth();
+    const idAgente = user?.agentId;
 
     useEffect(() => {
-        loadCola();
-        if (id) {
-            loadMetricas();
+        if (!checkingAccess) {
+            loadCola();
+            if (id) {
+                loadMetricas();
+            }
         }
-    }, [id]);
+    }, [id, checkingAccess]);
 
     const loadCola = async () => {
         try {
@@ -31,7 +36,11 @@ export const CallQueuePage: React.FC = () => {
                 const data = await telemarketingApi.getCola(Number(id));
                 setCola(data);
             } else {
-                const data = await telemarketingApi.getCampaniasAgente(idAgente);
+                if (!idAgente) {
+                    setCampanias([]);
+                    return;
+                }
+                const data = await telemarketingApi.getCampaniasAsignadas();
                 setCampanias(data);
             }
         } catch (error) {
@@ -43,7 +52,11 @@ export const CallQueuePage: React.FC = () => {
 
     const loadMetricas = async () => {
         try {
-            const data = await telemarketingApi.getMetricasDiarias(Number(id), idAgente);
+            if (!idAgente) {
+                setMetricas(null);
+                return;
+            }
+            const data = await telemarketingApi.getMetricasDiarias(Number(id));
             setMetricas(data);
         } catch (error) {
             console.error('Error cargando métricas:', error);
@@ -52,7 +65,7 @@ export const CallQueuePage: React.FC = () => {
 
     const handleObtenerSiguiente = async () => {
         try {
-            const contacto = await telemarketingApi.getSiguienteContacto(Number(id), idAgente);
+            const contacto = await telemarketingApi.getSiguienteContacto(Number(id));
             if (contacto) {
                 navigate(`/marketing/campanas/telefonicas/campanias/${id}/llamar/${contacto.id}`);
             }
@@ -63,7 +76,7 @@ export const CallQueuePage: React.FC = () => {
 
     const handleTomarContacto = async (idContacto: number) => {
         try {
-            const contacto = await telemarketingApi.tomarContacto(Number(id), idContacto, idAgente);
+            const contacto = await telemarketingApi.tomarContacto(Number(id), idContacto);
             if (contacto) {
                 navigate(`/marketing/campanas/telefonicas/campanias/${id}/llamar/${contacto.id}`);
             }
@@ -74,7 +87,8 @@ export const CallQueuePage: React.FC = () => {
 
     const handlePausarCola = async () => {
         try {
-            await telemarketingApi.pausarCola(idAgente, Number(id));
+            if (!id) return;
+            await telemarketingApi.pausarCola(Number(id));
             setColaPausada(true);
         } catch (error) {
             console.error('Error pausando cola:', error);
@@ -83,7 +97,8 @@ export const CallQueuePage: React.FC = () => {
 
     const handleReanudarCola = async () => {
         try {
-            await telemarketingApi.reanudarCola(idAgente, Number(id));
+            if (!id) return;
+            await telemarketingApi.reanudarCola(Number(id));
             setColaPausada(false);
         } catch (error) {
             console.error('Error reanudando cola:', error);
@@ -99,6 +114,18 @@ export const CallQueuePage: React.FC = () => {
         return colors[prioridad] || 'bg-gray-200 text-gray-600';
     };
 
+    if (!idAgente) {
+        return (
+            <div className="flex items-center justify-center h-full p-6">
+                <div className="max-w-lg text-center space-y-4">
+                    <h2 className="text-2xl font-bold text-gray-900">No tienes un agente asignado</h2>
+                    <p className="text-gray-600">Solicita al administrador que te asigne campañas telefónicas para ver las colas disponibles.</p>
+                    <Button variant="primary" onClick={() => navigate('/leads')}>Ir al panel principal</Button>
+                </div>
+            </div>
+        );
+    }
+
     if (!id) {
         return (
             <div className="flex flex-col h-full p-6">
@@ -107,7 +134,7 @@ export const CallQueuePage: React.FC = () => {
                     <p className="text-gray-500 mt-2">Selecciona una campaña para gestionar su cola de llamadas.</p>
                 </div>
 
-                {loading ? (
+                {loading || checkingAccess ? (
                     <div className="flex items-center justify-center h-64">
                         <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
                     </div>
@@ -143,6 +170,14 @@ export const CallQueuePage: React.FC = () => {
                         ))}
                     </div>
                 )}
+            </div>
+        );
+    }
+
+    if (checkingAccess) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
             </div>
         );
     }

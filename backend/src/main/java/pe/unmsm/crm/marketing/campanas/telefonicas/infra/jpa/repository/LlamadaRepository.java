@@ -53,6 +53,16 @@ public interface LlamadaRepository extends JpaRepository<LlamadaEntity, Integer>
                         @Param("idCampania") Integer idCampania,
                         @Param("desde") LocalDateTime desde);
 
+        @Query("SELECT new map(" +
+                        "COUNT(l) as totalLlamadas, " +
+                        "AVG(TIMESTAMPDIFF(SECOND, l.inicio, l.fin)) as duracionPromedio) " +
+                        "FROM LlamadaEntity l " +
+                        "WHERE l.idAgente = :idAgente " +
+                        "AND l.inicio >= :desde")
+        Map<String, Object> getMetricasByAgente(
+                        @Param("idAgente") Integer idAgente,
+                        @Param("desde") LocalDateTime desde);
+
         /**
          * Cuenta llamadas por resultado en una campaña
          * Retorna: [resultado (código), nombre (display), count]

@@ -50,3 +50,10 @@ management:
 
 server:
   port: 8080
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:MySecretKeyForJWTTokenGenerationAndValidationShouldBeAtLeast256BitsLong}
+  expiration: 86400000 # 24 horas en milisegundos
+  header: Authorization
+  prefix: "Bearer "

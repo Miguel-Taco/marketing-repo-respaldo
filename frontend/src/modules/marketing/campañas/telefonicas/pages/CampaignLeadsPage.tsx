@@ -4,6 +4,7 @@ import { telemarketingApi } from '../services/telemarketingApi';
 import type { Contacto } from '../types';
 import { Button } from '../../../../../shared/components/ui/Button';
 import { downloadCSV } from '../../../../../shared/utils/exportUtils';
+import { useAuth } from '../../../../../shared/context/AuthContext';
 
 export const CampaignLeadsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -12,10 +13,12 @@ export const CampaignLeadsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [estadoFilter, setEstadoFilter] = useState<string>(''); // Cambiado de 'NO_CONTACTADO' a '' para mostrar todos los leads por defecto
+    const { user } = useAuth();
+    const idAgente = user?.agentId;
 
     useEffect(() => {
         loadContactos();
-    }, [id]);
+    }, [id, idAgente]);
 
     const loadContactos = async () => {
         try {
@@ -24,9 +27,12 @@ export const CampaignLeadsPage: React.FC = () => {
                 const data = await telemarketingApi.getContactosCampania(Number(id));
                 setContactos(data);
             } else {
-                // Vista global: obtener todas las campañas y sus contactos
-                // TODO: Usar ID de agente real desde el contexto de autenticación
-                const campanias = await telemarketingApi.getCampaniasAgente(1);
+                if (!idAgente) {
+                    setContactos([]);
+                    setLoading(false);
+                    return;
+                }
+                const campanias = await telemarketingApi.getCampaniasAsignadas();
                 const allContactsPromises = campanias.map(c =>
                     telemarketingApi.getContactosCampania(c.id).then(contacts =>
                         contacts.map(contact => ({ ...contact, nombreCampania: c.nombre, idCampania: c.id }))
@@ -55,6 +61,18 @@ export const CampaignLeadsPage: React.FC = () => {
         const filename = id ? `leads_campania_${id}` : 'mis_leads';
         downloadCSV(filteredContactos, filename, columns);
     };
+
+    if (!id && !idAgente) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full p-10 text-center space-y-4">
+                <h2 className="text-2xl font-bold text-gray-900">No tienes un agente asignado</h2>
+                <p className="text-gray-600">Solicita acceso a campañas telefónicas para revisar tus leads.</p>
+                <Button variant="primary" onClick={() => navigate('/leads')}>
+                    Volver al panel
+                </Button>
+            </div>
+        );
+    }
 
     const filteredContactos = contactos.filter(c => {
         if (estadoFilter && c.estadoCampania !== estadoFilter) return false;

@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+@org.springframework.context.annotation.Profile("!console")
 public class LeadCacheService {
 
     private final RestTemplate restTemplate;

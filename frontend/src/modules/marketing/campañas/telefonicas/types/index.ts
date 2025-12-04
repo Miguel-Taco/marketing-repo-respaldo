@@ -5,7 +5,7 @@ export interface CampaniaTelefonica {
   descripcion: string;
   fechaInicio: string;
   fechaFin: string;
-  estado: 'BORRADOR' | 'ACTIVA' | 'PAUSADA' | 'FINALIZADA' | 'PENDIENTE';
+  estado: 'BORRADOR' | 'Programada' | 'Vigente' | 'ACTIVA' | 'Pausada' | 'PAUSADA' | 'Cancelada' | 'Finalizada' | 'FINALIZADA' | 'PENDIENTE';
   prioridad: 'ALTA' | 'MEDIA' | 'BAJA';
   idGuion: number;
   totalLeads: number;
@@ -49,6 +49,12 @@ export interface Llamada {
   nombreContacto?: string;
   telefonoContacto?: string;
   nombreCampania?: string;
+
+  // Encuesta post-llamada
+  encuestaEnviada?: boolean;
+  estadoEncuesta?: string;
+  fechaEnvioEncuesta?: string;
+  urlEncuesta?: string;
 }
 
 export interface ResultadoLlamadaRequest {
@@ -65,6 +71,7 @@ export interface ResultadoLlamadaRequest {
   duracionSegundos: number;
   inicio?: Date;
   fin?: Date;
+  enviarEncuesta?: boolean;
 }
 
 export interface MetricasAgente {
@@ -180,4 +187,20 @@ export interface RendimientoAgente {
   tasaExito: number;
   duracionPromedio: number;
   llamadasHoy: number;
+}
+
+export interface EnvioEncuesta {
+  id: number;
+  idLlamada: number;
+  idEncuesta: number;
+  idLead: number;
+  telefonoDestino: string;
+  urlEncuesta: string;
+  fechaEnvio: string;
+  estado: 'ENVIADA' | 'ERROR' | 'PENDIENTE';
+  metodoComunicacion: 'SMS' | 'WHATSAPP' | 'EMAIL';
+  mensajeError?: string;
+  nombreLead?: string;
+  nombreCampania?: string;
+  tituloEncuesta?: string;
 }

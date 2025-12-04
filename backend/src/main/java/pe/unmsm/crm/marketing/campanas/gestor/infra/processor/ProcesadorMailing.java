@@ -50,7 +50,8 @@ public class ProcesadorMailing {
 
             // Solución temporal: Listar todas y filtrar (ineficiente pero funcional para
             // MVP)
-            CampanaMailing mailing = campanaMailingService.listarTodas(campana.getIdAgente()).stream()
+            CampanaMailing mailing = campanaMailingService
+                    .listarTodas(java.util.Collections.singletonList(campana.getIdAgente())).stream()
                     .filter(c -> c.getIdCampanaGestion().equals(campana.getIdCampana()))
                     .findFirst()
                     .orElseThrow(() -> new RuntimeException(

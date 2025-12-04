@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs } from '../../../../../shared/components/ui/Tabs';
 import { Input } from '../../../../../shared/components/ui/Input';
@@ -6,55 +6,96 @@ import { Badge } from '../../../../../shared/components/ui/Badge';
 import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
 import { useToast } from '../../../../../shared/components/ui/Toast';
 import { mailingApi } from '../services/mailing.api';
-import { CampanaMailing, ESTADO_COLORS, PRIORIDAD_COLORS } from '../types/mailing.types';
+import { CampanaMailing, ESTADO_COLORS, PRIORIDAD_COLORS, MetricasMailing } from '../types/mailing.types';
+import { useAuth } from '../../../../../shared/context/AuthContext';
+
+interface CampanaConMetricas extends CampanaMailing {
+    metricas?: MetricasMailing;
+}
 
 export const MailingListPage: React.FC = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { user, hasRole } = useAuth();
 
     const [activeTab, setActiveTab] = useState('pendiente');
-    const [campanas, setCampanas] = useState<CampanaMailing[]>([]);
-    const [loading, setLoading] = useState(false); // ✅ CORREGIDO: Inicia en false
+    const [campanas, setCampanas] = useState<CampanaConMetricas[]>([]);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [metricsCache, setMetricsCache] = useState<Map<number, MetricasMailing>>(new Map());
 
-    const idAgente = 1; // TODO: Obtener del contexto de autenticación
+    const idAgente = user?.agentId;
+    const isAdmin = hasRole('ADMIN');
+    const canEditCampaigns = isAdmin;
+    const assignmentKey = (user?.campaniasMailing || []).join(',');
 
     useEffect(() => {
-        loadCampanas();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab]);
+        if (isAdmin || idAgente) {
+            loadCampanas();
+        } else {
+            setCampanas([]);
+            setError('No tienes un agente asignado para operaciones de mailing.');
+        }
+    }, [activeTab, idAgente, isAdmin, assignmentKey]);
 
     const loadCampanas = async () => {
         try {
             setLoading(true);
             setError(null);
-            console.log('Cargando campañas de mailing para agente:', idAgente, 'estado:', activeTab);
-            const data = await mailingApi.listarCampanas(idAgente, activeTab);
-            console.log('Campañas cargadas:', data);
-            setCampanas(data || []);
-        } catch (error) {
-            console.error('Error cargando campañas:', error);
-            
-            let errorMessage = 'Error al cargar campañas';
-            
-            if (error instanceof Error) {
-                errorMessage = error.message;
-            } else if (typeof error === 'object' && error !== null) {
-                const errObj = error as any;
-                if (errObj.message) {
-                    errorMessage = errObj.message;
-                } else if (errObj.status) {
-                    errorMessage = `Error ${errObj.status}: No se puede conectar con el servidor`;
-                }
+            if (!isAdmin && !idAgente) {
+                setError('No hay agente asignado para campañas de mailing');
+                setCampanas([]);
+                return;
             }
-            
-            setError(errorMessage);
-            showToast(errorMessage, 'error');
+            const data = await mailingApi.listarCampanas(activeTab);
+            if (!isAdmin && (!user?.campaniasMailing || user.campaniasMailing.length === 0)) {
+                setError('No tienes campañas de mailing asignadas. Solicita acceso al administrador.');
+                setCampanas([]);
+                return;
+            }
+
+            const visibleCampanas = !isAdmin && user?.campaniasMailing?.length
+                ? (data || []).filter(c => user.campaniasMailing?.includes(c.id))
+                : (data || []);
+
+            setCampanas(visibleCampanas);
+
+            // Cargar métricas para campañas en estado ENVIADO o FINALIZADO
+            if (['enviado', 'finalizado'].includes(activeTab)) {
+                await cargarMetricas(visibleCampanas);
+            }
+        } catch (error: any) {
+            const errorMsg = error.message || 'Error al cargar campañas';
+            setError(errorMsg);
+            showToast(errorMsg, 'error');
             setCampanas([]);
         } finally {
             setLoading(false);
         }
+    };
+
+    const cargarMetricas = async (campanasData: CampanaMailing[]) => {
+        const nuevasMetricas = new Map(metricsCache);
+
+        for (const campana of campanasData) {
+            if (!nuevasMetricas.has(campana.id)) {
+                try {
+                    const metricas = await mailingApi.obtenerMetricas(campana.id);
+                    nuevasMetricas.set(campana.id, metricas);
+                } catch (err) {
+                    console.error(`Error cargando métricas para campaña ${campana.id}:`, err);
+                }
+            }
+        }
+
+        setMetricsCache(nuevasMetricas);
+
+        // Actualizar campanas con métricas
+        setCampanas(prev => prev.map(c => ({
+            ...c,
+            metricas: nuevasMetricas.get(c.id)
+        })));
     };
 
     const filteredCampanas = campanas.filter(c =>
@@ -66,20 +107,23 @@ export const MailingListPage: React.FC = () => {
         navigate(`/emailing/${id}/edit`);
     };
 
-    const totalCampanas = campanas.length;
-    const campanasActivas = campanas.filter(c => c.idEstado === 3).length;
-    const tasaPromedioApertura = 0; // TODO: Calcular desde métricas
+    const handleViewMetrics = (id: number) => {
+        navigate(`/emailing/${id}/metricas`);
+    };
+
+    // Determinar qué columnas mostrar según el estado
+    const mostrarMetricas = ['enviado', 'finalizado'].includes(activeTab);
 
     return (
         <div className="space-y-6">
-            {/* ✅ Header siempre visible */}
+            {/* Header */}
             <header className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold text-dark">Campañas de Mailing</h1>
                 </div>
             </header>
 
-            {/* ✅ Tabs siempre visibles */}
+            {/* Tabs */}
             <Tabs
                 items={[
                     { label: 'Pendientes', value: 'pendiente' },
@@ -91,14 +135,14 @@ export const MailingListPage: React.FC = () => {
                 onChange={setActiveTab}
             />
 
-            {/* ✅ Barra de búsqueda siempre visible */}
+            {/* Search Bar */}
             <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between gap-4">
                 <div className="flex-1 relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                         search
                     </span>
                     <Input
-                        placeholder="Search campaigns..."
+                        placeholder="Buscar por nombre de campaña..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10"
@@ -110,10 +154,9 @@ export const MailingListPage: React.FC = () => {
                 </button>
             </div>
 
-            {/* ✅ Tabla con estados de carga/error internos */}
+            {/* Tabla */}
             <div className="bg-white rounded-lg shadow-sm border border-separator overflow-hidden">
                 {error ? (
-                    // Estado de error
                     <div className="p-8">
                         <div className="bg-red-50 border border-red-200 rounded-lg p-6">
                             <div className="flex items-start gap-3">
@@ -132,24 +175,33 @@ export const MailingListPage: React.FC = () => {
                         </div>
                     </div>
                 ) : (
-                    // Tabla normal
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead className="bg-table-header sticky top-0">
                                 <tr>
                                     <th className="p-4 text-sm font-semibold text-dark tracking-wide w-24">PRIORIDAD</th>
-                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">NOMBRE</th>
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide">NOMBRE CAMPAÑA</th>
                                     <th className="p-4 text-sm font-semibold text-dark tracking-wide">DESCRIPCIÓN</th>
-                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide w-32">FECHA</th>
-                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide w-20 text-center">ESTADO</th>
+                                    <th className="p-4 text-sm font-semibold text-dark tracking-wide w-32">FECHA DE INICIO</th>
+
+                                    {/* Columnas Dinámicas según Estado */}
+                                    {mostrarMetricas && (
+                                        <>
+                                            <th className="p-4 text-sm font-semibold text-dark tracking-wide w-28 text-center">TASA APERTURA</th>
+                                            <th className="p-4 text-sm font-semibold text-dark tracking-wide w-28 text-center">TASA CLICS</th>
+                                            {activeTab === 'finalizado' && (
+                                                <th className="p-4 text-sm font-semibold text-dark tracking-wide w-20 text-center">BAJAS</th>
+                                            )}
+                                        </>
+                                    )}
+
                                     <th className="p-4 text-sm font-semibold text-dark tracking-wide w-16">ACCIONES</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-separator">
                                 {loading ? (
-                                    // ✅ Loading solo en la tabla
                                     <tr>
-                                        <td colSpan={6} className="p-12 text-center">
+                                        <td colSpan={mostrarMetricas ? 8 : 5} className="p-12 text-center">
                                             <div className="flex flex-col items-center justify-center">
                                                 <LoadingSpinner size="lg" />
                                                 <p className="text-gray-500 mt-4">Cargando campañas...</p>
@@ -157,9 +209,8 @@ export const MailingListPage: React.FC = () => {
                                         </td>
                                     </tr>
                                 ) : filteredCampanas.length === 0 ? (
-                                    // Estado vacío
                                     <tr>
-                                        <td colSpan={6} className="p-12 text-center">
+                                        <td colSpan={mostrarMetricas ? 8 : 5} className="p-12 text-center">
                                             <div className="flex flex-col items-center justify-center">
                                                 <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">inbox</span>
                                                 <p className="text-gray-500 text-lg font-medium">No se encontraron campañas</p>
@@ -170,22 +221,28 @@ export const MailingListPage: React.FC = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    // Datos de la tabla
                                     filteredCampanas.map((campana) => (
                                         <tr key={campana.id} className="hover:bg-gray-50 transition-colors">
+                                            {/* Prioridad */}
                                             <td className="p-4">
                                                 <span className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${PRIORIDAD_COLORS[campana.prioridad]}`}>
                                                     {campana.prioridad}
                                                 </span>
                                             </td>
+
+                                            {/* Nombre */}
                                             <td className="p-4">
                                                 <span className="text-sm font-medium text-gray-900 truncate">
                                                     {campana.nombre}
                                                 </span>
                                             </td>
+
+                                            {/* Descripción */}
                                             <td className="p-4 text-sm text-gray-600 max-w-md">
                                                 <p className="line-clamp-2">{campana.descripcion}</p>
                                             </td>
+
+                                            {/* Fecha */}
                                             <td className="p-4 text-sm text-gray-600 whitespace-nowrap">
                                                 {new Date(campana.fechaInicio).toLocaleDateString('es-ES', {
                                                     year: 'numeric',
@@ -193,19 +250,54 @@ export const MailingListPage: React.FC = () => {
                                                     day: '2-digit'
                                                 })}
                                             </td>
+
+                                            {/* Columnas Dinámicas */}
+                                            {mostrarMetricas && campana.metricas && (
+                                                <>
+                                                    {/* Tasa Apertura */}
+                                                    <td className="p-4 text-sm text-gray-900 font-medium text-center">
+                                                        {campana.metricas.tasaApertura.toFixed(1)}%
+                                                    </td>
+
+                                                    {/* Tasa Clics */}
+                                                    <td className="p-4 text-sm text-gray-900 font-medium text-center">
+                                                        {campana.metricas.tasaClics.toFixed(1)}%
+                                                    </td>
+
+                                                    {/* Bajas (solo para FINALIZADO) */}
+                                                    {activeTab === 'finalizado' && (
+                                                        <td className="p-4 text-sm text-gray-900 font-medium text-center">
+                                                            {campana.metricas.bajas}
+                                                        </td>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {/* Acciones */}
                                             <td className="p-4 text-center">
-                                                <Badge variant={ESTADO_COLORS[campana.idEstado]}>
-                                                    {campana.estadoNombre}
-                                                </Badge>
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                <button
-                                                    onClick={() => handleEdit(campana.id)}
-                                                    className="p-2 text-primary hover:bg-blue-50 rounded-lg transition-colors inline-block"
-                                                    title="Editar campaña"
-                                                >
-                                                    <span className="material-symbols-outlined text-xl">edit</span>
-                                                </button>
+                                                <div className="flex gap-2 justify-center">
+                                                    {/* Botón Editar (solo PENDIENTE/LISTO) */}
+                                                    {canEditCampaigns && ['pendiente', 'listo'].includes(activeTab) && (
+                                                        <button
+                                                            onClick={() => handleEdit(campana.id)}
+                                                            className="p-2 text-primary hover:bg-blue-50 rounded-lg transition-colors inline-block"
+                                                            title="Editar campaña"
+                                                        >
+                                                            <span className="material-symbols-outlined text-xl">edit</span>
+                                                        </button>
+                                                    )}
+
+                                                    {/* Botón Métricas (solo ENVIADO/FINALIZADO) */}
+                                                    {mostrarMetricas && (
+                                                        <button
+                                                            onClick={() => handleViewMetrics(campana.id)}
+                                                            className="p-2 text-primary hover:bg-blue-50 rounded-lg transition-colors inline-block"
+                                                            title="Ver métricas detalladas"
+                                                        >
+                                                            <span className="material-symbols-outlined text-xl">bar_chart</span>
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))

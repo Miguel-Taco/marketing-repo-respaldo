@@ -92,6 +92,11 @@ export const leadsApi = {
     exportSelected: (ids: number[]) => {
         const filename = generateExportFilename('leads_selected');
         return exportToExcel(`${ENDPOINT}/export/selected`, undefined, 'POST', { ids }, filename);
+    },
+
+    // 13. Obtener Múltiples Leads por IDs (Batch)
+    getLeadsBatch: (ids: number[]) => {
+        return http.post<ApiResponse<Lead[]>>(`${ENDPOINT}/batch`, { ids });
     }
 };
 

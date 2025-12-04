@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { apiClient } from '../../../../../shared/services/api.client';
 import { GuionDTO, CreateGuionRequest } from '../types/guiones.types';
 
 const API_BASE_URL = '/api/v1';
@@ -9,7 +9,7 @@ export const guionesApi = {
      * Crea un nuevo guión estructurado
      */
     createGuion: async (data: CreateGuionRequest): Promise<GuionDTO> => {
-        const response = await axios.post(`${API_BASE_URL}/guiones`, data);
+        const response = await apiClient.post(`${API_BASE_URL}/guiones`, data);
         return response.data.data;
     },
 
@@ -18,7 +18,7 @@ export const guionesApi = {
      * Actualiza un guión estructurado
      */
     updateGuion: async (id: number, data: CreateGuionRequest): Promise<GuionDTO> => {
-        const response = await axios.put(`${API_BASE_URL}/guiones/${id}`, data);
+        const response = await apiClient.put(`${API_BASE_URL}/guiones/${id}`, data);
         return response.data.data;
     },
 
@@ -27,7 +27,7 @@ export const guionesApi = {
      * Obtiene un guión por ID con todas sus secciones
      */
     getGuion: async (id: number): Promise<GuionDTO> => {
-        const response = await axios.get(`${API_BASE_URL}/guiones/${id}`);
+        const response = await apiClient.get(`${API_BASE_URL}/guiones/${id}`);
         return response.data.data;
     },
 
@@ -36,7 +36,7 @@ export const guionesApi = {
      * Lista todos los guiones estructurados
      */
     listGuiones: async (): Promise<GuionDTO[]> => {
-        const response = await axios.get(`${API_BASE_URL}/guiones-estructurados`);
+        const response = await apiClient.get(`${API_BASE_URL}/guiones-estructurados`);
         return response.data.data;
     },
 
@@ -45,7 +45,7 @@ export const guionesApi = {
      * Obtiene todos los guiones (formato antiguo)
      */
     listarTodosLosGuiones: async () => {
-        const response = await axios.get(`${API_BASE_URL}/guiones`);
+        const response = await apiClient.get(`${API_BASE_URL}/guiones`);
         return response.data.data;
     },
 
@@ -54,7 +54,7 @@ export const guionesApi = {
      * Vincula un guión estructurado a una campaña
      */
     vincularGuionACampana: async (idCampania: number, idGuion: number) => {
-        const response = await axios.post(`${API_BASE_URL}/campanias-telefonicas/${idCampania}/vincular-guion`, {
+        const response = await apiClient.post(`${API_BASE_URL}/campanias-telefonicas/${idCampania}/vincular-guion`, {
             idGuion
         });
         return response.data.data;
@@ -68,7 +68,7 @@ export const guionesApi = {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await axios.post(
+        const response = await apiClient.post(
             `${API_BASE_URL}/campanias-telefonicas/${idCampania}/guiones/general`,
             formData,
             {
@@ -85,6 +85,6 @@ export const guionesApi = {
      * Elimina un guión estructurado
      */
     deleteGuion: async (id: number): Promise<void> => {
-        await axios.delete(`${API_BASE_URL}/guiones/${id}`);
+        await apiClient.delete(`${API_BASE_URL}/guiones/${id}`);
     },
 };

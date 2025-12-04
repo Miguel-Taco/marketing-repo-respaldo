@@ -109,11 +109,11 @@ export const EditSegmentPage: React.FC = () => {
 
             if (ids.length > 0) {
                 const leadsToFetch = ids.slice(0, 10);
-                const leadPromises = leadsToFetch.map(id => leadsApi.getById(id));
-                const leadResponses = await Promise.all(leadPromises);
 
-                const members = leadResponses.map(response => {
-                    const lead = response.data;
+                const batchResponse = await leadsApi.getLeadsBatch(leadsToFetch);
+                const leads = batchResponse.data;
+
+                const members = leads.map(lead => {
                     return {
                         id: lead.id,
                         nombre: lead.nombreCompleto,

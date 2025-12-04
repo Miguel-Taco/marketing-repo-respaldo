@@ -21,6 +21,7 @@ export const QuickEditSegmentModal: React.FC<QuickEditSegmentModalProps> = ({
     onAdvancedEdit
 }) => {
     const [isSaving, setIsSaving] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
     const [nombre, setNombre] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [estado, setEstado] = useState<SegmentoEstado>('ACTIVO');
@@ -82,6 +83,20 @@ export const QuickEditSegmentModal: React.FC<QuickEditSegmentModalProps> = ({
     const handleAdvancedEdit = () => {
         if (segment) {
             onAdvancedEdit(segment.id);
+        }
+    };
+
+    const handleExport = async () => {
+        if (!segment) return;
+
+        setIsExporting(true);
+        try {
+            await segmentacionApi.exportSegment(segment.id, segment.nombre);
+        } catch (error) {
+            console.error('Error exporting segment:', error);
+            alert('Error al exportar el segmento');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -214,21 +229,33 @@ export const QuickEditSegmentModal: React.FC<QuickEditSegmentModalProps> = ({
 
                     {/* Footer */}
                     <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-between gap-3">
-                        <Button
-                            variant="secondary"
-                            onClick={handleAdvancedEdit}
-                            disabled={isSaving}
-                            className="flex items-center gap-2"
-                        >
-                            <span className="material-symbols-outlined text-lg">tune</span>
-                            Edición Avanzada
-                        </Button>
+                        <div className="flex gap-3">
+                            <Button
+                                variant="secondary"
+                                onClick={handleAdvancedEdit}
+                                disabled={isSaving || isExporting}
+                                className="flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">tune</span>
+                                Edición Avanzada
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                onClick={handleExport}
+                                disabled={isSaving}
+                                isLoading={isExporting}
+                                className="flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">download</span>
+                                Exportar a Excel
+                            </Button>
+                        </div>
 
                         <div className="flex gap-3">
                             <Button
                                 variant="secondary"
                                 onClick={onClose}
-                                disabled={isSaving}
+                                disabled={isSaving || isExporting}
                             >
                                 Cancelar
                             </Button>
@@ -236,6 +263,7 @@ export const QuickEditSegmentModal: React.FC<QuickEditSegmentModalProps> = ({
                                 variant="primary"
                                 onClick={handleSave}
                                 isLoading={isSaving}
+                                disabled={isExporting}
                             >
                                 <span className="material-symbols-outlined text-lg mr-1">check</span>
                                 Aceptar

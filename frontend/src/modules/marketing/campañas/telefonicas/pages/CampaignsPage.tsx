@@ -6,7 +6,7 @@ import { PageHeader } from '../../../../../shared/components/layout/PageHeader';
 
 export const CampaignsPage: React.FC = () => {
     const navigate = useNavigate();
-    const { campanias, loading, filters, setFilter } = useCampaignsContext();
+    const { campanias, loading, filters, setFilter, error } = useCampaignsContext();
     const [soloFavoritas, setSoloFavoritas] = useState(false);
 
     const filteredCampanias = campanias
@@ -41,6 +41,27 @@ export const CampaignsPage: React.FC = () => {
             default: return 'bg-gray-200 text-gray-600';
         }
     };
+
+    const canAccessCampaign = (estado: string) => {
+        return estado === 'Vigente' || estado === 'ACTIVA';
+    };
+
+    if (error) {
+        return (
+            <div className="flex flex-col h-full">
+                <PageHeader
+                    title="Campa��as telef��nicas asignadas"
+                />
+                <div className="flex flex-1 items-center justify-center">
+                    <div className="max-w-md text-center space-y-3">
+                        <h2 className="text-2xl font-bold text-gray-900">No podemos mostrar tus campa��as</h2>
+                        <p className="text-gray-600">{error}</p>
+                        <p className="text-gray-500 text-sm">Si crees que se trata de un error, contacta al administrador del sistema.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full">
@@ -168,10 +189,18 @@ export const CampaignsPage: React.FC = () => {
                                         </td>
                                         <td className="px-4 py-2 text-right">
                                             <button
-                                                className="rounded-full bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90"
-                                                onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${campania.id}/cola`)}
+                                                className={`rounded-full px-4 py-2 text-xs font-bold transition-colors ${canAccessCampaign(campania.estado)
+                                                        ? 'bg-primary text-white hover:bg-primary/90 cursor-pointer'
+                                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                    }`}
+                                                onClick={() => {
+                                                    if (canAccessCampaign(campania.estado)) {
+                                                        navigate(`/marketing/campanas/telefonicas/campanias/${campania.id}/cola`);
+                                                    }
+                                                }}
+                                                disabled={!canAccessCampaign(campania.estado)}
                                             >
-                                                Entrar
+                                                {canAccessCampaign(campania.estado) ? 'Entrar' : 'No disponible'}
                                             </button>
                                         </td>
                                     </tr>

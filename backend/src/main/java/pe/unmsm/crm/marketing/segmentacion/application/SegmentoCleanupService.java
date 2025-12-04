@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
  * Servicio para tareas programadas de limpieza de segmentos
  */
 @Service
+@org.springframework.context.annotation.Profile("!console")
 public class SegmentoCleanupService {
 
     private final SegmentoRepository segmentoRepository;

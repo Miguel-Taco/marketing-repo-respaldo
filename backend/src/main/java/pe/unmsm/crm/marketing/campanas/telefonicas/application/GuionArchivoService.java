@@ -44,7 +44,7 @@ public class GuionArchivoService {
      * Genera el archivo markdown y lo sube a Supabase.
      */
     @Transactional
-    public GuionArchivoDTO vincularGuionACampaña(Long idCampania, Integer idGuion, Long idUsuario) {
+    public GuionArchivoDTO vincularGuionACampania(Long idCampania, Integer idGuion, Long idUsuario) {
         // 1. Obtener el guión estructurado
         pe.unmsm.crm.marketing.campanas.telefonicas.infra.jpa.entity.GuionEntity guionEntity = guionService
                 .obtenerEntidadGuion(idGuion);

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { leadsApi } from '../../leads/services/leads.api';
+import { useAuth } from '../../../../shared/context/AuthContext';
 
 interface Lead {
     id: number;
@@ -23,6 +24,7 @@ interface LeadsCacheContextType {
 const LeadsCacheContext = createContext<LeadsCacheContextType | undefined>(undefined);
 
 export const LeadsCacheProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { isAuthenticated } = useAuth();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -50,9 +52,20 @@ export const LeadsCacheProvider: React.FC<{ children: ReactNode }> = ({ children
     }, [isLoaded]);
 
     // Cargar automáticamente al montar el componente
+    // Cargar automáticamente al montar el componente
     useEffect(() => {
-        fetchAllLeads();
-    }, [fetchAllLeads]);
+        if (isAuthenticated) {
+            fetchAllLeads();
+        }
+    }, [fetchAllLeads, isAuthenticated]);
+
+    // Clear state on logout
+    useEffect(() => {
+        if (!isAuthenticated) {
+            setLeads([]);
+            setIsLoaded(false);
+        }
+    }, [isAuthenticated]);
 
     const refresh = async () => {
         setIsLoaded(false);

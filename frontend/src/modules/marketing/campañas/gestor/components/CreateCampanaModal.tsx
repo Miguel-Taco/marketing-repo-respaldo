@@ -252,6 +252,7 @@ export const CreateCampanaModal: React.FC<CreateCampanaModalProps> = ({
                     fechaProgramadaFin: formData.fechaProgramadaFin,
                     idAgente: formData.idAgente!,
                     idSegmento: formData.idSegmento,
+                    idEncuesta: formData.idEncuesta,
                 });
             }
 

@@ -13,6 +13,8 @@ public interface CampaignDataProvider {
     // Campañas
     List<CampaniaTelefonicaDTO> obtenerCampaniasPorAgente(Long idAgente);
 
+    List<CampaniaTelefonicaDTO> obtenerTodasLasCampanias();
+
     CampaniaTelefonicaDTO obtenerCampaniaPorId(Long id);
 
     CampaniaTelefonicaDTO crearCampania(CreateCampaniaTelefonicaRequest request);

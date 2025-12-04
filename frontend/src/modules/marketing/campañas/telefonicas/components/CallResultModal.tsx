@@ -43,6 +43,7 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
     const [derivadoVentas, setDerivadoVentas] = useState(false);
     const [crearOportunidad, setCrearOportunidad] = useState(false);
     const [tipoOportunidad, setTipoOportunidad] = useState('VENTA_NUEVA');
+    const [enviarEncuesta, setEnviarEncuesta] = useState(false);
 
     if (!isOpen) return null;
 
@@ -62,7 +63,8 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
                 : undefined,
             derivadoVentas: crearOportunidad || undefined,
             tipoOportunidad: crearOportunidad ? tipoOportunidad : undefined,
-            duracionSegundos: duracionSegundos || 0
+            duracionSegundos: duracionSegundos || 0,
+            enviarEncuesta: enviarEncuesta || undefined
         };
         onSave(data, abrirSiguiente);
     };
@@ -188,6 +190,26 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
                             )}
                         </div>
                     )}
+
+                    {/* Encuesta post-llamada */}
+                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
+                        <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                            <span className="material-symbols-outlined">quiz</span>
+                            Encuesta post-llamada
+                        </h3>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                id="enviar-encuesta"
+                                className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                                checked={enviarEncuesta}
+                                onChange={(e) => setEnviarEncuesta(e.target.checked)}
+                            />
+                            <label htmlFor="enviar-encuesta" className="text-sm font-medium text-purple-800">
+                                Enviar encuesta al cliente
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">

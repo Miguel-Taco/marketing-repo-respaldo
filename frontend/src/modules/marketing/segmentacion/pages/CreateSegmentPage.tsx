@@ -77,19 +77,18 @@ export const CreateSegmentPage: React.FC = () => {
             setPreviewCount(count);
             setLeadIds(ids);
 
-            // Fetch actual lead data for the first 10 IDs
+            // Fetch actual lead data using batch endpoint (1 request instead of N)
             if (ids.length > 0) {
                 const leadsToFetch = ids.slice(0, 10);
-                console.log('Fetching lead details for IDs:', leadsToFetch);
+                console.log('Fetching lead details in batch for IDs:', leadsToFetch);
 
-                const leadPromises = leadsToFetch.map(id => leadsApi.getById(id));
-                const leadResponses = await Promise.all(leadPromises);
+                const batchResponse = await leadsApi.getLeadsBatch(leadsToFetch);
+                const leads = batchResponse.data;
 
-                console.log('Lead responses:', leadResponses);
+                console.log('Batch response:', leads);
 
                 // Transform lead data to preview format
-                const members = leadResponses.map(response => {
-                    const lead = response.data;
+                const members = leads.map(lead => {
                     return {
                         id: lead.id,
                         nombre: lead.nombreCompleto,
@@ -169,7 +168,7 @@ export const CreateSegmentPage: React.FC = () => {
             // Get the created segment ID
             let segmentId: number;
             if (response && 'data' in response) {
-                segmentId = response.data.id;
+                segmentId = (response.data as any).id;
             } else if (response) {
                 segmentId = (response as any).id;
             } else {
@@ -196,7 +195,7 @@ export const CreateSegmentPage: React.FC = () => {
 
             // Add to cache with complete data
             if (completeSegment && 'data' in completeSegment) {
-                addSegmento(completeSegment.data);
+                addSegmento(completeSegment.data as any);
             } else if (completeSegment) {
                 addSegmento(completeSegment as any);
             }

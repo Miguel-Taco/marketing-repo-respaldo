@@ -1,4 +1,5 @@
 import { http } from "../../../../shared/services/api.client";
+import { exportToExcel, generateExportFilename } from "../../../../shared/utils/exportUtils";
 import {
     Segmento,
     CreateSegmentoDTO,
@@ -62,10 +63,9 @@ export const segmentacionApi = {
         return http.post<{ data: { count: number; leadIds: number[] } }>(`${ENDPOINT}/preview-temp`, data);
     },
 
-    // 9. Exportar Segmento
-    export: async (id: number, format: 'csv' | 'excel' = 'csv') => {
-        // TODO: Implementar endpoint de exportación en el backend
-        console.log(`Exportando segmento ${id} en formato ${format}`);
-        alert(`Funcionalidad de exportación en desarrollo.\nSegmento ID: ${id}\nFormato: ${format}`);
+    // 9. Exportar Segmento a Excel
+    exportSegment: (id: number, segmentName: string) => {
+        const filename = generateExportFilename(`segmento_${segmentName.replace(/\s+/g, '_')}`);
+        return exportToExcel(`${ENDPOINT}/${id}/export`, undefined, 'GET', undefined, filename);
     }
 };

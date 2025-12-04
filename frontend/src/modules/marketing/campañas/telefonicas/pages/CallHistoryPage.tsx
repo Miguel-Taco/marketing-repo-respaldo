@@ -1,27 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { telemarketingApi } from '../services/telemarketingApi';
-import type { Llamada } from '../types';
+import type { Llamada, EnvioEncuesta } from '../types';
 import { Button } from '../../../../../shared/components/ui/Button';
 import { downloadCSV } from '../../../../../shared/utils/exportUtils';
+import { SurveyDetailModal } from '../components/SurveyDetailModal';
+import { useAuth } from '../../../../../shared/context/AuthContext';
 
 export const CallHistoryPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const [searchParams] = useSearchParams();
     const [llamadas, setLlamadas] = useState<Llamada[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [resultadoFilter, setResultadoFilter] = useState<string>('Todos');
     const [selectedLlamada, setSelectedLlamada] = useState<Llamada | null>(null);
+    const [surveyModalOpen, setSurveyModalOpen] = useState(false);
+    const [selectedSurvey, setSelectedSurvey] = useState<EnvioEncuesta | null>(null);
 
-    const agenteParam = searchParams.get('idAgente');
-    const agentId = agenteParam && !Number.isNaN(Number(agenteParam))
-        ? Number(agenteParam)
-        : undefined;
+    const { user } = useAuth();
+    const currentAgentId = user?.agentId;
 
     useEffect(() => {
         loadHistorial();
-    }, [id, agentId]);
+    }, [id, currentAgentId]);
 
     const loadHistorial = async () => {
         try {
@@ -35,16 +36,16 @@ export const CallHistoryPage: React.FC = () => {
                 setLlamadas(data);
                 setSelectedLlamada(data[0] ?? null);
             } else {
-                if (agentId === undefined) {
-                    console.warn('Defina el parametro idAgente para cargar el historial global');
+                if (currentAgentId === undefined) {
+                    console.warn('No hay agente asignado para cargar el historial global');
                     setLlamadas([]);
                     setSelectedLlamada(null);
                     return;
                 }
 
-                const campanias = await telemarketingApi.getCampaniasAgente(agentId);
+                const campanias = await telemarketingApi.getCampaniasAsignadas();
                 const allCallsPromises = campanias.map(c =>
-                    telemarketingApi.getHistorialLlamadas(c.id, agentId).then(calls =>
+                    telemarketingApi.getHistorialLlamadas(c.id).then(calls =>
                         calls.map(call => ({ ...call, nombreCampania: c.nombre }))
                     )
                 );
@@ -119,239 +120,294 @@ export const CallHistoryPage: React.FC = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
+    if (!id && !currentAgentId) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="max-w-lg text-center space-y-4">
+                    <h2 className="text-2xl font-bold text-gray-900">No hay agente asignado</h2>
+                    <p className="text-gray-600">Necesitas un agente asignado para ver el historial global de llamadas.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="flex flex-col h-full p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-4xl font-black text-gray-900">
-                        {id ? 'Historial de llamadas' : 'Historial Global'}
-                    </h1>
-                    <p className="text-gray-500">
-                        {id ? 'Selecciona una campaña y un rango de fechas para ver el historial.' : 'Historial de llamadas de todas las campañas asignadas.'}
-                    </p>
+        <>
+            <div className="flex flex-col h-full p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div className="flex flex-col gap-1">
+                        <h1 className="text-4xl font-black text-gray-900">
+                            {id ? 'Historial de llamadas' : 'Historial Global'}
+                        </h1>
+                        <p className="text-gray-500">
+                            {id ? 'Selecciona una campaña y un rango de fechas para ver el historial.' : 'Historial de llamadas de todas las campañas asignadas.'}
+                        </p>
+                    </div>
+                    <Button variant="primary" icon="download" onClick={handleExport}>
+                        Exportar historial
+                    </Button>
                 </div>
-                <Button variant="primary" icon="download" onClick={handleExport}>
-                    Exportar historial
-                </Button>
-            </div>
 
-            {/* Filters */}
-            <div className="bg-white rounded-lg p-4 sm:p-6 mb-6 border border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-4">
-                    <label className="flex flex-col col-span-1 md:col-span-4">
-                        <div className="flex w-full items-stretch rounded-xl h-12">
-                            <div className="text-gray-500 flex bg-gray-100 items-center justify-center pl-4 rounded-l-xl">
-                                <span className="material-symbols-outlined">search</span>
+                {/* Filters */}
+                <div className="bg-white rounded-lg p-4 sm:p-6 mb-6 border border-gray-200">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-4">
+                        <label className="flex flex-col col-span-1 md:col-span-4">
+                            <div className="flex w-full items-stretch rounded-xl h-12">
+                                <div className="text-gray-500 flex bg-gray-100 items-center justify-center pl-4 rounded-l-xl">
+                                    <span className="material-symbols-outlined">search</span>
+                                </div>
+                                <input
+                                    className="form-input flex w-full rounded-r-xl border-none bg-gray-100 text-gray-900 h-full pl-2 text-base"
+                                    placeholder="Buscar por nombre, teléfono o ID del lead..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
                             </div>
-                            <input
-                                className="form-input flex w-full rounded-r-xl border-none bg-gray-100 text-gray-900 h-full pl-2 text-base"
-                                placeholder="Buscar por nombre, teléfono o ID del lead..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                    </label>
+                        </label>
+                    </div>
+
+                    <div className="flex gap-3 flex-wrap">
+                        <button
+                            className={`h-8 px-4 rounded-full text-sm font-medium ${resultadoFilter === 'Todos'
+                                ? 'bg-primary/20 text-primary'
+                                : 'bg-gray-100 text-gray-700'
+                                }`}
+                            onClick={() => setResultadoFilter('Todos')}
+                        >
+                            Todos
+                        </button>
+                        <button
+                            className={`h-8 px-4 rounded-full text-sm font-medium transition-colors ${resultadoFilter === 'INTERESADO'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-blue-100 text-blue-700'
+                                }`}
+                            onClick={() => setResultadoFilter('INTERESADO')}
+                        >
+                            Interesado
+                        </button>
+                        <button
+                            className={`h-8 px-4 rounded-full text-sm font-medium transition-colors ${resultadoFilter === 'NO_INTERESADO'
+                                ? 'bg-red-600 text-white'
+                                : 'bg-red-100 text-red-700'
+                                }`}
+                            onClick={() => setResultadoFilter('NO_INTERESADO')}
+                        >
+                            No interesado
+                        </button>
+                        <button
+                            className={`h-8 px-4 rounded-full text-sm font-medium transition-colors ${resultadoFilter === 'CONTACTADO'
+                                ? 'bg-green-600 text-white'
+                                : 'bg-green-100 text-green-700'
+                                }`}
+                            onClick={() => setResultadoFilter('CONTACTADO')}
+                        >
+                            Contactado
+                        </button>
+                        <button
+                            className={`h-8 px-4 rounded-full text-sm font-medium ${resultadoFilter === 'NO_CONTESTA'
+                                ? 'bg-primary/20 text-primary'
+                                : 'bg-gray-100 text-gray-700'
+                                }`}
+                            onClick={() => setResultadoFilter('NO_CONTESTA')}
+                        >
+                            No contesta
+                        </button>
+                        <button
+                            className={`h-8 px-4 rounded-full text-sm font-medium ${resultadoFilter === 'BUZON'
+                                ? 'bg-primary/20 text-primary'
+                                : 'bg-gray-100 text-gray-700'
+                                }`}
+                            onClick={() => setResultadoFilter('BUZON')}
+                        >
+                            Buzón
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex gap-3 flex-wrap">
-                    <button
-                        className={`h-8 px-4 rounded-full text-sm font-medium ${resultadoFilter === 'Todos'
-                            ? 'bg-primary/20 text-primary'
-                            : 'bg-gray-100 text-gray-700'
-                            }`}
-                        onClick={() => setResultadoFilter('Todos')}
-                    >
-                        Todos
-                    </button>
-                    <button
-                        className={`h-8 px-4 rounded-full text-sm font-medium transition-colors ${resultadoFilter === 'INTERESADO'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-blue-100 text-blue-700'
-                            }`}
-                        onClick={() => setResultadoFilter('INTERESADO')}
-                    >
-                        Interesado
-                    </button>
-                    <button
-                        className={`h-8 px-4 rounded-full text-sm font-medium transition-colors ${resultadoFilter === 'NO_INTERESADO'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-red-100 text-red-700'
-                            }`}
-                        onClick={() => setResultadoFilter('NO_INTERESADO')}
-                    >
-                        No interesado
-                    </button>
-                    <button
-                        className={`h-8 px-4 rounded-full text-sm font-medium transition-colors ${resultadoFilter === 'CONTACTADO'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-green-100 text-green-700'
-                            }`}
-                        onClick={() => setResultadoFilter('CONTACTADO')}
-                    >
-                        Contactado
-                    </button>
-                    <button
-                        className={`h-8 px-4 rounded-full text-sm font-medium ${resultadoFilter === 'NO_CONTESTA'
-                            ? 'bg-primary/20 text-primary'
-                            : 'bg-gray-100 text-gray-700'
-                            }`}
-                        onClick={() => setResultadoFilter('NO_CONTESTA')}
-                    >
-                        No contesta
-                    </button>
-                    <button
-                        className={`h-8 px-4 rounded-full text-sm font-medium ${resultadoFilter === 'BUZON'
-                            ? 'bg-primary/20 text-primary'
-                            : 'bg-gray-100 text-gray-700'
-                            }`}
-                        onClick={() => setResultadoFilter('BUZON')}
-                    >
-                        Buzón
-                    </button>
-                </div>
-            </div>
-
-            <div className="flex flex-1 gap-6 overflow-hidden">
-                {/* Tabla de llamadas */}
-                <div className="flex flex-col flex-1 bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-64">
-                            <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-50">
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Fecha/hora</th>
-                                        {!id && <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Campaña</th>}
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Lead</th>
-                                        {id && <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Agente</th>}
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Teléfono</th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Resultado</th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Duración</th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {filteredLlamadas.map((llamada) => (
-                                        <tr
-                                            key={llamada.id}
-                                            className={`hover:bg-gray-50 cursor-pointer ${selectedLlamada?.id === llamada.id ? 'bg-primary/5' : ''
-                                                }`}
-                                            onClick={() => setSelectedLlamada(llamada)}
-                                        >
-                                            <td className="px-6 py-4 text-sm text-gray-600">
-                                                {new Date(llamada.fechaHora).toLocaleString()}
-                                            </td>
-                                            {!id && (
-                                                <td className="px-6 py-4 text-sm text-gray-600">
-                                                    {llamada.nombreCampania}
-                                                </td>
-                                            )}
-                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                                {llamada.nombreContacto || 'N/A'}
-                                            </td>
-                                            {id && (
-                                                <td className="px-6 py-4 text-sm text-gray-600">
-                                                    {llamada.idAgente ?? 'N/A'}
-                                                </td>
-                                            )}
-                                            <td className="px-6 py-4 text-sm text-gray-600">
-                                                {llamada.telefonoContacto || 'N/A'}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getResultadoBadge(llamada.resultado)}`}>
-                                                    {getResultadoLabel(llamada.resultado)}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600">
-                                                {formatDuration(llamada.duracionSegundos)}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm font-medium">
-                                                <button className="text-primary hover:text-primary/80">Ver detalle</button>
-                                            </td>
+                <div className="flex flex-1 gap-6 overflow-hidden">
+                    {/* Tabla de llamadas */}
+                    <div className="flex flex-col flex-1 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        {loading ? (
+                            <div className="flex items-center justify-center h-64">
+                                <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-gray-50">
+                                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Fecha/hora</th>
+                                            {!id && <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Campaña</th>}
+                                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Lead</th>
+                                            {id && <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Agente</th>}
+                                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Teléfono</th>
+                                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Resultado</th>
+                                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Duración</th>
+                                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Encuesta</th>
+                                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Acción</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {filteredLlamadas.map((llamada) => (
+                                            <tr
+                                                key={llamada.id}
+                                                className={`hover:bg-gray-50 cursor-pointer ${selectedLlamada?.id === llamada.id ? 'bg-primary/5' : ''
+                                                    }`}
+                                                onClick={() => setSelectedLlamada(llamada)}
+                                            >
+                                                <td className="px-6 py-4 text-sm text-gray-600">
+                                                    {new Date(llamada.fechaHora).toLocaleString()}
+                                                </td>
+                                                {!id && (
+                                                    <td className="px-6 py-4 text-sm text-gray-600">
+                                                        {llamada.nombreCampania}
+                                                    </td>
+                                                )}
+                                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                                    {llamada.nombreContacto || 'N/A'}
+                                                </td>
+                                                {id && (
+                                                    <td className="px-6 py-4 text-sm text-gray-600">
+                                                        {llamada.idAgente ?? 'N/A'}
+                                                    </td>
+                                                )}
+                                                <td className="px-6 py-4 text-sm text-gray-600">
+                                                    {llamada.telefonoContacto || 'N/A'}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getResultadoBadge(llamada.resultado)}`}>
+                                                        {getResultadoLabel(llamada.resultado)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-600">
+                                                    {formatDuration(llamada.duracionSegundos)}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {llamada.encuestaEnviada ? (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const mockSurvey: EnvioEncuesta = {
+                                                                    id: 1,
+                                                                    idLlamada: llamada.id as number,
+                                                                    idEncuesta: 1,
+                                                                    idLead: llamada.idContacto as number,
+                                                                    telefonoDestino: llamada.telefonoContacto || '',
+                                                                    urlEncuesta: llamada.urlEncuesta || '',
+                                                                    fechaEnvio: llamada.fechaEnvioEncuesta || new Date().toISOString(),
+                                                                    estado: (llamada.estadoEncuesta as 'ENVIADA' | 'ERROR' | 'PENDIENTE') || 'ENVIADA',
+                                                                    metodoComunicacion: 'SMS',
+                                                                    nombreLead: llamada.nombreContacto,
+                                                                    nombreCampania: llamada.nombreCampania,
+                                                                    tituloEncuesta: 'Encuesta de satisfacción post-llamada'
+                                                                };
+                                                                setSelectedSurvey(mockSurvey);
+                                                                setSurveyModalOpen(true);
+                                                            }}
+                                                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-lime-100 text-lime-800 hover:bg-lime-200 transition-colors"
+                                                        >
+                                                            Enviada
+                                                        </button>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                                                            No enviada
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm font-medium">
+                                                    <button className="text-primary hover:text-primary/80">Ver detalle</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Panel de detalle */}
+                    {selectedLlamada && (
+                        <div className="w-96 bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col overflow-hidden">
+                            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-900">Detalle de llamada</h2>
+                                    <p className="text-sm text-gray-600">
+                                        {new Date(selectedLlamada.fechaHora).toLocaleString()}
+                                    </p>
+                                </div>
+                                <button
+                                    className="text-gray-500 hover:text-gray-800"
+                                    onClick={() => setSelectedLlamada(null)}
+                                >
+                                    <span className="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                <div className="flex items-center">
+                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getResultadoBadge(selectedLlamada.resultado)}`}>
+                                        {getResultadoLabel(selectedLlamada.resultado)}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-base font-semibold text-gray-900 mb-3">Datos de lead</h3>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Nombre:</span>
+                                            <span className="font-medium text-gray-900">{selectedLlamada.nombreContacto}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Teléfono:</span>
+                                            <span className="font-medium text-gray-900">{selectedLlamada.telefonoContacto}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Duración:</span>
+                                            <span className="font-medium text-gray-900">{formatDuration(selectedLlamada.duracionSegundos)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {selectedLlamada.notas && (
+                                    <div>
+                                        <h3 className="text-base font-semibold text-gray-900 mb-3">Notas completas</h3>
+                                        <div className="p-4 rounded-lg bg-gray-50 text-sm text-gray-700">
+                                            <p>{selectedLlamada.notas}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedLlamada.fechaReagendamiento && (
+                                    <div>
+                                        <h3 className="text-base font-semibold text-gray-900 mb-3">Info de reagendamiento</h3>
+                                        <p className="text-sm text-gray-700">
+                                            Reagendado para: {new Date(selectedLlamada.fechaReagendamiento).toLocaleString()}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {selectedLlamada.derivadoVentas && (
+                                    <div>
+                                        <h3 className="text-base font-semibold text-gray-900 mb-3">Derivación a ventas</h3>
+                                        <p className="text-sm text-gray-700">
+                                            Tipo: {selectedLlamada.tipoOportunidad || 'No especificado'}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
-
-                {/* Panel de detalle */}
-                {selectedLlamada && (
-                    <div className="w-96 bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col overflow-hidden">
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <div>
-                                <h2 className="text-lg font-bold text-gray-900">Detalle de llamada</h2>
-                                <p className="text-sm text-gray-600">
-                                    {new Date(selectedLlamada.fechaHora).toLocaleString()}
-                                </p>
-                            </div>
-                            <button
-                                className="text-gray-500 hover:text-gray-800"
-                                onClick={() => setSelectedLlamada(null)}
-                            >
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                            <div className="flex items-center">
-                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getResultadoBadge(selectedLlamada.resultado)}`}>
-                                    {getResultadoLabel(selectedLlamada.resultado)}
-                                </span>
-                            </div>
-
-                            <div>
-                                <h3 className="text-base font-semibold text-gray-900 mb-3">Datos de lead</h3>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Nombre:</span>
-                                        <span className="font-medium text-gray-900">{selectedLlamada.nombreContacto}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Teléfono:</span>
-                                        <span className="font-medium text-gray-900">{selectedLlamada.telefonoContacto}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Duración:</span>
-                                        <span className="font-medium text-gray-900">{formatDuration(selectedLlamada.duracionSegundos)}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {selectedLlamada.notas && (
-                                <div>
-                                    <h3 className="text-base font-semibold text-gray-900 mb-3">Notas completas</h3>
-                                    <div className="p-4 rounded-lg bg-gray-50 text-sm text-gray-700">
-                                        <p>{selectedLlamada.notas}</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {selectedLlamada.fechaReagendamiento && (
-                                <div>
-                                    <h3 className="text-base font-semibold text-gray-900 mb-3">Info de reagendamiento</h3>
-                                    <p className="text-sm text-gray-700">
-                                        Reagendado para: {new Date(selectedLlamada.fechaReagendamiento).toLocaleString()}
-                                    </p>
-                                </div>
-                            )}
-
-                            {selectedLlamada.derivadoVentas && (
-                                <div>
-                                    <h3 className="text-base font-semibold text-gray-900 mb-3">Derivación a ventas</h3>
-                                    <p className="text-sm text-gray-700">
-                                        Tipo: {selectedLlamada.tipoOportunidad || 'No especificado'}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
-        </div>
+
+            <SurveyDetailModal
+                isOpen={surveyModalOpen}
+                onClose={() => {
+                    setSurveyModalOpen(false);
+                    setSelectedSurvey(null);
+                }}
+                envioEncuesta={selectedSurvey}
+            />
+        </>
     );
 };

@@ -7,6 +7,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import pe.unmsm.crm.marketing.campanas.gestor.api.dto.request.*;
 import pe.unmsm.crm.marketing.campanas.gestor.api.dto.response.CampanaDetalleResponse;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/campanas")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class CampanaController {
 
         private final IGestorCampanaUseCase gestorCampanaUseCase;

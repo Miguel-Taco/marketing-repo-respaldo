@@ -133,7 +133,7 @@ export const SegmentTable: React.FC<SegmentTableProps> = ({
                                         onClick={() => onEdit(segmento.id)}
                                         className="font-medium text-primary hover:underline focus:outline-none"
                                     >
-                                        Editar
+                                        Detalle/Edición
                                     </button>
                                     <button
                                         onClick={(e) => {

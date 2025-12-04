@@ -29,3 +29,13 @@ export interface CreateEncuestaRequest {
     estado: 'BORRADOR' | 'ACTIVA';
     preguntas: Pregunta[];
 }
+
+export interface CampanaSummary {
+    idCampana: number;
+    nombre: string;
+    estado: string;
+    prioridad: string;
+    canalEjecucion: string;
+    fechaProgramadaInicio?: string;
+    fechaProgramadaFin?: string;
+}

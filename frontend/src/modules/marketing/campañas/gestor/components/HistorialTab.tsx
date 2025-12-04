@@ -12,53 +12,25 @@ interface HistorialItem {
     descripcionDetalle: string;
 }
 
+import { useCampanasGestorContext } from '../context/CampanasGestorContext';
+
 interface HistorialTabProps {
     onTotalElementsChange?: (total: number) => void;
 }
 
 export const HistorialTab: React.FC<HistorialTabProps> = ({ onTotalElementsChange }) => {
-    const [historial, setHistorial] = useState<HistorialItem[]>([]);
-    const [loading, setLoading] = useState(false);
+    const { historial, fetchHistorial, setHistorialFilter, setHistorialPage } = useCampanasGestorContext();
     const [searchTerm, setSearchTerm] = useState('');
-    const [tipoAccion, setTipoAccion] = useState('');
-    const [fechaDesde, setFechaDesde] = useState('');
-    const [fechaHasta, setFechaHasta] = useState('');
-    const [currentPage, setCurrentPage] = useState(0);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
 
-    const fetchHistorial = async () => {
-        setLoading(true);
-        try {
-            const response = await campanasApi.getHistorial({
-                page: currentPage,
-                size: 6,
-                tipoAccion: tipoAccion || undefined,
-                fechaDesde: fechaDesde ? new Date(fechaDesde).toISOString() : undefined,
-                fechaHasta: fechaHasta ? new Date(fechaHasta).toISOString() : undefined,
-            });
-
-            setHistorial(response.content);
-            setTotalPages(response.total_pages);
-            setTotalElements(response.total_elements);
-
-            // Notify parent of total elements change
-            if (onTotalElementsChange) {
-                onTotalElementsChange(response.total_elements);
-            }
-        } catch (error) {
-            console.error('Error fetching historial:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    // Sync total elements with parent
     useEffect(() => {
-        fetchHistorial();
-    }, [currentPage, tipoAccion, fechaDesde, fechaHasta]);
+        if (onTotalElementsChange) {
+            onTotalElementsChange(historial.pagination.totalElements);
+        }
+    }, [historial.pagination.totalElements, onTotalElementsChange]);
 
-    // Client-side filtering for search term (since backend doesn't support it yet)
-    const filteredHistorial = historial.filter(item =>
+    // Client-side filtering for search term
+    const filteredHistorial = historial.data.filter(item =>
         item.nombreCampana.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -110,8 +82,10 @@ export const HistorialTab: React.FC<HistorialTabProps> = ({ onTotalElementsChang
                 <div className="flex flex-col sm:flex-row items-center gap-2 w-full xl:w-auto">
                     <select
                         className="w-full sm:w-auto border border-separator rounded-lg px-3 py-2 text-sm text-gray-600 focus:outline-none focus:border-primary"
-                        value={tipoAccion}
-                        onChange={(e) => setTipoAccion(e.target.value)}
+                        value={historial.filters.tipoAccion}
+                        onChange={(e) => {
+                            setHistorialFilter('tipoAccion', e.target.value);
+                        }}
                     >
                         <option value="">Todas las acciones</option>
                         <option value="CREACION">Creada</option>
@@ -129,8 +103,10 @@ export const HistorialTab: React.FC<HistorialTabProps> = ({ onTotalElementsChang
                             <input
                                 type="date"
                                 className="w-full sm:w-auto border border-separator rounded-lg px-3 py-2 text-sm text-gray-600 focus:outline-none focus:border-primary"
-                                value={fechaDesde}
-                                onChange={(e) => setFechaDesde(e.target.value)}
+                                value={historial.filters.fechaDesde}
+                                onChange={(e) => {
+                                    setHistorialFilter('fechaDesde', e.target.value);
+                                }}
                             />
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -138,14 +114,16 @@ export const HistorialTab: React.FC<HistorialTabProps> = ({ onTotalElementsChang
                             <input
                                 type="date"
                                 className="w-full sm:w-auto border border-separator rounded-lg px-3 py-2 text-sm text-gray-600 focus:outline-none focus:border-primary"
-                                value={fechaHasta}
-                                onChange={(e) => setFechaHasta(e.target.value)}
+                                value={historial.filters.fechaHasta}
+                                onChange={(e) => {
+                                    setHistorialFilter('fechaHasta', e.target.value);
+                                }}
                             />
                         </div>
                     </div>
 
                     <button
-                        onClick={fetchHistorial}
+                        onClick={() => fetchHistorial(true)}
                         className="p-2 border border-separator rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
                         title="Actualizar lista"
                     >
@@ -156,7 +134,7 @@ export const HistorialTab: React.FC<HistorialTabProps> = ({ onTotalElementsChang
 
             {/* History List */}
             <div className="flex flex-col">
-                {loading ? (
+                {historial.loading ? (
                     <div className="p-8 text-center">
                         <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-solid border-primary border-r-transparent"></div>
                         <p className="mt-2 text-gray-500">Cargando historial...</p>
@@ -197,58 +175,58 @@ export const HistorialTab: React.FC<HistorialTabProps> = ({ onTotalElementsChang
                         Mostrando{' '}
                         <span className="font-semibold">
                             {filteredHistorial.length > 0
-                                ? `${currentPage * 6 + 1}-${Math.min(currentPage * 6 + filteredHistorial.length, totalElements)}`
+                                ? `${historial.pagination.page * 6 + 1}-${Math.min(historial.pagination.page * 6 + filteredHistorial.length, historial.pagination.totalElements)}`
                                 : '0'}
                         </span>{' '}
-                        de <span className="font-semibold">{totalElements}</span> resultados totales
-                        {totalPages > 1 && (
+                        de <span className="font-semibold">{historial.pagination.totalElements}</span> resultados totales
+                        {historial.pagination.totalPages > 1 && (
                             <span className="ml-2">
-                                (Página {currentPage + 1} de {totalPages})
+                                (Página {historial.pagination.page + 1} de {historial.pagination.totalPages})
                             </span>
                         )}
                     </div>
 
                     {/* Pagination Controls */}
-                    {totalPages > 1 && (
+                    {historial.pagination.totalPages > 1 && (
                         <div className="flex items-center gap-1">
                             <button
                                 className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => setCurrentPage(0)}
-                                disabled={currentPage === 0 || loading}
+                                onClick={() => setHistorialPage(0)}
+                                disabled={historial.pagination.page === 0 || historial.loading}
                             >
                                 « Inicio
                             </button>
                             <button
                                 className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                                disabled={currentPage === 0 || loading}
+                                onClick={() => setHistorialPage(Math.max(0, historial.pagination.page - 1))}
+                                disabled={historial.pagination.page === 0 || historial.loading}
                             >
                                 ‹ Anterior
                             </button>
 
                             {/* Page numbers */}
                             <div className="flex gap-1">
-                                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                                {Array.from({ length: Math.min(historial.pagination.totalPages, 5) }, (_, i) => {
                                     let pageNum;
-                                    if (totalPages <= 5) {
+                                    if (historial.pagination.totalPages <= 5) {
                                         pageNum = i;
-                                    } else if (currentPage < 3) {
+                                    } else if (historial.pagination.page < 3) {
                                         pageNum = i;
-                                    } else if (currentPage >= totalPages - 3) {
-                                        pageNum = totalPages - 5 + i;
+                                    } else if (historial.pagination.page >= historial.pagination.totalPages - 3) {
+                                        pageNum = historial.pagination.totalPages - 5 + i;
                                     } else {
-                                        pageNum = currentPage - 2 + i;
+                                        pageNum = historial.pagination.page - 2 + i;
                                     }
 
                                     return (
                                         <button
                                             key={pageNum}
-                                            className={`px-3 py-1.5 border rounded-md transition-colors ${currentPage === pageNum
+                                            className={`px-3 py-1.5 border rounded-md transition-colors ${historial.pagination.page === pageNum
                                                 ? 'bg-primary text-white border-primary'
                                                 : 'bg-white hover:bg-gray-50 text-gray-600 border-separator'
                                                 }`}
-                                            onClick={() => setCurrentPage(pageNum)}
-                                            disabled={loading}
+                                            onClick={() => setHistorialPage(pageNum)}
+                                            disabled={historial.loading}
                                         >
                                             {pageNum + 1}
                                         </button>
@@ -258,15 +236,15 @@ export const HistorialTab: React.FC<HistorialTabProps> = ({ onTotalElementsChang
 
                             <button
                                 className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
-                                disabled={currentPage >= totalPages - 1 || loading}
+                                onClick={() => setHistorialPage(Math.min(historial.pagination.totalPages - 1, historial.pagination.page + 1))}
+                                disabled={historial.pagination.page >= historial.pagination.totalPages - 1 || historial.loading}
                             >
                                 Siguiente ›
                             </button>
                             <button
                                 className="px-3 py-1.5 border border-separator rounded-md bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => setCurrentPage(totalPages - 1)}
-                                disabled={currentPage >= totalPages - 1 || loading}
+                                onClick={() => setHistorialPage(historial.pagination.totalPages - 1)}
+                                disabled={historial.pagination.page >= historial.pagination.totalPages - 1 || historial.loading}
                             >
                                 Fin »
                             </button>

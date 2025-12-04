@@ -41,29 +41,48 @@ public class CampanaMailingService {
         return saved;
     }
 
-    public List<CampanaMailing> listarPendientes(Integer idAgente) {
-        return campanaRepo.findByAgenteAndEstado(idAgente, 1);
+    public List<CampanaMailing> listarPendientes(List<Integer> campaniasPermitidas) {
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 1);
     }
 
-    public List<CampanaMailing> listarListos(Integer idAgente) {
-        return campanaRepo.findByAgenteAndEstado(idAgente, 2);
+    public List<CampanaMailing> listarListos(List<Integer> campaniasPermitidas) {
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 2);
     }
 
-    public List<CampanaMailing> listarEnviados(Integer idAgente) {
-        return campanaRepo.findByAgenteAndEstado(idAgente, 3);
+    public List<CampanaMailing> listarEnviados(List<Integer> campaniasPermitidas) {
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 3);
     }
 
-    public List<CampanaMailing> listarFinalizados(Integer idAgente) {
-        return campanaRepo.findByAgenteAndEstado(idAgente, 5);
+    public List<CampanaMailing> listarFinalizados(List<Integer> campaniasPermitidas) {
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 5);
     }
 
-    public List<CampanaMailing> listarTodas(Integer idAgente) {
-        return campanaRepo.findByAgenteOrderByFechaInicio(idAgente);
+    public List<CampanaMailing> listarTodas(List<Integer> campaniasPermitidas) {
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInOrderByFechaInicio(campaniasPermitidas);
     }
 
     public CampanaMailing obtenerDetalle(Integer id) {
         return campanaRepo.findById(id)
                 .orElseThrow(() -> new NotFoundException("CampanaMailing", id.longValue()));
+    }
+
+    private boolean isEmpty(List<Integer> ids) {
+        return ids == null || ids.isEmpty();
     }
 
     public void guardarBorrador(Integer id, ActualizarContenidoRequest req) {

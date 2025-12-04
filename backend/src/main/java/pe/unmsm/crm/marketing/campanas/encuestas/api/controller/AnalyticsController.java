@@ -12,7 +12,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/encuestas/respuestas/analytics")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173") // Allow frontend access
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;

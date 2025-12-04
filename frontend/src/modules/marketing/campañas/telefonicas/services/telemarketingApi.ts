@@ -20,11 +20,10 @@ export const telemarketingApi = {
     /**
      * Obtiene las campañas asignadas a un agente
      */
-    async getCampaniasAgente(idAgente: number): Promise<CampaniaTelefonica[]> {
-        const response = await apiClient.get(`${BASE_URL}/agentes/${idAgente}/campanias-telefonicas`);
+    async getCampaniasAsignadas(): Promise<CampaniaTelefonica[]> {
+        const response = await apiClient.get(`${BASE_URL}/agentes/me/campanias-telefonicas`);
         return response.data.data;
     },
-
     /**
      * Crea una nueva campaña telefónica
      */
@@ -64,10 +63,10 @@ export const telemarketingApi = {
     /**
      * Obtiene el siguiente contacto automáticamente
      */
-    async getSiguienteContacto(idCampania: number, idAgente: number): Promise<Contacto> {
+    async getSiguienteContacto(idCampania: number): Promise<Contacto> {
         const response = await apiClient.post(
             `${BASE_URL}/campanias-telefonicas/${idCampania}/cola/siguiente`,
-            { idAgente }
+            {}
         );
         return response.data.data;
     },
@@ -75,10 +74,10 @@ export const telemarketingApi = {
     /**
      * Toma un contacto específico de la cola
      */
-    async tomarContacto(idCampania: number, idContacto: number, idAgente: number): Promise<Contacto> {
+    async tomarContacto(idCampania: number, idContacto: number): Promise<Contacto> {
         const response = await apiClient.post(
             `${BASE_URL}/campanias-telefonicas/${idCampania}/contactos/${idContacto}/tomar`,
-            { idAgente }
+            {}
         );
         return response.data.data;
     },
@@ -86,15 +85,15 @@ export const telemarketingApi = {
     /**
      * Pausa la cola de llamadas
      */
-    async pausarCola(idAgente: number, idCampania: number): Promise<void> {
-        await apiClient.post(`${BASE_URL}/agentes/${idAgente}/campanias-telefonicas/${idCampania}/pausar-cola`);
+    async pausarCola(idCampania: number): Promise<void> {
+        await apiClient.post(`${BASE_URL}/campanias-telefonicas/${idCampania}/pausar-cola`);
     },
 
     /**
      * Reanuda la cola de llamadas
      */
-    async reanudarCola(idAgente: number, idCampania: number): Promise<void> {
-        await apiClient.post(`${BASE_URL}/agentes/${idAgente}/campanias-telefonicas/${idCampania}/reanudar-cola`);
+    async reanudarCola(idCampania: number): Promise<void> {
+        await apiClient.post(`${BASE_URL}/campanias-telefonicas/${idCampania}/reanudar-cola`);
     },
 
     // ========== LLAMADAS ==========
@@ -112,11 +111,10 @@ export const telemarketingApi = {
      */
     async registrarResultado(
         idCampania: number,
-        idAgente: number,
         request: ResultadoLlamadaRequest
     ): Promise<Llamada> {
         const response = await apiClient.post(
-            `${BASE_URL}/campanias-telefonicas/${idCampania}/llamadas/resultado?idAgente=${idAgente}`,
+            `${BASE_URL}/campanias-telefonicas/${idCampania}/llamadas/resultado`,
             request
         );
         return response.data.data;
@@ -125,12 +123,9 @@ export const telemarketingApi = {
     /**
      * Obtiene el historial de llamadas de una campaña
      */
-    async getHistorialLlamadas(idCampania: number, idAgente?: number): Promise<Llamada[]> {
-        const query = typeof idAgente === 'number'
-            ? `?idAgente=${idAgente}`
-            : '';
+    async getHistorialLlamadas(idCampania: number): Promise<Llamada[]> {
         const response = await apiClient.get(
-            `${BASE_URL}/campanias-telefonicas/${idCampania}/llamadas${query}`
+            `${BASE_URL}/campanias-telefonicas/${idCampania}/llamadas`
         );
         return response.data.data;
     },
@@ -156,29 +151,19 @@ export const telemarketingApi = {
     // ========== MÉTRICAS ==========
 
     /**
-     * Obtiene las métricas de un agente en una campaña
-     */
-    async getMetricasCampania(idCampania: number, idAgente: number): Promise<MetricasAgente> {
-        const response = await apiClient.get(
-            `${BASE_URL}/campanias-telefonicas/${idCampania}/metricas/agentes/${idAgente}`
-        );
-        return response.data.data;
-    },
-
-    /**
      * Obtiene las métricas generales de un agente
      */
-    async getMetricasGenerales(idAgente: number): Promise<MetricasAgente> {
-        const response = await apiClient.get(`${BASE_URL}/agentes/${idAgente}/metricas-campania`);
+    async getMetricasGenerales(): Promise<MetricasAgente> {
+        const response = await apiClient.get(`${BASE_URL}/agentes/me/metricas-campania`);
         return response.data.data;
     },
 
     /**
      * Obtiene las métricas diarias de una campaña para un agente
      */
-    async getMetricasDiarias(idCampania: number, idAgente: number): Promise<MetricasDiarias> {
+    async getMetricasDiarias(idCampania: number): Promise<MetricasDiarias> {
         const response = await apiClient.get(
-            `${BASE_URL}/campanias-telefonicas/${idCampania}/metricas-diarias?idAgente=${idAgente}`
+            `${BASE_URL}/campanias-telefonicas/${idCampania}/metricas-diarias`
         );
         return response.data.data;
     },
@@ -198,9 +183,9 @@ export const telemarketingApi = {
     /**
      * Guarda el estado actual del guion de una llamada
      */
-    async guardarSesionGuion(idLlamada: number, idAgente: number, payload: { pasoActual: number; respuestas: Record<string, string> }) {
+    async guardarSesionGuion(idLlamada: number, payload: { pasoActual: number; respuestas: Record<string, string> }) {
         const response = await apiClient.post(
-            `${BASE_URL}/llamadas/${idLlamada}/guion/sesion?idAgente=${idAgente}`,
+            `${BASE_URL}/llamadas/${idLlamada}/guion/sesion`,
             payload
         );
         return response.data.data;
@@ -209,8 +194,8 @@ export const telemarketingApi = {
     /**
      * Recupera el estado del guion de una llamada
      */
-    async obtenerSesionGuion(idLlamada: number, idAgente: number) {
-        const response = await apiClient.get(`${BASE_URL}/llamadas/${idLlamada}/guion/sesion?idAgente=${idAgente}`);
+    async obtenerSesionGuion(idLlamada: number) {
+        const response = await apiClient.get(`${BASE_URL}/llamadas/${idLlamada}/guion/sesion`);
         return response.data.data;
     },
 

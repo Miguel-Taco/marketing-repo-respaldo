@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { Lead } from '../types/lead.types';
 import { leadsApi } from '../services/leads.api';
+import { useAuth } from '../../../../shared/context/AuthContext';
 
 interface LeadsContextProps {
     leads: Lead[];
@@ -22,6 +23,7 @@ interface LeadsContextProps {
 const LeadsContext = createContext<LeadsContextProps | undefined>(undefined);
 
 export const LeadsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { isAuthenticated } = useAuth();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -131,9 +133,19 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }
         };
 
-        load();
+        if (isAuthenticated) {
+            load();
+        }
 
-    }, [filters]); // Se ejecuta al montar (filters inicial) y al cambiar filters.
+    }, [filters, isAuthenticated]); // Se ejecuta al montar (filters inicial) y al cambiar filters.
+
+    // Clear state on logout
+    React.useEffect(() => {
+        if (!isAuthenticated) {
+            setLeads([]);
+            setHasLoaded(false);
+        }
+    }, [isAuthenticated]);
 
     const setFilter = (key: string, value: any) => {
         setFilters(prev => {

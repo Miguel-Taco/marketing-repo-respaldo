@@ -4,10 +4,12 @@ import { CampanaMailing, MetricasMailing, ActualizarContenidoRequest } from '../
 const BASE_URL = '/mailing';
 
 export const mailingApi = {
-    // Listar campañas
-    listarCampanas: (idAgente: number, estado?: string) => {
-        const params: any = { idAgente };
-        if (estado) params.estado = estado;
+    // Listar campañas asignadas
+    listarCampanas: (estado?: string) => {
+        const params: Record<string, any> = {};
+        if (estado) {
+            params.estado = estado;
+        }
         return http.get<CampanaMailing[]>(`${BASE_URL}/campañas`, { params });
     },
 

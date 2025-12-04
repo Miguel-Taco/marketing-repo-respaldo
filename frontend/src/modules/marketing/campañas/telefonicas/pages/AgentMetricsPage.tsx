@@ -3,21 +3,28 @@ import { telemarketingApi } from '../services/telemarketingApi';
 import type { MetricasAgente } from '../types';
 import { Button } from '../../../../../shared/components/ui/Button';
 import { downloadCSV } from '../../../../../shared/utils/exportUtils';
+import { useAuth } from '../../../../../shared/context/AuthContext';
 
 export const AgentMetricsPage: React.FC = () => {
     const [metricas, setMetricas] = useState<MetricasAgente | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const idAgente = 1; // TODO: Get from auth context (using existing agent ID from database)
+    const { user } = useAuth();
+    const idAgente = user?.agentId;
 
     useEffect(() => {
-        loadMetricas();
-    }, []);
+        if (idAgente) {
+            loadMetricas();
+        } else {
+            setMetricas(null);
+            setLoading(false);
+        }
+    }, [idAgente]);
 
     const loadMetricas = async () => {
         try {
             setLoading(true);
-            const data = await telemarketingApi.getMetricasGenerales(idAgente);
+            const data = await telemarketingApi.getMetricasGenerales();
             setMetricas(data);
         } catch (error) {
             console.error('Error cargando métricas:', error);
@@ -48,6 +55,15 @@ export const AgentMetricsPage: React.FC = () => {
         const secs = seconds % 60;
         return `${mins}m ${secs}s`;
     };
+
+    if (!idAgente) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen gap-4">
+                <h2 className="text-2xl font-bold text-gray-900">No tienes un agente asignado</h2>
+                <p className="text-gray-600">Las métricas personales estarán disponibles cuando el administrador te asigne a una campaña.</p>
+            </div>
+        );
+    }
 
     if (loading) {
         return (

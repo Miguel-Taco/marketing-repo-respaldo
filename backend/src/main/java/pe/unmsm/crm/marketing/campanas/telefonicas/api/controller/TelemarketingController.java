@@ -3,11 +3,14 @@ package pe.unmsm.crm.marketing.campanas.telefonicas.api.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import pe.unmsm.crm.marketing.campanas.telefonicas.api.dto.*;
 import pe.unmsm.crm.marketing.campanas.telefonicas.application.GuionArchivoService;
 import pe.unmsm.crm.marketing.campanas.telefonicas.application.GuionService;
 import pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService;
+import pe.unmsm.crm.marketing.security.service.UserAuthorizationService;
 import pe.unmsm.crm.marketing.shared.utils.ResponseUtils;
 
 import java.util.List;
@@ -21,48 +24,53 @@ public class TelemarketingController {
     private final TelemarketingService service;
     private final GuionArchivoService guionArchivoService;
     private final GuionService guionService;
+    private final UserAuthorizationService userAuthorizationService;
 
-    // ==================== CAMPAÑAS ====================
+    // ==================== CAMPAÃƒâ€˜AS ====================
 
-    /**
-     * 1. GET /agentes/{id}/campanias-telefonicas
-     * Obtiene las campañas activas asignadas a un agente.
-     */
-    @GetMapping("/agentes/{id}/campanias-telefonicas")
-    public ResponseEntity<Map<String, Object>> obtenerCampaniasPorAgente(@PathVariable Long id) {
-        List<CampaniaTelefonicaDTO> campanias = service.obtenerCampaniasPorAgente(id);
+    @GetMapping("/agentes/me/campanias-telefonicas")
+    public ResponseEntity<Map<String, Object>> obtenerCampaniasAgenteActual() {
+        if (userAuthorizationService.isAdmin()) {
+            List<CampaniaTelefonicaDTO> campanias = service.obtenerTodasLasCampanias();
+            return ResponseUtils.success(campanias, "Campañas obtenidas exitosamente");
+        }
+        Long currentAgent = requireCurrentAgent();
+        List<CampaniaTelefonicaDTO> campanias = service.obtenerCampaniasPorAgente(currentAgent);
         return ResponseUtils.success(campanias, "Campañas obtenidas exitosamente");
     }
 
     /**
      * 2. POST /campanias-telefonicas
-     * Crea una nueva campaña telefónica.
+     * Crea una nueva campaÃƒÂ±a telefÃƒÂ³nica.
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/campanias-telefonicas")
     public ResponseEntity<Map<String, Object>> crearCampania(
             @Valid @RequestBody CreateCampaniaTelefonicaRequest request) {
         CampaniaTelefonicaDTO campania = service.crearCampania(request);
-        return ResponseUtils.success(campania, "Campaña creada exitosamente");
+        return ResponseUtils.success(campania, "CampaÃƒÂ±a creada exitosamente");
     }
 
     /**
      * 3. GET /campanias-telefonicas/{id}
-     * Obtiene el detalle de una campaña específica.
+     * Obtiene el detalle de una campaÃƒÂ±a especÃƒÂ­fica.
      */
     @GetMapping("/campanias-telefonicas/{id}")
     public ResponseEntity<Map<String, Object>> obtenerCampania(@PathVariable Long id) {
+        requireCampaniaAccess(id);
         CampaniaTelefonicaDTO campania = service.obtenerCampaniaPorId(id);
-        return ResponseUtils.success(campania, "Campaña obtenida exitosamente");
+        return ResponseUtils.success(campania, "CampaÃƒÂ±a obtenida exitosamente");
     }
 
     // ==================== CONTACTOS ====================
 
     /**
      * 4. GET /campanias-telefonicas/{id}/contactos
-     * Obtiene la lista de contactos (leads) de una campaña.
+     * Obtiene la lista de contactos (leads) de una campaÃƒÂ±a.
      */
     @GetMapping("/campanias-telefonicas/{id}/contactos")
     public ResponseEntity<Map<String, Object>> obtenerContactosCampania(@PathVariable Long id) {
+        requireCampaniaAccess(id);
         List<ContactoDTO> contactos = service.obtenerContactosDeCampania(id);
         return ResponseUtils.success(contactos, "Contactos obtenidos exitosamente");
     }
@@ -71,10 +79,11 @@ public class TelemarketingController {
 
     /**
      * 5. GET /campanias-telefonicas/{id}/cola
-     * Obtiene la cola de llamadas pendientes para una campaña.
+     * Obtiene la cola de llamadas pendientes para una campaÃƒÂ±a.
      */
     @GetMapping("/campanias-telefonicas/{id}/cola")
     public ResponseEntity<Map<String, Object>> obtenerColaLlamadas(@PathVariable Long id) {
+        requireCampaniaAccess(id);
         List<ContactoDTO> cola = service.obtenerCola(id);
         return ResponseUtils.success(cola, "Cola de llamadas obtenida exitosamente");
     }
@@ -87,55 +96,51 @@ public class TelemarketingController {
     public ResponseEntity<Map<String, Object>> obtenerSiguienteContacto(
             @PathVariable Long id,
             @RequestBody Map<String, Long> request) {
-        Long idAgente = request.get("idAgente");
-        ContactoDTO contacto = service.obtenerSiguienteContacto(id, idAgente);
+        requireCampaniaAccess(id);
+        Long resolvedAgente = resolveAgentOrCurrent(request.get("idAgente"));
+        ContactoDTO contacto = service.obtenerSiguienteContacto(id, resolvedAgente);
         return ResponseUtils.success(contacto, "Siguiente contacto asignado exitosamente");
     }
 
     /**
      * 7. POST /campanias-telefonicas/{id}/contactos/{idContacto}/tomar
-     * Permite a un agente tomar un contacto específico de la lista.
+     * Permite a un agente tomar un contacto especÃƒÂ­fico de la lista.
      */
     @PostMapping("/campanias-telefonicas/{id}/contactos/{idContacto}/tomar")
     public ResponseEntity<Map<String, Object>> tomarContacto(
             @PathVariable Long id,
             @PathVariable Long idContacto,
             @RequestBody Map<String, Long> request) {
-        Long idAgente = request.get("idAgente");
-        ContactoDTO contacto = service.tomarContacto(id, idContacto, idAgente);
+        requireCampaniaAccess(id);
+        Long resolvedAgente = resolveAgentOrCurrent(request.get("idAgente"));
+        ContactoDTO contacto = service.tomarContacto(id, idContacto, resolvedAgente);
         return ResponseUtils.success(contacto, "Contacto asignado exitosamente");
     }
 
-    /**
-     * 8. POST /agentes/{idAgente}/campanias-telefonicas/{idCampania}/pausar-cola
-     * Pausa la asignación automática de llamadas para un agente.
-     */
-    @PostMapping("/agentes/{idAgente}/campanias-telefonicas/{idCampania}/pausar-cola")
-    public ResponseEntity<Map<String, Object>> pausarCola(
-            @PathVariable Long idAgente,
+    @PostMapping("/campanias-telefonicas/{idCampania}/pausar-cola")
+    public ResponseEntity<Map<String, Object>> pausarColaActual(
             @PathVariable Long idCampania) {
-        service.pausarCola(idAgente, idCampania);
+        Long currentAgent = requireCurrentAgent();
+        requireCampaniaAccess(idCampania);
+        service.pausarCola(currentAgent, idCampania);
         return ResponseUtils.success(null, "Cola pausada exitosamente");
     }
 
-    /**
-     * 9. POST /agentes/{idAgente}/campanias-telefonicas/{idCampania}/reanudar-cola
-     * Reanuda la asignación automática de llamadas.
-     */
-    @PostMapping("/agentes/{idAgente}/campanias-telefonicas/{idCampania}/reanudar-cola")
-    public ResponseEntity<Map<String, Object>> reanudarCola(
-            @PathVariable Long idAgente,
+    @PostMapping("/campanias-telefonicas/{idCampania}/reanudar-cola")
+    public ResponseEntity<Map<String, Object>> reanudarColaActual(
             @PathVariable Long idCampania) {
-        service.reanudarCola(idAgente, idCampania);
+        Long currentAgent = requireCurrentAgent();
+        requireCampaniaAccess(idCampania);
+        service.reanudarCola(currentAgent, idCampania);
         return ResponseUtils.success(null, "Cola reanudada exitosamente");
     }
 
     /**
      * POST /public/v1/campanias-telefonicas/cola/urgente
-     * Agrega un contacto urgente a la cola de una campaña con prioridad ALTA.
-     * Endpoint público para integración con gestor de encuestas.
+     * Agrega un contacto urgente a la cola de una campaÃƒÂ±a con prioridad ALTA.
+     * Endpoint pÃƒÂºblico para integraciÃƒÂ³n con gestor de encuestas.
      * 
-     * La campaña se determina automáticamente a partir de id_encuesta.
+     * La campaÃƒÂ±a se determina automÃƒÂ¡ticamente a partir de id_encuesta.
      */
     @PostMapping("/public/v1/campanias-telefonicas/cola/urgente")
     public ResponseEntity<Map<String, Object>> agregarContactoUrgente(
@@ -152,11 +157,12 @@ public class TelemarketingController {
 
     /**
      * GET /llamadas/{id}
-     * Obtiene el detalle de una llamada específica.
+     * Obtiene el detalle de una llamada especÃƒÂ­fica.
      */
     @GetMapping("/llamadas/{id}")
     public ResponseEntity<Map<String, Object>> obtenerLlamada(@PathVariable Long id) {
         LlamadaDTO llamada = service.obtenerLlamada(id);
+        ensureLlamadaAccess(llamada);
         return ResponseUtils.success(llamada, "Llamada obtenida exitosamente");
     }
 
@@ -167,9 +173,11 @@ public class TelemarketingController {
     @PostMapping("/campanias-telefonicas/{idCampania}/llamadas/resultado")
     public ResponseEntity<Map<String, Object>> registrarResultadoLlamada(
             @PathVariable Long idCampania,
-            @RequestParam Long idAgente,
+            @RequestParam(required = false) Long idAgente,
             @Valid @RequestBody ResultadoLlamadaRequest request) {
-        LlamadaDTO llamada = service.registrarResultadoLlamada(idCampania, idAgente, request);
+        requireCampaniaAccess(idCampania);
+        Long resolvedAgente = resolveAgentOrCurrent(idAgente);
+        LlamadaDTO llamada = service.registrarResultadoLlamada(idCampania, resolvedAgente, request);
         return ResponseUtils.success(llamada, "Resultado registrado exitosamente");
     }
 
@@ -177,28 +185,31 @@ public class TelemarketingController {
 
     /**
      * 11. GET /campanias-telefonicas/{id}/llamadas
-     * Obtiene el historial de llamadas de una campaña (para el agente).
+     * Obtiene el historial de llamadas de una campaÃƒÂ±a (para el agente).
      */
     @GetMapping("/campanias-telefonicas/{id}/llamadas")
     public ResponseEntity<Map<String, Object>> obtenerHistorialLlamadas(
             @PathVariable Long id,
             @RequestParam(required = false) Long idAgente) {
-        List<LlamadaDTO> llamadas = service.obtenerHistorialLlamadas(id, idAgente);
+        requireCampaniaAccess(id);
+        Long resolvedAgente = resolveAgentForQuery(idAgente);
+        List<LlamadaDTO> llamadas = service.obtenerHistorialLlamadas(id, resolvedAgente);
         return ResponseUtils.success(llamadas, "Historial obtenido exitosamente");
     }
 
     /**
      * GET /campanias-telefonicas/{idCampania}/llamadas/{idLlamada}/encuesta
-     * Obtiene los detalles del envío de encuesta para una llamada específica.
+     * Obtiene los detalles del envÃƒÂ­o de encuesta para una llamada especÃƒÂ­fica.
      */
     @GetMapping("/campanias-telefonicas/{idCampania}/llamadas/{idLlamada}/encuesta")
     public ResponseEntity<Map<String, Object>> obtenerDetalleEncuesta(
             @PathVariable Long idCampania,
             @PathVariable Integer idLlamada) {
         try {
+            requireCampaniaAccess(idCampania);
             EnvioEncuestaDTO detalle = service.obtenerDetalleEncuesta(idLlamada);
             if (detalle == null) {
-                return ResponseUtils.error("No se encontró envío de encuesta para esta llamada", 404);
+                return ResponseUtils.error("No se encontrÃƒÂ³ envÃƒÂ­o de encuesta para esta llamada", 404);
             }
             return ResponseUtils.success(detalle, "Detalle de encuesta obtenido exitosamente");
         } catch (Exception e) {
@@ -206,70 +217,71 @@ public class TelemarketingController {
         }
     }
 
-    // ==================== MÉTRICAS ====================
+    // ==================== MÃƒâ€°TRICAS ====================
 
     /**
-     * 12. GET /campanias-telefonicas/{id}/metricas/agentes/{idAgente}
-     * Obtiene las métricas de un agente en una campaña específica.
+     * 12. GET /campanias-telefonicas/{id}/metricas/agente
+     * Obtiene las m??tricas del agente autenticado dentro de una campa??a.
      */
-    @GetMapping("/campanias-telefonicas/{id}/metricas/agentes/{idAgente}")
-    public ResponseEntity<Map<String, Object>> obtenerMetricasCampania(
-            @PathVariable Long id,
-            @PathVariable Long idAgente) {
-        MetricasAgenteDTO metricas = service.obtenerMetricasAgente(id, idAgente);
-        return ResponseUtils.success(metricas, "Métricas obtenidas exitosamente");
-    }
-
-    /**
-     * 13. GET /agentes/{idAgente}/metricas-campania
-     * Obtiene las métricas generales de todas las campanas del agente.
-     */
-    @GetMapping("/agentes/{idAgente}/metricas-campania")
-    public ResponseEntity<Map<String, Object>> obtenerMetricasGeneralesAgente(
-            @PathVariable Long idAgente) {
-        // Usamos null para indicar métricas globales
-        MetricasAgenteDTO metricas = service.obtenerMetricasAgente(null, idAgente);
-        return ResponseUtils.success(metricas, "Métricas generales obtenidas exitosamente");
+    @GetMapping("/campanias-telefonicas/{id}/metricas/agente")
+    public ResponseEntity<Map<String, Object>> obtenerMetricasCampaniaAgenteActual(
+            @PathVariable Long id) {
+        requireCampaniaAccess(id);
+        Long currentAgent = requireCurrentAgent();
+        MetricasAgenteDTO metricas = service.obtenerMetricasAgente(id, currentAgent);
+        return ResponseUtils.success(metricas, "M??tricas obtenidas exitosamente");
     }
 
     /**
      * GET /campanias-telefonicas/{id}/metricas-diarias
-     * Obtiene las métricas diarias de una campaña para un agente (pendientes,
+     * Obtiene las mÃƒÂ©tricas diarias de una campaÃƒÂ±a para un agente (pendientes,
      * realizadas hoy, efectivas hoy).
      */
+
+    @GetMapping("/agentes/me/metricas-campania")
+    public ResponseEntity<Map<String, Object>> obtenerMetricasGeneralesAgenteActual() {
+        Long currentAgent = requireCurrentAgent();
+        MetricasAgenteDTO metricas = service.obtenerMetricasAgente(null, currentAgent);
+        return ResponseUtils.success(metricas, "M??tricas generales obtenidas exitosamente");
+    }
+
     @GetMapping("/campanias-telefonicas/{id}/metricas-diarias")
     public ResponseEntity<Map<String, Object>> obtenerMetricasDiarias(
             @PathVariable Long id,
-            @RequestParam Long idAgente) {
-        MetricasDiariasDTO metricas = service.obtenerMetricasDiarias(id, idAgente);
-        return ResponseUtils.success(metricas, "Métricas diarias obtenidas exitosamente");
+            @RequestParam(required = false) Long idAgente) {
+        requireCampaniaAccess(id);
+        Long resolvedAgente = resolveAgentOrCurrent(idAgente);
+        MetricasDiariasDTO metricas = service.obtenerMetricasDiarias(id, resolvedAgente);
+        return ResponseUtils.success(metricas, "MÃƒÂ©tricas diarias obtenidas exitosamente");
     }
 
     /**
      * GET /campanias-telefonicas/{id}/metricas
-     * Obtiene métricas completas de una campaña
+     * Obtiene mÃƒÂ©tricas completas de una campaÃƒÂ±a
      */
     @GetMapping("/campanias-telefonicas/{id}/metricas")
     public ResponseEntity<Map<String, Object>> obtenerMetricasCampania(
             @PathVariable Long id,
             @RequestParam(required = false, defaultValue = "30") Integer dias) {
+        requireCampaniaAccess(id);
         MetricasCampaniaDTO metricas = service.obtenerMetricasCampania(id, dias);
-        return ResponseUtils.success(metricas, "Métricas de campaña obtenidas exitosamente");
+        return ResponseUtils.success(metricas, "MÃƒÂ©tricas de campaÃƒÂ±a obtenidas exitosamente");
     }
 
     // ==================== GUIONES ====================
 
     /**
      * GET /campanias-telefonicas/{id}/guion
-     * Obtiene el guion activo asociado a una campaña telefónica.
+     * Obtiene el guion activo asociado a una campaÃƒÂ±a telefÃƒÂ³nica.
      */
     @GetMapping("/campanias-telefonicas/{id}/guion")
     public ResponseEntity<Map<String, Object>> obtenerGuionCampania(@PathVariable Long id) {
         try {
+            requireCampaniaAccess(id);
             GuionDTO guion = service.obtenerGuionDeCampania(id);
-            return ResponseUtils.success(guion, "Guión obtenido exitosamente");
+            return ResponseUtils.success(guion, "GuiÃƒÂ³n obtenido exitosamente");
         } catch (Exception e) {
-            return ResponseUtils.error("Error al obtener guión: " + e.getMessage(), 500);
+            return ResponseUtils.error("Error al obtener guiÃƒÂ³n: " + e.getMessage(), 500);
         }
     }
 
@@ -278,25 +290,27 @@ public class TelemarketingController {
     @PostMapping("/llamadas/{idLlamada}/guion/sesion")
     public ResponseEntity<Map<String, Object>> guardarSesionGuion(
             @PathVariable Long idLlamada,
-            @RequestParam Long idAgente,
+            @RequestParam(required = false) Long idAgente,
             @RequestBody ScriptSessionRequest request) {
-        ScriptSessionDTO dto = service.guardarSesionGuion(idLlamada, idAgente, request);
-        return ResponseUtils.success(dto, "Sesión de guion guardada");
+        Long resolvedAgente = resolveAgentOrCurrent(idAgente);
+        ScriptSessionDTO dto = service.guardarSesionGuion(idLlamada, resolvedAgente, request);
+        return ResponseUtils.success(dto, "SesiÃƒÂ³n de guion guardada");
     }
 
     @GetMapping("/llamadas/{idLlamada}/guion/sesion")
     public ResponseEntity<Map<String, Object>> obtenerSesionGuion(
             @PathVariable Long idLlamada,
-            @RequestParam Long idAgente) {
-        ScriptSessionDTO dto = service.obtenerSesionGuion(idLlamada, idAgente);
-        return ResponseUtils.success(dto, "Sesión de guion obtenida");
+            @RequestParam(required = false) Long idAgente) {
+        Long resolvedAgente = resolveAgentOrCurrent(idAgente);
+        ScriptSessionDTO dto = service.obtenerSesionGuion(idLlamada, resolvedAgente);
+        return ResponseUtils.success(dto, "SesiÃƒÂ³n de guion obtenida");
     }
 
-    // ==================== GESTIÓN DE ARCHIVOS DE GUIONES ====================
+    // ==================== GESTIÃƒâ€œN DE ARCHIVOS DE GUIONES ====================
 
     /**
      * POST /campanias-telefonicas/{id}/guiones/general
-     * Sube un guión general para una campaña (solo archivos .md).
+     * Sube un guiÃƒÂ³n general para una campaÃƒÂ±a (solo archivos .md).
      */
     @PostMapping("/campanias-telefonicas/{id}/guiones/general")
     public ResponseEntity<Map<String, Object>> subirGuionGeneral(
@@ -304,28 +318,31 @@ public class TelemarketingController {
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
             @RequestParam(required = false, defaultValue = "1") Long idUsuario) {
         try {
+            requireCampaniaAccess(id);
             GuionArchivoDTO guion = guionArchivoService.subirGuionGeneral(id, file, idUsuario);
-            return ResponseUtils.success(guion, "Guión subido exitosamente");
+            return ResponseUtils.success(guion, "GuiÃƒÂ³n subido exitosamente");
         } catch (IllegalArgumentException e) {
             return ResponseUtils.error(e.getMessage(), 400);
         } catch (Exception e) {
-            return ResponseUtils.error("Error al subir guión: " + e.getMessage(), 500);
+            return ResponseUtils.error("Error al subir guiÃƒÂ³n: " + e.getMessage(), 500);
         }
     }
 
     /**
      * GET /campanias-telefonicas/{id}/guiones/general
-     * Lista los guiones generales de una campaña.
+     * Lista los guiones generales de una campaÃƒÂ±a.
      */
     @GetMapping("/campanias-telefonicas/{id}/guiones/general")
     public ResponseEntity<Map<String, Object>> listarGuionesGenerales(@PathVariable Long id) {
+        requireCampaniaAccess(id);
         List<GuionArchivoDTO> guiones = guionArchivoService.listarGuionesGenerales(id);
         return ResponseUtils.success(guiones, "Guiones obtenidos exitosamente");
     }
 
     /**
      * POST /campanias-telefonicas/{id}/guiones/agente/{idAgente}
-     * Sube un guión específico de un agente para una campaña (solo archivos .md).
+     * Sube un guiÃƒÂ³n especÃƒÂ­fico de un agente para una campaÃƒÂ±a (solo
+     * archivos .md).
      */
     @PostMapping("/campanias-telefonicas/{id}/guiones/agente/{idAgente}")
     public ResponseEntity<Map<String, Object>> subirGuionAgente(
@@ -334,44 +351,48 @@ public class TelemarketingController {
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
             @RequestParam(required = false, defaultValue = "1") Long idUsuario) {
         try {
-            GuionArchivoDTO guion = guionArchivoService.subirGuionAgente(id, idAgente, file, idUsuario);
-            return ResponseUtils.success(guion, "Guión subido exitosamente");
+            requireCampaniaAccess(id);
+            Long resolvedAgente = resolvePathAgent(idAgente);
+            GuionArchivoDTO guion = guionArchivoService.subirGuionAgente(id, resolvedAgente, file, idUsuario);
+            return ResponseUtils.success(guion, "GuiÃƒÂ³n subido exitosamente");
         } catch (IllegalArgumentException e) {
             return ResponseUtils.error(e.getMessage(), 400);
         } catch (Exception e) {
-            return ResponseUtils.error("Error al subir guión: " + e.getMessage(), 500);
+            return ResponseUtils.error("Error al subir guiÃƒÂ³n: " + e.getMessage(), 500);
         }
     }
 
     /**
      * GET /campanias-telefonicas/{id}/guiones/agente/{idAgente}
-     * Lista los guiones de un agente específico en una campaña.
+     * Lista los guiones de un agente especÃƒÂ­fico en una campaÃƒÂ±a.
      */
     @GetMapping("/campanias-telefonicas/{id}/guiones/agente/{idAgente}")
     public ResponseEntity<Map<String, Object>> listarGuionesAgente(
             @PathVariable Long id,
             @PathVariable Long idAgente) {
-        List<GuionArchivoDTO> guiones = guionArchivoService.listarGuionesAgente(id, idAgente);
+        requireCampaniaAccess(id);
+        Long resolvedAgente = resolvePathAgent(idAgente);
+        List<GuionArchivoDTO> guiones = guionArchivoService.listarGuionesAgente(id, resolvedAgente);
         return ResponseUtils.success(guiones, "Guiones obtenidos exitosamente");
     }
 
     /**
      * DELETE /guiones/{idGuion}
-     * Elimina un guión (metadata y archivo físico).
+     * Elimina un guiÃƒÂ³n (metadata y archivo fÃƒÂ­sico).
      */
     @DeleteMapping("/guiones/{idGuion}")
     public ResponseEntity<Map<String, Object>> eliminarGuion(@PathVariable Integer idGuion) {
         try {
             guionArchivoService.eliminarGuion(idGuion);
-            return ResponseUtils.success(null, "Guión eliminado exitosamente");
+            return ResponseUtils.success(null, "GuiÃƒÂ³n eliminado exitosamente");
         } catch (Exception e) {
-            return ResponseUtils.error("Error al eliminar guión: " + e.getMessage(), 500);
+            return ResponseUtils.error("Error al eliminar guiÃƒÂ³n: " + e.getMessage(), 500);
         }
     }
 
     /**
      * GET /guiones/{idGuion}/download
-     * Descarga un archivo de guión.
+     * Descarga un archivo de guiÃƒÂ³n.
      */
     @GetMapping("/guiones/{idGuion}/download")
     public ResponseEntity<byte[]> descargarGuion(@PathVariable Integer idGuion) {
@@ -388,7 +409,7 @@ public class TelemarketingController {
 
     /**
      * GET /guiones/{idGuion}/contenido
-     * Obtiene el contenido markdown de un guión como texto.
+     * Obtiene el contenido markdown de un guiÃƒÂ³n como texto.
      */
     @GetMapping("/guiones/{idGuion}/contenido")
     public ResponseEntity<Map<String, Object>> obtenerContenidoGuion(@PathVariable Integer idGuion) {
@@ -400,26 +421,27 @@ public class TelemarketingController {
         }
     }
 
-    // ==================== GESTIÓN DE GUIONES ESTRUCTURADOS ====================
+    // ==================== GESTIÃƒâ€œN DE GUIONES ESTRUCTURADOS
+    // ====================
 
     /**
      * POST /guiones
-     * Crea un nuevo guión estructurado con secciones.
+     * Crea un nuevo guiÃƒÂ³n estructurado con secciones.
      */
     @PostMapping("/guiones")
     public ResponseEntity<Map<String, Object>> crearGuionEstructurado(
             @Valid @RequestBody CreateGuionRequest request) {
         try {
             GuionDTO guion = guionService.crearGuion(request);
-            return ResponseUtils.success(guion, "Guión creado exitosamente");
+            return ResponseUtils.success(guion, "GuiÃƒÂ³n creado exitosamente");
         } catch (Exception e) {
-            return ResponseUtils.error("Error al crear guión: " + e.getMessage(), 500);
+            return ResponseUtils.error("Error al crear guiÃƒÂ³n: " + e.getMessage(), 500);
         }
     }
 
     /**
      * PUT /guiones/{id}
-     * Actualiza un guión estructurado existente.
+     * Actualiza un guiÃƒÂ³n estructurado existente.
      */
     @PutMapping("/guiones/{id}")
     public ResponseEntity<Map<String, Object>> actualizarGuion(
@@ -427,23 +449,23 @@ public class TelemarketingController {
             @Valid @RequestBody CreateGuionRequest request) {
         try {
             GuionDTO guion = guionService.actualizarGuion(id, request);
-            return ResponseUtils.success(guion, "Guión actualizado exitosamente");
+            return ResponseUtils.success(guion, "GuiÃƒÂ³n actualizado exitosamente");
         } catch (Exception e) {
-            return ResponseUtils.error("Error al actualizar guión: " + e.getMessage(), 500);
+            return ResponseUtils.error("Error al actualizar guiÃƒÂ³n: " + e.getMessage(), 500);
         }
     }
 
     /**
      * GET /guiones/{id}
-     * Obtiene un guión estructurado por ID con todas sus secciones.
+     * Obtiene un guiÃƒÂ³n estructurado por ID con todas sus secciones.
      */
     @GetMapping("/guiones/{id}")
     public ResponseEntity<Map<String, Object>> obtenerGuionEstructurado(@PathVariable Integer id) {
         try {
             GuionDTO guion = guionService.obtenerGuionPorId(id);
-            return ResponseUtils.success(guion, "Guión obtenido exitosamente");
+            return ResponseUtils.success(guion, "GuiÃƒÂ³n obtenido exitosamente");
         } catch (Exception e) {
-            return ResponseUtils.error("Error al obtener guión: " + e.getMessage(), 500);
+            return ResponseUtils.error("Error al obtener guiÃƒÂ³n: " + e.getMessage(), 500);
         }
     }
 
@@ -464,13 +486,14 @@ public class TelemarketingController {
 
     /**
      * POST /campanias-telefonicas/{id}/vincular-guion
-     * Vincula un guión estructurado a una campaña.
+     * Vincula un guiÃƒÂ³n estructurado a una campaÃƒÂ±a.
      */
     @PostMapping("/campanias-telefonicas/{id}/vincular-guion")
     public ResponseEntity<Map<String, Object>> vincularGuionACampania(
             @PathVariable("id") Long idCampania,
             @RequestBody Map<String, Integer> request) {
         try {
+            requireCampaniaAccess(idCampania);
             Integer idGuion = request.get("idGuion");
             if (idGuion == null) {
                 return ResponseUtils.error("El idGuion es requerido", 400);
@@ -479,10 +502,63 @@ public class TelemarketingController {
             // TODO: Obtener usuario autenticado real
             Long idUsuario = 1L;
 
-            GuionArchivoDTO guionArchivo = guionArchivoService.vincularGuionACampaña(idCampania, idGuion, idUsuario);
-            return ResponseUtils.success(guionArchivo, "Guión vinculado exitosamente");
+            GuionArchivoDTO guionArchivo = guionArchivoService.vincularGuionACampania(idCampania, idGuion, idUsuario);
+            return ResponseUtils.success(guionArchivo, "GuiÃƒÂ³n vinculado exitosamente");
         } catch (Exception e) {
-            return ResponseUtils.error("Error al vincular guión: " + e.getMessage(), 500);
+            return ResponseUtils.error("Error al vincular guiÃƒÂ³n: " + e.getMessage(), 500);
         }
+    }
+
+    private void requireCampaniaAccess(Long idCampania) {
+        userAuthorizationService.ensureCampaniaTelefonicaAccess(idCampania);
+    }
+
+    private void ensureLlamadaAccess(LlamadaDTO llamada) {
+        if (llamada == null) {
+            throw new AccessDeniedException("No se pudo verificar la llamada solicitada");
+        }
+        Long campaniaId = llamada.getIdCampania();
+        if (campaniaId != null) {
+            requireCampaniaAccess(campaniaId);
+            return;
+        }
+        Long agenteId = llamada.getIdAgente();
+        if (agenteId != null) {
+            requireAgentAccess(agenteId);
+            return;
+        }
+        throw new AccessDeniedException("La llamada no contiene datos suficientes para validar acceso");
+    }
+
+    private Long requireAgentAccess(Long idAgente) {
+        return userAuthorizationService.ensureAgentAccess(idAgente).longValue();
+    }
+
+    private Long resolvePathAgent(Long idAgente) {
+        if (userAuthorizationService.isAdmin()) {
+            return requireAgentAccess(idAgente);
+        }
+        return requireCurrentAgent();
+    }
+
+    private Long resolveAgentOrCurrent(Long idAgente) {
+        if (idAgente == null) {
+            return requireCurrentAgent();
+        }
+        return requireAgentAccess(idAgente);
+    }
+
+    private Long resolveAgentForQuery(Long idAgente) {
+        if (idAgente == null) {
+            if (userAuthorizationService.isAdmin()) {
+                return null;
+            }
+            return requireCurrentAgent();
+        }
+        return requireAgentAccess(idAgente);
+    }
+
+    private Long requireCurrentAgent() {
+        return userAuthorizationService.requireCurrentAgentId().longValue();
     }
 }

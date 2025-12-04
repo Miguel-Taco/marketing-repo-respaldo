@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { apiClient } from '../../../../../shared/services/api.client';
 import { PlantillaCampana, CrearPlantillaRequest } from '../types/plantilla.types';
 
 const BASE_URL = 'http://localhost:8080/api/v1/plantillas';
@@ -11,7 +11,7 @@ export const plantillasApi = {
         page?: number;
         size?: number;
     }) => {
-        const response = await axios.get<{
+        const response = await apiClient.get<{
             content: PlantillaCampana[];
             page: number;
             size: number;
@@ -23,18 +23,18 @@ export const plantillasApi = {
 
     // Crear plantilla
     create: async (data: CrearPlantillaRequest) => {
-        const response = await axios.post<PlantillaCampana>(BASE_URL, data);
+        const response = await apiClient.post<PlantillaCampana>(BASE_URL, data);
         return response.data;
     },
 
     // Editar plantilla
     update: async (id: number, data: CrearPlantillaRequest) => {
-        const response = await axios.put<PlantillaCampana>(`${BASE_URL}/${id}`, data);
+        const response = await apiClient.put<PlantillaCampana>(`${BASE_URL}/${id}`, data);
         return response.data;
     },
 
     // Eliminar plantilla
     delete: async (id: number) => {
-        await axios.delete(`${BASE_URL}/${id}`);
+        await apiClient.delete(`${BASE_URL}/${id}`);
     },
 };

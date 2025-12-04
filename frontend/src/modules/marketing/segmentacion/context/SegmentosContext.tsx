@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { segmentacionApi } from '../services/segmentacion.api';
+import { useAuth } from '../../../../shared/context/AuthContext';
 import { Segmento } from '../types/segmentacion.types';
 
 interface SegmentosContextType {
@@ -26,6 +27,7 @@ interface SegmentosContextType {
 const SegmentosContext = createContext<SegmentosContextType | undefined>(undefined);
 
 export const SegmentosProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { isAuthenticated } = useAuth();
     const [allSegmentos, setAllSegmentos] = useState<Segmento[]>([]);
     const [segmentos, setSegmentos] = useState<Segmento[]>([]);
     const [loading, setLoading] = useState(false);
@@ -70,6 +72,8 @@ export const SegmentosProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     // Apply filters and pagination client-side whenever filters or data change
     useEffect(() => {
+        if (!isAuthenticated) return;
+
         // Only fetch if we haven't loaded yet
         if (!hasLoaded) {
             fetchAllSegmentos();
@@ -108,7 +112,16 @@ export const SegmentosProvider: React.FC<{ children: ReactNode }> = ({ children 
         setTotalElements(filtered.length);
         setTotalPages(Math.ceil(filtered.length / pageSize));
         setCurrentPage(filters.page);
-    }, [allSegmentos, filters, hasLoaded, fetchAllSegmentos]);
+    }, [allSegmentos, filters, hasLoaded, fetchAllSegmentos, isAuthenticated]);
+
+    // Clear state on logout
+    useEffect(() => {
+        if (!isAuthenticated) {
+            setAllSegmentos([]);
+            setSegmentos([]);
+            setHasLoaded(false);
+        }
+    }, [isAuthenticated]);
 
     const setFilter = (key: string, value: any) => {
         setFilters(prev => {
