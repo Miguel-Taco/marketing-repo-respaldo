@@ -12,21 +12,16 @@ import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.*;
 import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Servicio para procesar:
  * 1. Webhooks de Resend (eventos de email)
  * 2. Tracking propio de clics y bajas (desde nuestros endpoints)
  * 
- * Este servicio REEMPLAZA a WebhookSendGridService.
- * 
- * Flujo de tracking:
- * - Resend envía webhooks para: delivered, opened, clicked, bounced, complained
- * - PERO para clics usamos nuestro propio tracking (/track/click) porque
- *   nos permite saber exactamente qué campaña y qué lead hizo clic
- * - Los webhooks de Resend son complementarios (para aperturas y rebotes)
+ * CORRECCIONES APLICADAS:
+ * - Eliminado Set estático para deduplicación (se pierde al reiniciar)
+ * - Ahora usa BD para verificar duplicados
+ * - Mejorado manejo de errores
  */
 @Service
 @Transactional
@@ -40,11 +35,6 @@ public class WebhookResendService {
     private final IVentasPort ventasPort;
     private final ILeadPort leadPort;
 
-    // Deduplicación en memoria (para eventos duplicados)
-    // Resend puede enviar el mismo evento más de una vez
-    private static final Set<String> eventosProcessados = new HashSet<>();
-    private static final int MAX_CACHE_SIZE = 10000;
-
     // ========================================================================
     // TRACKING PROPIO (desde /api/v1/mailing/track/*)
     // Este es el método principal para clics y bajas
@@ -53,12 +43,6 @@ public class WebhookResendService {
     /**
      * Procesa un clic desde nuestro endpoint de tracking.
      * Este método se llama cuando un usuario hace clic en el botón CTA del email.
-     * 
-     * Flujo:
-     * 1. Usuario hace clic en el CTA del email
-     * 2. La URL apunta a /api/v1/mailing/track/click con parámetros
-     * 3. Este método registra el clic y deriva a Ventas
-     * 4. El controller redirige al usuario a la URL real (encuesta)
      * 
      * @param idCampana ID de la campaña de mailing
      * @param email Email del destinatario que hizo clic
@@ -81,10 +65,9 @@ public class WebhookResendService {
                 return;
             }
 
-            // Verificar si ya registramos este clic (deduplicación)
-            String clicKey = "clic_" + idCampana + "_" + email;
-            if (eventosProcessados.contains(clicKey)) {
-                log.info("  Clic ya registrado previamente, ignorando duplicado");
+            // ✅ CORREGIDO: Verificar duplicado en BD (no en memoria)
+            if (yaExisteInteraccion(idCampana, idLead, TipoInteraccion.CLIC.getId())) {
+                log.info("  Clic ya registrado previamente en BD, ignorando duplicado");
                 return;
             }
 
@@ -102,9 +85,6 @@ public class WebhookResendService {
 
             // Derivar a Ventas (el clic indica interés)
             derivarAVentas(idCampana, email, idLead);
-
-            // Marcar como procesado
-            agregarACache(clicKey);
 
             log.info("✓ Clic registrado exitosamente para campaña {} - lead {}", idCampana, idLead);
 
@@ -133,6 +113,12 @@ public class WebhookResendService {
             
             // Registrar baja aunque no encontremos el lead
             if (idLead != null) {
+                // ✅ Verificar duplicado
+                if (yaExisteInteraccion(idCampana, idLead, TipoInteraccion.BAJA.getId())) {
+                    log.info("  Baja ya registrada previamente, ignorando");
+                    return;
+                }
+                
                 InteraccionLog interaccion = InteraccionLog.builder()
                         .idCampanaMailingId(idCampana)
                         .idTipoEvento(TipoInteraccion.BAJA.getId())
@@ -147,9 +133,6 @@ public class WebhookResendService {
 
             log.info("✓ Baja registrada para campaña {} - email {}", idCampana, email);
 
-            // TODO: Aquí podrías marcar al lead como "no contactar por email"
-            // en una futura iteración
-
         } catch (Exception e) {
             log.error("✗ Error procesando baja: {}", e.getMessage(), e);
         }
@@ -157,26 +140,14 @@ public class WebhookResendService {
 
     // ========================================================================
     // WEBHOOKS DE RESEND (desde /api/v1/mailing/webhooks/resend)
-    // Estos son complementarios al tracking propio
     // ========================================================================
 
     /**
      * Procesa un evento webhook de Resend.
-     * Útil para eventos que no podemos trackear nosotros mismos:
-     * - Aperturas (Resend inserta un pixel de tracking)
-     * - Rebotes (el servidor de correo rechaza)
-     * - Quejas de spam
      */
     public void procesarEventoResend(ResendWebhookRequest evento) {
         if (evento == null || evento.getType() == null) {
             log.warn("Evento Resend inválido o sin tipo");
-            return;
-        }
-
-        // Deduplicar por email_id + tipo
-        String eventKey = evento.getEmailId() + "_" + evento.getType();
-        if (eventosProcessados.contains(eventKey)) {
-            log.debug("Evento {} ya procesado, ignorando", eventKey);
             return;
         }
 
@@ -187,14 +158,12 @@ public class WebhookResendService {
             switch (evento.getType()) {
                 case "email.delivered" -> procesarEntregado(evento);
                 case "email.opened" -> procesarApertura(evento);
-                case "email.clicked" -> procesarClicResend(evento);
+                case "email.clicked" -> log.debug("Clic detectado por Resend (ya manejado por tracking propio)");
                 case "email.bounced" -> procesarRebote(evento);
                 case "email.complained" -> procesarQueja(evento);
                 case "email.sent" -> log.debug("Email enviado a Resend: {}", evento.getFirstRecipient());
                 default -> log.debug("Evento no manejado: {}", evento.getType());
             }
-
-            agregarACache(eventKey);
 
         } catch (Exception e) {
             log.error("Error procesando evento Resend {}: {}", evento.getType(), e.getMessage(), e);
@@ -208,33 +177,14 @@ public class WebhookResendService {
     private void procesarEntregado(ResendWebhookRequest evento) {
         String email = evento.getFirstRecipient();
         log.info("  📬 Email entregado a: {}", email);
-        
-        // Los entregados los contamos al enviar, no aquí
-        // Pero podrías usar esto para validar entregas
+        // Los entregados los contamos al enviar, este es informativo
     }
 
     private void procesarApertura(ResendWebhookRequest evento) {
         String email = evento.getFirstRecipient();
         log.info("  👁 Email abierto por: {}", email);
-        
-        // Para aperturas necesitaríamos saber la campaña
-        // Resend no nos da esa info directamente en el webhook
-        // Por eso el tracking propio es mejor para clics
-        
-        // TODO: Podrías guardar el email_id de Resend al enviar
-        // y luego hacer el match aquí
-    }
-
-    private void procesarClicResend(ResendWebhookRequest evento) {
-        String email = evento.getFirstRecipient();
-        String url = evento.getData().getClick() != null 
-            ? evento.getData().getClick().getLink() 
-            : "unknown";
-        
-        log.info("  🖱 Clic detectado por Resend: {} -> {}", email, url);
-        
-        // El clic real ya lo procesamos en procesarClicTracking()
-        // Este evento de Resend es informativo/redundante
+        // TODO: Para aperturas necesitaríamos mapear email_id -> campaign_id
+        // Por ahora es solo informativo
     }
 
     private void procesarRebote(ResendWebhookRequest evento) {
@@ -247,22 +197,28 @@ public class WebhookResendService {
             : "";
         
         log.warn("  ⚠ Rebote {} para: {} - {}", tipo, email, mensaje);
-        
-        // TODO: Marcar este email como inválido en el sistema de leads
-        // Especialmente si es un "hard bounce"
+        // TODO: Marcar email como inválido si es hard bounce
     }
 
     private void procesarQueja(ResendWebhookRequest evento) {
         String email = evento.getFirstRecipient();
         log.warn("  🚫 Queja de SPAM de: {}", email);
-        
         // TODO: Marcar este email para no enviarle más correos
-        // Una queja de spam es seria y deberías respetar al usuario
     }
 
     // ========================================================================
     // HELPERS
     // ========================================================================
+
+    /**
+     * ✅ CORREGIDO: Verifica en BD si ya existe la interacción
+     * Esto persiste entre reinicios del servidor
+     */
+    private boolean yaExisteInteraccion(Integer idCampana, Long idLead, Integer tipoEvento) {
+        return interaccionRepo.existsByIdCampanaMailingIdAndIdContactoCrmAndIdTipoEvento(
+            idCampana, idLead, tipoEvento
+        );
+    }
 
     private void actualizarMetricas(Integer idCampana, Integer idTipo) {
         try {
@@ -308,24 +264,5 @@ public class WebhookResendService {
             log.error("  ✗ Error derivando a Ventas: {}", e.getMessage());
             // No lanzar excepción - mantener resilencia
         }
-    }
-
-    private void agregarACache(String key) {
-        // Limpiar cache si crece demasiado (prevenir memory leak)
-        if (eventosProcessados.size() >= MAX_CACHE_SIZE) {
-            log.info("Limpiando cache de eventos procesados (tamaño actual: {})", eventosProcessados.size());
-            eventosProcessados.clear();
-        }
-        eventosProcessados.add(key);
-    }
-    
-    private boolean yaExisteInteraccion(Integer idCampana, String email, Integer tipoEvento) {
-        Long idLead = leadPort.findLeadIdByEmail(email);
-        if (idLead == null) return false;
-        
-        // Verificar en BD si ya existe esta combinación
-        return interaccionRepo.existsByIdCampanaMailingIdAndIdContactoCrmAndIdTipoEvento(
-            idCampana, idLead, tipoEvento
-        );
     }
 }

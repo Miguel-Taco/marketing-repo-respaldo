@@ -63,7 +63,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/public/v1/**").permitAll() // Endpoints públicos de encuestas
                         .requestMatchers("/api/v1/internal/**").permitAll() // Permitir llamadas internas (cache, batch)
-
+                        .requestMatchers("/api/v1/mailing/webhooks/**").permitAll()
+                        .requestMatchers("/api/v1/mailing/track/**").permitAll()                        
                         // Todas las demás rutas requieren autenticación
                         .anyRequest().authenticated())
 
