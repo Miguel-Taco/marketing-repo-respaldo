@@ -10,18 +10,18 @@ import org.springframework.web.client.RestClientException;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.ISegmentoPort;
 import pe.unmsm.crm.marketing.shared.infra.exception.ExternalServiceException;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 /**
  * Adapter para obtener información de segmentos.
  * 
- * IMPORTANTE: Este adapter tiene DOS modos de operación:
+ * ESTRATEGIA:
+ * 1. Llama a /api/v1/internal/segmentos/{id}/miembros para obtener IDs de leads
+ * 2. Con esos IDs, consulta la tabla leads para obtener los emails
  * 
- * 1. MODO API (recomendado): Si el endpoint /api/v1/internal/segmentos/{id}/emails existe
- * 2. MODO BD (temporal): Consulta directa a la BD mientras no exista el endpoint
- * 
- * El modo se selecciona automáticamente: intenta API primero, si falla usa BD.
+ * Si la API no está disponible, usa consulta directa a BD como fallback.
  */
 @Component
 @RequiredArgsConstructor
@@ -37,58 +37,106 @@ public class SegmentoAdapter implements ISegmentoPort {
     /**
      * Obtiene los emails de los miembros de un segmento.
      * 
-     * Intenta primero por API, si falla usa consulta directa a BD.
+     * FLUJO:
+     * 1. Llama al endpoint /miembros para obtener List<Long> (IDs de leads)
+     * 2. Con esos IDs, consulta la BD para obtener los emails
      */
     @Override
     public List<String> obtenerEmailsSegmento(Long idSegmento) {
-        log.info("Obteniendo emails del segmento: {}", idSegmento);
+        log.info("╔══════════════════════════════════════════════════╗");
+        log.info("║  OBTENIENDO EMAILS DEL SEGMENTO: {}              ", idSegmento);
+        log.info("╚══════════════════════════════════════════════════╝");
         
-        // Intentar por API primero
         try {
-            return obtenerEmailsPorApi(idSegmento);
+            // Paso 1: Obtener IDs de miembros via API
+            List<Long> idsLeads = obtenerIdsMiembrosPorApi(idSegmento);
+            
+            if (idsLeads == null || idsLeads.isEmpty()) {
+                log.warn("  El segmento {} no tiene miembros", idSegmento);
+                return List.of();
+            }
+            
+            log.info("  Obtenidos {} IDs de miembros", idsLeads.size());
+            
+            // Paso 2: Obtener emails de esos leads
+            List<String> emails = obtenerEmailsPorIds(idsLeads);
+            
+            log.info("  ✓ {} emails obtenidos del segmento {}", emails.size(), idSegmento);
+            return emails;
+            
         } catch (Exception e) {
-            log.warn("API de segmentos no disponible, usando consulta directa a BD: {}", e.getMessage());
+            log.warn("  API no disponible, usando consulta directa: {}", e.getMessage());
             return obtenerEmailsPorBD(idSegmento);
         }
     }
 
     /**
-     * Modo API: Llama al endpoint del módulo de Segmentación
-     * 
-     * NOTA: Este endpoint DEBE ser creado por tu compañero de Segmentación:
-     * GET /api/v1/internal/segmentos/{id}/emails
-     * Retorna: List<String> con los emails
+     * Llama al endpoint /api/v1/internal/segmentos/{id}/miembros
+     * Retorna List<Long> con los IDs de los leads
      */
-    private List<String> obtenerEmailsPorApi(Long idSegmento) {
-        String url = segmentacionUrl + "/api/v1/internal/segmentos/" + idSegmento + "/emails";
+    private List<Long> obtenerIdsMiembrosPorApi(Long idSegmento) {
+        String url = segmentacionUrl + "/api/v1/internal/segmentos/" + idSegmento + "/miembros";
         
-        log.debug("Llamando API: {}", url);
+        log.debug("  Llamando API: {}", url);
         
-        String[] emails = restClient.get()
-                .uri(url)
-                .retrieve()
-                .body(String[].class);
-        
-        if (emails == null) {
-            log.warn("API retornó null para segmento {}", idSegmento);
-            return List.of();
+        try {
+            Long[] ids = restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .body(Long[].class);
+            
+            if (ids == null) {
+                return List.of();
+            }
+            
+            return Arrays.asList(ids);
+            
+        } catch (RestClientException e) {
+            log.error("  Error llamando API de miembros: {}", e.getMessage());
+            throw e;
         }
-        
-        log.info("✓ {} emails obtenidos del segmento {} vía API", emails.length, idSegmento);
-        return Arrays.asList(emails);
     }
 
     /**
-     * Modo BD (temporal): Consulta directa a las tablas de segmentación
-     * 
-     * ESTRUCTURA:
-     * - segmento_miembro: id_segmento, id_miembro (lead_id)
-     * - leads: lead_id, email
-     * 
-     * JOIN para obtener los emails de los miembros del segmento
+     * Obtiene emails de leads dado sus IDs
+     */
+    private List<String> obtenerEmailsPorIds(List<Long> idsLeads) {
+        if (idsLeads == null || idsLeads.isEmpty()) {
+            return List.of();
+        }
+        
+        try {
+            // Construir query con IN clause
+            String placeholders = String.join(",", idsLeads.stream()
+                    .map(id -> "?")
+                    .toList());
+            
+            String sql = String.format(
+                "SELECT email FROM leads WHERE lead_id IN (%s) AND email IS NOT NULL AND email != ''",
+                placeholders
+            );
+            
+            List<String> emails = jdbcTemplate.queryForList(
+                sql, 
+                String.class, 
+                idsLeads.toArray()
+            );
+            
+            log.debug("  {} emails encontrados para {} IDs", emails.size(), idsLeads.size());
+            return emails;
+            
+        } catch (Exception e) {
+            log.error("  Error obteniendo emails por IDs: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Fallback: Consulta directa a BD usando JOIN
+     * Se usa cuando la API de segmentación no está disponible
      */
     private List<String> obtenerEmailsPorBD(Long idSegmento) {
-        log.info("Obteniendo emails por consulta directa a BD para segmento {}", idSegmento);
+        log.info("  Usando fallback: consulta directa a BD");
         
         try {
             String sql = """
@@ -102,11 +150,11 @@ public class SegmentoAdapter implements ISegmentoPort {
             
             List<String> emails = jdbcTemplate.queryForList(sql, String.class, idSegmento);
             
-            log.info("✓ {} emails obtenidos del segmento {} vía BD", emails.size(), idSegmento);
+            log.info("  ✓ {} emails obtenidos del segmento {} vía BD", emails.size(), idSegmento);
             return emails;
             
         } catch (Exception e) {
-            log.error("Error obteniendo emails por BD: {}", e.getMessage());
+            log.error("  Error obteniendo emails por BD: {}", e.getMessage());
             throw new ExternalServiceException("Segmentacion", 
                 "No se pudieron obtener emails del segmento: " + e.getMessage());
         }
@@ -117,21 +165,11 @@ public class SegmentoAdapter implements ISegmentoPort {
      */
     @Override
     public Integer contarMiembros(Long idSegmento) {
-        // Intentar por API
         try {
-            return contarMiembrosPorApi(idSegmento);
-        } catch (Exception e) {
-            log.warn("API no disponible para contar, usando BD: {}", e.getMessage());
-            return contarMiembrosPorBD(idSegmento);
-        }
-    }
-    
-    private Integer contarMiembrosPorApi(Long idSegmento) {
-        // El endpoint de resumen ya existe
-        String url = segmentacionUrl + "/api/v1/internal/segmentos/" + idSegmento + "/resumen";
-        
-        try {
-            // El resumen incluye cantidadMiembros
+            // Intentar por API (endpoint resumen)
+            String url = segmentacionUrl + "/api/v1/internal/segmentos/" + idSegmento + "/resumen";
+            
+            @SuppressWarnings("unchecked")
             var response = restClient.get()
                     .uri(url)
                     .retrieve()
@@ -140,16 +178,35 @@ public class SegmentoAdapter implements ISegmentoPort {
             if (response != null && response.containsKey("cantidadMiembros")) {
                 return (Integer) response.get("cantidadMiembros");
             }
-            return 0;
             
-        } catch (RestClientException e) {
-            throw new ExternalServiceException("Segmentacion", "Error contando miembros");
+        } catch (Exception e) {
+            log.debug("  API de resumen no disponible, contando por BD");
+        }
+        
+        // Fallback: contar por BD
+        try {
+            String sql = "SELECT COUNT(*) FROM segmento_miembro WHERE id_segmento = ?";
+            Integer count = jdbcTemplate.queryForObject(sql, Integer.class, idSegmento);
+            return count != null ? count : 0;
+        } catch (Exception e) {
+            log.error("  Error contando miembros: {}", e.getMessage());
+            return 0;
         }
     }
-    
-    private Integer contarMiembrosPorBD(Long idSegmento) {
-        String sql = "SELECT COUNT(*) FROM segmento_miembro WHERE id_segmento = ?";
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, idSegmento);
-        return count != null ? count : 0;
-    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
