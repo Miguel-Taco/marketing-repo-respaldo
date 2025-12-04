@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.CampanaMailing;
-import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IMailingSendGridPort;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IMailingPort;
 import pe.unmsm.crm.marketing.shared.infra.exception.ExternalServiceException;
 
 import java.net.URLEncoder;
@@ -31,7 +31,7 @@ import java.util.List;
  */
 @Component
 @Slf4j
-public class ResendMailAdapter implements IMailingSendGridPort {
+public class ResendMailAdapter implements IMailingPort {
 
     @Value("${app.resend.api-key}")
     private String resendApiKey;

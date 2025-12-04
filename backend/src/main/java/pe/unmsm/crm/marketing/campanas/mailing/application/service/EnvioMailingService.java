@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.CampanaMailing;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.EventoInteraccion;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.MetricaCampana;
-import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IMailingSendGridPort;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IMailingPort;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.ISegmentoPort;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.service.ValidacionMailingService;
 import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaCampanaMailingRepository;
@@ -26,7 +26,7 @@ public class EnvioMailingService {
 
     private final JpaCampanaMailingRepository campanaRepo;
     private final JpaMetricaMailingRepository metricasRepo;
-    private final IMailingSendGridPort sendGridPort;
+    private final IMailingPort mailPort;
     private final ISegmentoPort segmentoPort;
     private final ValidacionMailingService validacionService;
 
@@ -58,7 +58,7 @@ public class EnvioMailingService {
             log.info("Enviando {} emails para campaña {}", emails.size(), idCampana);
             
             // Enviar via SendGrid
-            sendGridPort.enviarEmails(campana, emails);
+            mailPort.enviarEmails(campana, emails);
             
             // Actualizar estado a ENVIADO (3)
             campana.setIdEstado(3);

@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.CampanaMailing;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.MetricaCampana;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IGestorCampanaPort;
-import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IMailingSendGridPort;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IMailingPort;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.ISegmentoPort;
 import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaCampanaMailingRepository;
 import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaMetricaMailingRepository;
@@ -48,7 +48,7 @@ public class MailingScheduler {
 
     private final JpaCampanaMailingRepository campanaRepo;
     private final JpaMetricaMailingRepository metricasRepo;
-    private final IMailingSendGridPort mailAdapter;  // → ResendMailAdapter
+    private final IMailingPort mailAdapter;  // → ResendMailAdapter
     private final ISegmentoPort segmentoPort;
     private final IGestorCampanaPort gestorPort;
 
