@@ -485,6 +485,21 @@ public class TelemarketingController {
     }
 
     /**
+     * GET /campanias-telefonicas/{id}/guiones-estructurados
+     * Lista los guiones estructurados de una campaña específica.
+     */
+    @GetMapping("/campanias-telefonicas/{id}/guiones-estructurados")
+    public ResponseEntity<Map<String, Object>> listarGuionesPorCampania(@PathVariable Long id) {
+        try {
+            requireCampaniaAccess(id);
+            List<GuionDTO> guiones = guionService.listarGuionesPorCampania(id);
+            return ResponseUtils.success(guiones, "Guiones obtenidos exitosamente");
+        } catch (Exception e) {
+            return ResponseUtils.error("Error al listar guiones: " + e.getMessage(), 500);
+        }
+    }
+
+    /**
      * GET /guiones (actualizado)
      * Obtiene todos los guiones estructurados.
      * Nota: Este endpoint ahora devuelve guiones con estructura completa.

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>{{reportTitle}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F3F4F6;
+            color: #1F2937;
+            padding: 20px;
+            font-size: 12px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .report-card {
+            background: white;
+            border: 1px solid #D9D9D9;
+            border-radius: 8px;
+            padding: 40px;
+        }
+
+        .report-header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid #E5E7EB;
+            padding-bottom: 16px;
+            text-align: left;
+        }
+
+        .report-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1F2937;
+            margin: 0;
+        }
+
+        .report-header p {
+            font-size: 14px;
+            color: #6B7280;
+            margin-top: 4px;
+        }
+
+        .meta-info {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: #6B7280;
+            background: none;
+            padding: 0;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1F2937;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            border: none;
+        }
+
+        /* Table-based grid for PDF compatibility */
+        .metrics-grid {
+            display: table;
+            width: 100%;
+            margin-bottom: 24px;
+            border-collapse: separate;
+            border-spacing: 10px 0;
+            margin-left: -10px;
+            margin-right: -10px;
+        }
+
+        .metric-card {
+            display: table-cell;
+            background: #FAFAFA;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 16px;
+            width: 45%;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .metric-value {
+            display: block;
+            font-size: 24px;
+            font-weight: 700;
+            color: #1F2937;
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #6B7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        th {
+            text-align: left;
+            background: #F3F4F6;
+            padding: 10px;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #E5E7EB;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #E5E7EB;
+            color: #4B5563;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #E5E7EB;
+            font-size: 11px;
+            color: #9CA3AF;
+            text-align: center;
+            position: static;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="report-card">
+            <div class="report-header">
+                <h1>{{reportTitle}}</h1>
+                <p>{{reportDescription}}</p>
+                <div class="meta-info">
+                    <span>Generado: {{generatedDate}}</span> |
+                    <span>Periodo: {{startDate}} - {{endDate}}</span>
+                </div>
+            </div>
+
+            <!-- Resumen -->
+            <h3 class="section-title">Resumen de Recursos</h3>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-value">{{totalSegmentosUsados}}</span>
+                    <span class="metric-label">Segmentos Usados</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-value">{{totalPlantillasUsadas}}</span>
+                    <span class="metric-label">Plantillas Usadas</span>
+                </div>
+            </div>
+
+            <!-- Tablas de Distribución -->
+            <h3 class="section-title">Segmentos más utilizados</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Segmento</th>
+                        <th>Campañas</th>
+                    </tr>
+                </thead>
+                <tbody>{{segmentoRows}}</tbody>
+            </table>
+
+            <h3 class="section-title">Plantillas más utilizadas</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Plantilla</th>
+                        <th>Campañas</th>
+                    </tr>
+                </thead>
+                <tbody>{{plantillaRows}}</tbody>
+            </table>
+
+            <div class="footer">
+                Generado automáticamente por Marketing CRM - <span>{{generatedDate}}</span>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

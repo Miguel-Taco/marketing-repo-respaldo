@@ -32,6 +32,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         private final pe.unmsm.crm.marketing.campanas.telefonicas.application.service.EncuestaLlamadaService encuestaLlamadaService;
         private final pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository leadRepository;
         private final UserAuthorizationService userAuthorizationService;
+        private final pe.unmsm.crm.marketing.campanas.telefonicas.application.service.ExternalLeadNotificationService externalLeadNotificationService;
 
         @Override
         @Transactional(readOnly = true)
@@ -140,7 +141,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
 
                 List<ColaLlamadaEntity> pendientes = colaRepo.findByCampaniaAndEstadoOrderByPrioridad(
                                 idCampania.intValue(),
-                                Arrays.asList("PENDIENTE"));
+                                Arrays.asList("PENDIENTE", "EN_PROCESO"));
 
                 return pendientes.stream()
                                 .map(mapper::toContactoDTO)
@@ -192,10 +193,23 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                         throw new AccessDeniedException("El contacto no pertenece a la campaÃ±a indicada");
                 }
 
-                // Validar que estÃ© pendiente
-                if (!"PENDIENTE".equals(contacto.getEstadoEnCola())) {
+                // FIXED: Permitir operación idempotente si el mismo agente ya tiene el contacto
+                if ("EN_PROCESO".equals(contacto.getEstadoEnCola())) {
+                        // Si ya está EN_PROCESO, verificar si es del mismo agente
+                        if (contacto.getIdAgenteActual() != null && contacto.getIdAgenteActual().equals(agenteId)) {
+                                // Operación idempotente: el agente ya tiene este contacto asignado
+                                log.info("Contacto ya asignado al mismo agente (operación idempotente) [contactoId={}, agenteId={}]",
+                                                idContacto, idAgente);
+                                return mapper.toContactoDTO(contacto);
+                        } else {
+                                // Otro agente tiene el contacto
+                                throw new AccessDeniedException(
+                                                "Contacto ya está siendo atendido por otro agente");
+                        }
+                } else if (!"PENDIENTE".equals(contacto.getEstadoEnCola())) {
+                        // Cualquier otro estado (COMPLETADO, etc.)
                         throw new RuntimeException(
-                                        "Contacto ya estÃ¡ en estado: " + contacto.getEstadoEnCola());
+                                        "Contacto ya está en estado: " + contacto.getEstadoEnCola());
                 }
 
                 // Asignar al agente
@@ -292,7 +306,38 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 LlamadaEntity savedLlamada = llamadaRepo.save(llamada);
                 log.info("Llamada registrada con ID: {}", savedLlamada.getId());
 
-                // 2. Procesar envÃ­o de encuesta si estÃ¡ habilitado
+                // 2. Notificar a sistema externo si el resultado es INTERESADO
+                if ("INTERESADO".equalsIgnoreCase(request.getResultado())) {
+                        try {
+                                log.info("Resultado INTERESADO detectado, preparando notificación externa [leadId={}]",
+                                                request.getIdLead());
+
+                                // Obtener datos de campaña
+                                CampaniaTelefonicaEntity campania = campaniaRepo.findById(idCampania.intValue())
+                                                .orElseThrow(() -> new RuntimeException(
+                                                                "Campaña no encontrada: " + idCampania));
+
+                                // Variables finales para uso en lambda
+                                final LlamadaEntity finalLlamada = savedLlamada;
+                                final CampaniaTelefonicaEntity finalCampania = campania;
+
+                                // Obtener datos del lead
+                                leadRepository.findById(request.getIdLead()).ifPresent(lead -> {
+                                        // Notificar de forma asíncrona
+                                        externalLeadNotificationService.notificarLeadInteresado(
+                                                        finalLlamada,
+                                                        finalCampania,
+                                                        lead);
+                                });
+                        } catch (Exception e) {
+                                // No lanzar excepción para no afectar el flujo principal
+                                log.error("Error al preparar notificación externa [leadId={}]: {}",
+                                                request.getIdLead(), e.getMessage());
+                        }
+                }
+
+                // 3. Procesar envío de encuesta si está habilitado
+
                 if (Boolean.TRUE.equals(request.getEnviarEncuesta())) {
                         log.info("Procesando envÃ­o de encuesta para llamada ID: {}", savedLlamada.getId());
 
@@ -386,9 +431,9 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
 
                 List<LlamadaEntity> llamadas;
                 if (agenteFiltro == null) {
-                        llamadas = llamadaRepo.findByIdCampaniaOrderByInicioDesc(campaniaId);
+                        llamadas = llamadaRepo.findByIdCampaniaWithDetailsOrderByInicioDesc(campaniaId);
                 } else {
-                        llamadas = llamadaRepo.findByIdCampaniaAndIdAgenteOrderByInicioDesc(
+                        llamadas = llamadaRepo.findByIdCampaniaAndIdAgenteWithDetailsOrderByInicioDesc(
                                         campaniaId,
                                         agenteFiltro);
                 }
@@ -477,7 +522,10 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 LocalDateTime finDia = ahora.toLocalDate().atTime(23, 59, 59);
 
                 // Contar pendientes
-                Long pendientes = colaRepo.countByEstadoAndCampaign(idCampania.intValue(), "PENDIENTE");
+                // Contar pendientes (PENDIENTE + EN_PROCESO) para consistencia con la cola
+                // visual
+                Long pendientes = colaRepo.countByEstadoAndCampaign(idCampania.intValue(), "PENDIENTE")
+                                + colaRepo.countByEstadoAndCampaign(idCampania.intValue(), "EN_PROCESO");
 
                 Long realizadasHoy;
                 Long efectivasHoy;
@@ -526,7 +574,9 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
 
                 // 1. Resumen general
                 Long totalLeads = colaRepo.countTotalByCampaign(campaniaId);
-                Long leadsPendientes = colaRepo.countPendingByCampaign(campaniaId);
+                // Incluir EN_PROCESO en el conteo de pendientes
+                Long leadsPendientes = colaRepo.countPendingByCampaign(campaniaId)
+                                + colaRepo.countByEstadoAndCampaign(campaniaId, "EN_PROCESO");
 
                 java.util.Map<String, Object> metricasGenerales = llamadaRepo.getMetricasByCampania(campaniaId);
                 Long totalLlamadas = (Long) metricasGenerales.get("totalLlamadas");

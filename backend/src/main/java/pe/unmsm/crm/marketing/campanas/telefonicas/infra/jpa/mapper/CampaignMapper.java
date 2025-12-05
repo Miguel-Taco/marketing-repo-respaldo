@@ -75,6 +75,16 @@ public class CampaignMapper {
                 .resultadoUltimaLlamada(entity.getResultadoUltimaLlamada())
                 .numeroIntentos(0); // TODO: calcular desde historial
 
+        // Obtener información del agente actual si está asignado
+        if (entity.getIdAgenteActual() != null) {
+            builder.idAgenteActual(entity.getIdAgenteActual().longValue());
+
+            // Intentar obtener el nombre del agente desde la relación
+            if (entity.getAgenteActual() != null) {
+                builder.nombreAgenteActual(entity.getAgenteActual().getNombre());
+            }
+        }
+
         // Obtener datos del Lead
         if (entity.getIdLead() != null) {
             Optional<Lead> leadOpt = leadRepository.findById(entity.getIdLead());

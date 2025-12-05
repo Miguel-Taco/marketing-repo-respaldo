@@ -14,23 +14,6 @@ import java.util.Map;
 public interface LlamadaRepository extends JpaRepository<LlamadaEntity, Integer> {
 
         /**
-         * Obtiene el historial de llamadas por campaña y agente
-         */
-        List<LlamadaEntity> findByIdCampaniaAndIdAgenteOrderByInicioDesc(
-                        Integer idCampania, Integer idAgente);
-
-        /**
-         * Obtiene el historial completo de una campa??a
-         */
-        List<LlamadaEntity> findByIdCampaniaOrderByInicioDesc(Integer idCampania);
-
-        /**
-         * Obtiene el historial de llamadas por lead
-         */
-        List<LlamadaEntity> findByIdLeadOrderByInicioDesc(Long idLead);
-
-        /**
-         * Obtiene métricas agregadas por campaña
          */
         @Query("SELECT new map(" +
                         "COUNT(l) as totalLlamadas, " +
@@ -202,4 +185,43 @@ public interface LlamadaRepository extends JpaRepository<LlamadaEntity, Integer>
                         "WHERE l.idCampania = :idCampania " +
                         "GROUP BY l.idAgente, a.nombre")
         List<Map<String, Object>> getRendimientoPorAgente(@Param("idCampania") Integer idCampania);
+
+        /**
+         * Obtiene el historial de llamadas por campaña y agente
+         */
+        List<LlamadaEntity> findByIdCampaniaAndIdAgenteOrderByInicioDesc(
+                        Integer idCampania, Integer idAgente);
+
+        /**
+         * Obtiene el historial completo de una campaña
+         */
+        List<LlamadaEntity> findByIdCampaniaOrderByInicioDesc(Integer idCampania);
+
+        /**
+         * Obtiene el historial completo de una campaña con datos de agente y resultado
+         * cargados
+         */
+        @Query("SELECT l FROM LlamadaEntity l " +
+                        "LEFT JOIN FETCH l.agente " +
+                        "LEFT JOIN FETCH l.resultado " +
+                        "WHERE l.idCampania = :idCampania " +
+                        "ORDER BY l.inicio DESC")
+        List<LlamadaEntity> findByIdCampaniaWithDetailsOrderByInicioDesc(@Param("idCampania") Integer idCampania);
+
+        /**
+         * Obtiene el historial de llamadas por campaña y agente con datos cargados
+         */
+        @Query("SELECT l FROM LlamadaEntity l " +
+                        "LEFT JOIN FETCH l.agente " +
+                        "LEFT JOIN FETCH l.resultado " +
+                        "WHERE l.idCampania = :idCampania AND l.idAgente = :idAgente " +
+                        "ORDER BY l.inicio DESC")
+        List<LlamadaEntity> findByIdCampaniaAndIdAgenteWithDetailsOrderByInicioDesc(
+                        @Param("idCampania") Integer idCampania,
+                        @Param("idAgente") Integer idAgente);
+
+        /**
+         * Obtiene el historial de llamadas por lead
+         */
+        List<LlamadaEntity> findByIdLeadOrderByInicioDesc(Long idLead);
 }

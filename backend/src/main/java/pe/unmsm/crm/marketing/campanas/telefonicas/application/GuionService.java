@@ -129,6 +129,17 @@ public class GuionService {
     }
 
     /**
+     * Lista los guiones activos de una campaña específica.
+     */
+    @Transactional(readOnly = true)
+    public List<GuionDTO> listarGuionesPorCampania(Long idCampania) {
+        log.info("Listando guiones para campaña ID: {}", idCampania);
+        return guionRepository.findByIdCampaniaAndActivoTrue(idCampania).stream()
+                .map(mapper::toGuionDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Genera contenido Markdown a partir de las secciones del guión.
      */
     public String generarMarkdown(CreateGuionRequest request) {

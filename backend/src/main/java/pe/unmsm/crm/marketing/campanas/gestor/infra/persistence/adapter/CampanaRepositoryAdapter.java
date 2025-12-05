@@ -103,4 +103,30 @@ public class CampanaRepositoryAdapter implements CampanaRepositoryPort {
         return jpaRepository.findProgramadasPendientes(
                 new pe.unmsm.crm.marketing.campanas.gestor.domain.state.EstadoProgramada());
     }
+
+    @Override
+    public List<Object[]> countByEstadoBetween(java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        return jpaRepository.countByEstadoBetween(start, end);
+    }
+
+    @Override
+    public List<Object[]> countByCanalBetween(java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        return jpaRepository.countByCanalBetween(start, end);
+    }
+
+    @Override
+    public List<Object[]> countBySegmentoBetween(java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        return jpaRepository.countBySegmentoBetween(start, end);
+    }
+
+    @Override
+    public List<Object[]> countByPlantillaBetween(java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        return jpaRepository.countByPlantillaBetween(start, end);
+    }
+
+    @Override
+    public List<Campana> findByFechaCreacionBetweenOrderByFechaCreacionAsc(java.time.LocalDateTime start,
+            java.time.LocalDateTime end) {
+        return jpaRepository.findByFechaCreacionBetweenOrderByFechaCreacionAsc(start, end);
+    }
 }

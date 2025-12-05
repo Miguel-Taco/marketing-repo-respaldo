@@ -39,6 +39,10 @@ public class MetricasCampaniaDTO {
     private Double tasaEfectividad;
     private Integer duracionPromedioEfectivas;
     private Integer duracionPromedioNoEfectivas;
+    private Long llamadasEfectivas;
+    private Long llamadasNoEfectivas;
+    private Long llamadasPendientes;
+    private Double promedioLlamadasDiarias;
 
     // Estado de cola
     private Map<String, Long> leadsPorPrioridad; // ALTA, MEDIA, BAJA

@@ -43,15 +43,21 @@ app:
     api-key: ${RESEND_API_KEY:re_ZgYK2KSi_6jxMLboXDnfDZ99u3UurFbYv}
     from-email: ${RESEND_FROM_EMAIL:onboarding@resend.dev}
     from-name: ${RESEND_FROM_NAME:Marketing CRM UNMSM}
-    # Webhook signing secret - se obtiene al crear webhook en Resend Dashboard
     webhook-secret: ${RESEND_WEBHOOK_SECRET:}
   
   # URL del backend (para tracking de clics y unsubscribe)
   backend:
     url: ${BACKEND_URL:http://localhost:8080}
+  
+  # Notificación de leads interesados a sistema externo
+  external-lead-notification:
+    enabled: true
+    endpoint-url: https://mod-ventas.onrender.com/api/venta/lead/desde-marketing
+    timeout-seconds: 10
+    api-key: ${EXTERNAL_LEAD_NOTIFICATION_API_KEY:}
 
   ventas:
-    url: ${VENTAS_URL:http://localhost:8080}
+    url: ${VENTAS_URL}
 
 management:
   endpoints:

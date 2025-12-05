@@ -13,44 +13,57 @@ import org.springframework.data.domain.Pageable;
  */
 public interface CampanaRepositoryPort {
 
-    /**
-     * Guarda una campaña (crear o actualizar)
-     */
-    Campana save(Campana campana);
+        /**
+         * Guarda una campaña (crear o actualizar)
+         */
+        Campana save(Campana campana);
 
-    /**
-     * Busca una campaña por ID
-     */
-    Optional<Campana> findById(Long idCampana);
+        /**
+         * Busca una campaña por ID
+         */
+        Optional<Campana> findById(Long idCampana);
 
-    /**
-     * Lista todas las campanas
-     */
-    List<Campana> findAll();
+        /**
+         * Lista todas las campanas
+         */
+        List<Campana> findAll();
 
-    /**
-     * Busca campanas por filtros
-     */
-    Page<Campana> findByFiltros(String nombre, String estado, String prioridad, String canalEjecucion,
-            Boolean esArchivado, Pageable pageable);
+        /**
+         * Busca campanas por filtros
+         */
+        Page<Campana> findByFiltros(String nombre, String estado, String prioridad, String canalEjecucion,
+                        Boolean esArchivado, Pageable pageable);
 
-    /**
-     * Elimina una campaña por ID
-     */
-    void deleteById(Long idCampana);
+        /**
+         * Elimina una campaña por ID
+         */
+        void deleteById(Long idCampana);
 
-    /**
-     * Verifica si existe una campaña por ID
-     */
-    boolean existsById(Long idCampana);
+        /**
+         * Verifica si existe una campaña por ID
+         */
+        boolean existsById(Long idCampana);
 
-    /**
-     * Busca campañas programadas listas para activar
-     */
-    List<Campana> findProgramadasParaActivar(java.time.LocalDateTime ahora);
+        /**
+         * Busca campañas programadas listas para activar
+         */
+        List<Campana> findProgramadasParaActivar(java.time.LocalDateTime ahora);
 
-    /**
-     * Busca todas las campañas en estado Programada
-     */
-    List<Campana> findProgramadasPendientes();
+        /**
+         * Busca todas las campañas en estado Programada
+         */
+        List<Campana> findProgramadasPendientes();
+
+        // Aggregations for Reports
+        List<Object[]> countByEstadoBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
+        List<Object[]> countByCanalBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
+        // Resource Aggregations
+        List<Object[]> countBySegmentoBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
+        List<Object[]> countByPlantillaBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
+        List<Campana> findByFechaCreacionBetweenOrderByFechaCreacionAsc(java.time.LocalDateTime start,
+                        java.time.LocalDateTime end);
 }

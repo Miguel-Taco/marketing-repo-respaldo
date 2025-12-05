@@ -24,6 +24,7 @@ public class LlamadaDTO {
     private LocalDateTime fechaReagendamiento;
     private Boolean derivadoVentas;
     private String tipoOportunidad;
+    private String nombreAgente;
 
     // Info adicional del contacto para mostrar en historial
     private String nombreContacto;

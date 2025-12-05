@@ -47,4 +47,23 @@ public interface JpaCampanaRepository extends JpaRepository<Campana, Long> {
 
         @Query("SELECT c FROM Campana c WHERE c.estado = :estado")
         List<Campana> findProgramadasPendientes(@Param("estado") EstadoCampana estado);
+
+        @Query("SELECT c.estado, COUNT(c) FROM Campana c WHERE c.fechaCreacion BETWEEN :start AND :end GROUP BY c.estado")
+        List<Object[]> countByEstadoBetween(@Param("start") java.time.LocalDateTime start,
+                        @Param("end") java.time.LocalDateTime end);
+
+        @Query("SELECT c.canalEjecucion, COUNT(c) FROM Campana c WHERE c.fechaCreacion BETWEEN :start AND :end GROUP BY c.canalEjecucion")
+        List<Object[]> countByCanalBetween(@Param("start") java.time.LocalDateTime start,
+                        @Param("end") java.time.LocalDateTime end);
+
+        @Query("SELECT c.idSegmento, COUNT(c) FROM Campana c WHERE c.fechaCreacion BETWEEN :start AND :end AND c.idSegmento IS NOT NULL GROUP BY c.idSegmento")
+        List<Object[]> countBySegmentoBetween(@Param("start") java.time.LocalDateTime start,
+                        @Param("end") java.time.LocalDateTime end);
+
+        @Query("SELECT c.idPlantilla, COUNT(c) FROM Campana c WHERE c.fechaCreacion BETWEEN :start AND :end AND c.idPlantilla IS NOT NULL GROUP BY c.idPlantilla")
+        List<Object[]> countByPlantillaBetween(@Param("start") java.time.LocalDateTime start,
+                        @Param("end") java.time.LocalDateTime end);
+
+        List<Campana> findByFechaCreacionBetweenOrderByFechaCreacionAsc(java.time.LocalDateTime start,
+                        java.time.LocalDateTime end);
 }

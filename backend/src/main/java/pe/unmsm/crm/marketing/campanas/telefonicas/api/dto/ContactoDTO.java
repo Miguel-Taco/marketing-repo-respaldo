@@ -25,4 +25,6 @@ public class ContactoDTO {
     private LocalDateTime fechaUltimaLlamada;
     private String resultadoUltimaLlamada;
     private String notas;
+    private Long idAgenteActual;
+    private String nombreAgenteActual;
 }
