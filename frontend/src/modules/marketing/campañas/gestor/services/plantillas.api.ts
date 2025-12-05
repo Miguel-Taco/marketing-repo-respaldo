@@ -1,7 +1,7 @@
 import { apiClient } from '../../../../../shared/services/api.client';
 import { PlantillaCampana, CrearPlantillaRequest } from '../types/plantilla.types';
 
-const BASE_URL = 'http://localhost:8080/api/v1/plantillas';
+const BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'}/plantillas`;
 
 export const plantillasApi = {
     // Listar plantillas con filtros y paginación

@@ -9,11 +9,11 @@ import { encuestasApi } from './services/encuestas.api';
 import { Encuesta } from './types';
 import { AnalyticsTab } from './components/AnalyticsTab';
 import { Modal } from '../../../../shared/components/ui/Modal';
+import { useEncuestasContext } from './context/EncuestasContext';
 
 export const EncuestaPage: React.FC = () => {
     const navigate = useNavigate();
-    const [encuestas, setEncuestas] = useState<Encuesta[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { encuestas, loading, fetchEncuestas } = useEncuestasContext();
     const [filterEstado, setFilterEstado] = useState<string>('Todas');
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('Encuestas');
@@ -22,8 +22,6 @@ export const EncuestaPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(0);
     const pageSize = 10;
 
-
-
     // Archive Modal State
     const [archiveModalOpen, setArchiveModalOpen] = useState(false);
     const [selectedEncuesta, setSelectedEncuesta] = useState<Encuesta | null>(null);
@@ -31,19 +29,8 @@ export const EncuestaPage: React.FC = () => {
     const [errorMessage, setErrorMessage] = useState('');
 
     useEffect(() => {
-        loadEncuestas();
-    }, []);
-
-    const loadEncuestas = async () => {
-        try {
-            const data = await encuestasApi.getAll();
-            setEncuestas(data);
-        } catch (error) {
-            console.error('Error loading encuestas:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+        fetchEncuestas();
+    }, [fetchEncuestas]);
 
     // Filtering
     const filteredEncuestas = encuestas.filter(encuesta => {
@@ -100,7 +87,7 @@ export const EncuestaPage: React.FC = () => {
             // 2. Si pasa la validación, proceder a archivar
             await encuestasApi.archivar(selectedEncuesta.idEncuesta);
             setArchiveModalOpen(false);
-            loadEncuestas(); // Refresh list
+            fetchEncuestas(true); // Refresh list
         } catch (error: any) {
             console.error('Error archiving encuesta:', error);
             setArchiveModalOpen(false);

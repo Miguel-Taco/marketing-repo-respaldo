@@ -1,7 +1,7 @@
 import { apiClient } from '../../../../../shared/services/api.client';
 import { Segmento, SegmentoResumen } from '../../../../../shared/types/segmento.types';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1/internal/segmentos';
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'}/internal/segmentos`;
 
 export const segmentosApi = {
     // GET /api/v1/internal/segmentos/activos - List only active segments

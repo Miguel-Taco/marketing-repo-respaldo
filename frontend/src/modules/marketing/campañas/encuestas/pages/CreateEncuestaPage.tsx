@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../../../../shared/components/ui/Button';
 import { encuestasApi } from '../services/encuestas.api';
 import { CreateEncuestaRequest, Pregunta, Opcion } from '../types';
+import { useEncuestasContext } from '../context/EncuestasContext';
 
 export const CreateEncuestaPage: React.FC = () => {
     const navigate = useNavigate();
@@ -148,6 +149,8 @@ export const CreateEncuestaPage: React.FC = () => {
         return true;
     };
 
+    const { fetchEncuestas } = useEncuestasContext();
+
     const handleSave = async (estado: 'BORRADOR' | 'ACTIVA') => {
         if (!validate(estado === 'ACTIVA')) return;
 
@@ -179,6 +182,7 @@ export const CreateEncuestaPage: React.FC = () => {
             } else {
                 await encuestasApi.create(payload);
             }
+            await fetchEncuestas(true); // Refresh list
             navigate('/encuestas');
         } catch (error) {
             console.error('Error saving encuesta:', error);

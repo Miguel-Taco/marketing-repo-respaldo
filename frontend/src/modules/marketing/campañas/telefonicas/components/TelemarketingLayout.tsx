@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Breadcrumbs } from '../../../../../shared/components/ui/Breadcrumbs';
 import { useBreadcrumbs } from '../hooks/useBreadcrumbs';
+import { CampaignCacheProvider } from '../context/CampaignCacheContext';
 
 export const TelemarketingLayout: React.FC = () => {
     const navigate = useNavigate();
@@ -25,54 +26,56 @@ export const TelemarketingLayout: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full">
-            {/* Breadcrumbs */}
-            {breadcrumbs && breadcrumbs.length > 0 && (
-                <div className="px-6 pt-6 pb-0">
-                    <Breadcrumbs items={breadcrumbs} />
+        <CampaignCacheProvider>
+            <div className="flex flex-col h-full">
+                {/* Breadcrumbs */}
+                {breadcrumbs && breadcrumbs.length > 0 && (
+                    <div className="px-6 pt-6 pb-0">
+                        <Breadcrumbs items={breadcrumbs} />
+                    </div>
+                )}
+
+                {/* Tabs de navegación - Solo visibles si hay un ID de campaña */}
+                {id && (
+                    <nav className="mb-6 flex flex-wrap items-center gap-2 p-6 pb-0">
+                        <button
+                            onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/cola`)}
+                            className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/cola`)}
+                        >
+                            Cola actual
+                        </button>
+                        <button
+                            onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/leads`)}
+                            className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/leads`)}
+                        >
+                            Leads
+                        </button>
+                        <button
+                            onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/historial`)}
+                            className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/historial`)}
+                        >
+                            Historial
+                        </button>
+                        <button
+                            onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/metricas`)}
+                            className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/metricas`)}
+                        >
+                            Métricas
+                        </button>
+                        <button
+                            onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/guiones`)}
+                            className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/guiones`)}
+                        >
+                            Guiones
+                        </button>
+                    </nav>
+                )}
+
+                {/* Contenido de la página */}
+                <div className="flex-1 overflow-hidden">
+                    <Outlet />
                 </div>
-            )}
-
-            {/* Tabs de navegación - Solo visibles si hay un ID de campaña */}
-            {id && (
-                <nav className="mb-6 flex flex-wrap items-center gap-2 p-6 pb-0">
-                    <button
-                        onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/cola`)}
-                        className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/cola`)}
-                    >
-                        Cola actual
-                    </button>
-                    <button
-                        onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/leads`)}
-                        className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/leads`)}
-                    >
-                        Leads
-                    </button>
-                    <button
-                        onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/historial`)}
-                        className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/historial`)}
-                    >
-                        Historial
-                    </button>
-                    <button
-                        onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/metricas`)}
-                        className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/metricas`)}
-                    >
-                        Métricas
-                    </button>
-                    <button
-                        onClick={() => navigate(`/marketing/campanas/telefonicas/campanias/${id}/guiones`)}
-                        className={getButtonClass(`/marketing/campanas/telefonicas/campanias/${id}/guiones`)}
-                    >
-                        Guiones
-                    </button>
-                </nav>
-            )}
-
-            {/* Contenido de la página */}
-            <div className="flex-1 overflow-hidden">
-                <Outlet />
             </div>
-        </div>
+        </CampaignCacheProvider>
     );
 };

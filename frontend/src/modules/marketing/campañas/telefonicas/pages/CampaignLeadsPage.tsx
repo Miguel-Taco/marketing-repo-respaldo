@@ -5,46 +5,57 @@ import type { Contacto } from '../types';
 import { Button } from '../../../../../shared/components/ui/Button';
 import { downloadCSV } from '../../../../../shared/utils/exportUtils';
 import { useAuth } from '../../../../../shared/context/AuthContext';
+import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
+import { LoadingDots } from '../../../../../shared/components/ui/LoadingDots';
+import { useCachedCampaignData } from '../context/CampaignCacheContext';
 
 export const CampaignLeadsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [contactos, setContactos] = useState<Contacto[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [contactosGlobales, setContactosGlobales] = useState<Contacto[]>([]);
+    const [loadingGlobal, setLoadingGlobal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [estadoFilter, setEstadoFilter] = useState<string>(''); // Cambiado de 'NO_CONTACTADO' a '' para mostrar todos los leads por defecto
-    const { user } = useAuth();
+    const [estadoFilter, setEstadoFilter] = useState<string>('');
+    const { user, hasRole } = useAuth();
+    const isAdmin = hasRole('ADMIN');
     const idAgente = user?.agentId;
 
+    // Usar caché para leads de campaña específica
+    const { data: contactosCampania = [], loading: loadingCampania } = useCachedCampaignData<Contacto[]>(
+        id ? Number(id) : undefined,
+        'leads'
+    );
+
+    // Determinar qué datos usar
+    const contactos = id ? contactosCampania : contactosGlobales;
+    const loading = id ? loadingCampania : loadingGlobal;
+
     useEffect(() => {
-        loadContactos();
+        // Solo cargar leads globales si no hay ID de campaña
+        if (!id && idAgente) {
+            loadContactosGlobales();
+        }
     }, [id, idAgente]);
 
-    const loadContactos = async () => {
+    const loadContactosGlobales = async () => {
         try {
-            setLoading(true);
-            if (id) {
-                const data = await telemarketingApi.getContactosCampania(Number(id));
-                setContactos(data);
-            } else {
-                if (!idAgente) {
-                    setContactos([]);
-                    setLoading(false);
-                    return;
-                }
-                const campanias = await telemarketingApi.getCampaniasAsignadas();
-                const allContactsPromises = campanias.map(c =>
-                    telemarketingApi.getContactosCampania(c.id).then(contacts =>
-                        contacts.map(contact => ({ ...contact, nombreCampania: c.nombre, idCampania: c.id }))
-                    )
-                );
-                const results = await Promise.all(allContactsPromises);
-                setContactos(results.flat());
+            setLoadingGlobal(true);
+            if (!idAgente) {
+                setContactosGlobales([]);
+                return;
             }
+            const campanias = await telemarketingApi.getCampaniasAsignadas();
+            const allContactsPromises = campanias.map(c =>
+                telemarketingApi.getContactosCampania(c.id).then(contacts =>
+                    contacts.map(contact => ({ ...contact, nombreCampania: c.nombre, idCampania: c.id }))
+                )
+            );
+            const results = await Promise.all(allContactsPromises);
+            setContactosGlobales(results.flat());
         } catch (error) {
-            console.error('Error cargando contactos:', error);
+            console.error('Error cargando contactos globales:', error);
         } finally {
-            setLoading(false);
+            setLoadingGlobal(false);
         }
     };
 
@@ -62,7 +73,7 @@ export const CampaignLeadsPage: React.FC = () => {
         downloadCSV(filteredContactos, filename, columns);
     };
 
-    if (!id && !idAgente) {
+    if (!id && !isAdmin && !idAgente) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-10 text-center space-y-4">
                 <h2 className="text-2xl font-bold text-gray-900">No tienes un agente asignado</h2>
@@ -182,8 +193,9 @@ export const CampaignLeadsPage: React.FC = () => {
                     </Button>
                 </div>
                 {loading ? (
-                    <div className="flex items-center justify-center h-64">
-                        <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
+                    <div className="flex flex-col items-center justify-center h-64 gap-4">
+                        <LoadingSpinner size="lg" />
+                        <LoadingDots text="Cargando lista de leads" className="text-gray-600 font-medium" />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

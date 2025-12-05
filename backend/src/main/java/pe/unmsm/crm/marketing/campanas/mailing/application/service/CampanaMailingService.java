@@ -19,20 +19,6 @@ import pe.unmsm.crm.marketing.shared.infra.exception.*;
 
 import java.util.List;
 
-/**
- * Servicio principal para gestión de Campañas de Mailing.
- * 
- * ESTRATEGIA DE CACHÉ:
- * 
- * - Los métodos de LECTURA usan @Cacheable para almacenar resultados
- * - Los métodos de ESCRITURA usan @CacheEvict para invalidar el caché
- * - Las claves de caché incluyen parámetros relevantes (estado, ID de campaña)
- * 
- * CACHÉS UTILIZADOS:
- * - mailing_campanias_lista: Listados por estado
- * - mailing_campania_detalle: Detalle individual
- * - mailing_metricas: Métricas de campaña
- */
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -55,7 +41,6 @@ public class CampanaMailingService {
     public CampanaMailing crearCampana(CrearCampanaMailingRequest req) {
         log.info("📝 Creando campaña: {}", req.getNombre());
         
-        // Validaciones
         if (req.getPrioridad() == null || req.getPrioridad().trim().isEmpty()) {
             throw new ValidationException("La prioridad es obligatoria");
         }
@@ -134,7 +119,6 @@ public class CampanaMailingService {
 
     /**
      * Pausa una campaña desde el Gestor.
-     * Este método es llamado por el módulo de Gestión de Campañas.
      */
     @Caching(evict = {
         @CacheEvict(value = "mailing_campania_detalle", allEntries = true),
@@ -147,19 +131,11 @@ public class CampanaMailingService {
                 .orElseThrow(() -> new NotFoundException(
                         "CampanaMailing con idCampanaGestion", idCampanaGestion));
 
-        // Ya está cancelada/pausada?
         if (c.getIdEstado().equals(6)) {
             log.info("  Campaña {} ya estaba cancelada", c.getId());
             return;
         }
 
-        // Si ya fue ENVIADA (3), no se puede pausar
-        if (c.getIdEstado().equals(3)) {
-            log.warn("  Campaña {} ya fue ENVIADA, no se puede pausar. Se marca como CANCELADA de todas formas.",
-                    c.getId());
-        }
-
-        // Cambiar a CANCELADO (6)
         c.setIdEstado(6);
         campanaRepo.save(c);
 
@@ -205,23 +181,19 @@ public class CampanaMailingService {
                 .orElseThrow(() -> new NotFoundException(
                         "CampanaMailing con idCampanaGestion", idCampanaGestion));
 
-        // Validar fechas
         if (req.getFechaInicio().isAfter(req.getFechaFin())) {
             throw new ValidationException("Fecha de inicio debe ser anterior a fecha de fin");
         }
 
-        // No se puede reprogramar si ya fue ENVIADA o FINALIZADA
         if (c.getIdEstado().equals(3) || c.getIdEstado().equals(5)) {
             throw new ValidationException(
                     "No se puede reprogramar una campaña en estado " +
                             EstadoCampanaMailing.fromId(c.getIdEstado()).getNombre());
         }
 
-        // Actualizar fechas
         c.setFechaInicio(req.getFechaInicio());
         c.setFechaFin(req.getFechaFin());
 
-        // Volver a PENDIENTE si estaba en otro estado
         if (c.getIdEstado().equals(6) || c.getIdEstado().equals(4) || c.getIdEstado().equals(2)) {
             c.setIdEstado(1);
             log.info("  Campaña {} regresada a PENDIENTE", c.getId());
@@ -232,17 +204,16 @@ public class CampanaMailingService {
     }
 
     // ========================================================================
-    // OPERACIONES DE LECTURA (Usan caché)
+    // OPERACIONES DE LECTURA (AQUÍ VA @Cacheable)
     // ========================================================================
 
     /**
-     * Lista campañas en estado PENDIENTE.
-     * Resultado cacheado por 2 minutos.
+     * Lista campañas en estado PENDIENTE - CACHEADO 10 minutos
      */
     @Cacheable(value = "mailing_campanias_lista", key = "'pendientes_' + #campaniasPermitidas.hashCode()")
     @Transactional(readOnly = true)
     public List<CampanaMailing> listarPendientes(List<Integer> campaniasPermitidas) {
-        log.debug("📋 Consultando campañas PENDIENTES (sin caché)");
+        log.info("📋 Consultando campañas PENDIENTES");
         if (isEmpty(campaniasPermitidas)) {
             return List.of();
         }
@@ -250,13 +221,12 @@ public class CampanaMailingService {
     }
 
     /**
-     * Lista campañas en estado LISTO.
-     * Resultado cacheado por 2 minutos.
+     * Lista campañas en estado LISTO - CACHEADO 10 minutos
      */
     @Cacheable(value = "mailing_campanias_lista", key = "'listos_' + #campaniasPermitidas.hashCode()")
     @Transactional(readOnly = true)
     public List<CampanaMailing> listarListos(List<Integer> campaniasPermitidas) {
-        log.debug("📋 Consultando campañas LISTAS (sin caché)");
+        log.info("📋 Consultando campañas LISTAS");
         if (isEmpty(campaniasPermitidas)) {
             return List.of();
         }
@@ -264,13 +234,12 @@ public class CampanaMailingService {
     }
 
     /**
-     * Lista campañas en estado ENVIADO.
-     * Resultado cacheado por 2 minutos.
+     * Lista campañas en estado ENVIADO - CACHEADO 10 minutos
      */
     @Cacheable(value = "mailing_campanias_lista", key = "'enviados_' + #campaniasPermitidas.hashCode()")
     @Transactional(readOnly = true)
     public List<CampanaMailing> listarEnviados(List<Integer> campaniasPermitidas) {
-        log.debug("📋 Consultando campañas ENVIADAS (sin caché)");
+        log.info("📋 Consultando campañas ENVIADAS");
         if (isEmpty(campaniasPermitidas)) {
             return List.of();
         }
@@ -278,13 +247,12 @@ public class CampanaMailingService {
     }
 
     /**
-     * Lista campañas en estado FINALIZADO.
-     * Resultado cacheado por 2 minutos.
+     * Lista campañas en estado FINALIZADO - CACHEADO 10 minutos
      */
     @Cacheable(value = "mailing_campanias_lista", key = "'finalizados_' + #campaniasPermitidas.hashCode()")
     @Transactional(readOnly = true)
     public List<CampanaMailing> listarFinalizados(List<Integer> campaniasPermitidas) {
-        log.debug("📋 Consultando campañas FINALIZADAS (sin caché)");
+        log.info("📋 Consultando campañas FINALIZADAS");
         if (isEmpty(campaniasPermitidas)) {
             return List.of();
         }
@@ -292,13 +260,12 @@ public class CampanaMailingService {
     }
 
     /**
-     * Lista todas las campañas.
-     * Resultado cacheado por 2 minutos.
+     * Lista todas las campañas - CACHEADO 10 minutos
      */
     @Cacheable(value = "mailing_campanias_lista", key = "'todas_' + #campaniasPermitidas.hashCode()")
     @Transactional(readOnly = true)
     public List<CampanaMailing> listarTodas(List<Integer> campaniasPermitidas) {
-        log.debug("📋 Consultando TODAS las campañas (sin caché)");
+        log.info("📋 Consultando TODAS las campañas");
         if (isEmpty(campaniasPermitidas)) {
             return List.of();
         }
@@ -306,24 +273,22 @@ public class CampanaMailingService {
     }
 
     /**
-     * Obtiene detalle de una campaña.
-     * Resultado cacheado por 5 minutos.
+     * Obtiene detalle de una campaña - CACHEADO 10 minutos
      */
     @Cacheable(value = "mailing_campania_detalle", key = "#id")
     @Transactional(readOnly = true)
     public CampanaMailing obtenerDetalle(Integer id) {
-        log.debug("🔍 Consultando detalle de campaña {} (sin caché)", id);
+        log.info("🔍 Consultando detalle de campaña {}", id);
         return obtenerDetalleSinCache(id);
     }
 
     /**
-     * Obtiene métricas de una campaña.
-     * Resultado cacheado por 30 segundos (se actualiza frecuentemente).
+     * Obtiene métricas de una campaña - CACHEADO 10 minutos
      */
     @Cacheable(value = "mailing_metricas", key = "#id")
     @Transactional(readOnly = true)
     public MetricasMailingResponse obtenerMetricas(Integer id) {
-        log.debug("📊 Consultando métricas de campaña {} (sin caché)", id);
+        log.info("📊 Consultando métricas de campaña {}", id);
         MetricaCampana m = metricasRepo.findByCampanaMailingId(id)
                 .orElseThrow(() -> new NotFoundException("Métricas", id.longValue()));
         return mapper.toMetricasResponse(m);

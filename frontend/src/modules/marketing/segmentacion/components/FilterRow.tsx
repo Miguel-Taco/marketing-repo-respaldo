@@ -6,27 +6,24 @@ export interface FilterDefinition {
     valorTexto: string;
 }
 
+export interface FilterOption {
+    value: string;
+    label: string;
+    type: string;
+    options?: string[];
+}
+
 interface FilterRowProps {
     filter: FilterDefinition;
     index: number;
     showLogicOperator: boolean;
+    availableFilters: FilterOption[];
     onUpdate: (index: number, filter: FilterDefinition) => void;
     onRemove: (index: number) => void;
     disabled?: boolean;
 }
 
-const FILTER_OPTIONS = [
-    { value: 'genero', label: 'Género', type: 'select', options: ['Masculino', 'Femenino', 'Otro'] },
-    { value: 'edad', label: 'Edad', type: 'number' },
-    { value: 'provincia', label: 'Provincia', type: 'text' },
-    { value: 'estado_civil', label: 'Estado Civil', type: 'select', options: ['Soltero(a)', 'Casado(a)', 'Divorciado(a)', 'Viudo(a)'] },
-    { value: 'distrito', label: 'Distrito', type: 'text' },
-    { value: 'departamento', label: 'Departamento', type: 'text' },
-    { value: 'utmSource', label: 'Fuente de Campaña', type: 'text' },
-    { value: 'utmMedium', label: 'Medio de Campaña', type: 'text' },
-    { value: 'utmCampaign', label: 'Nombre de Campaña', type: 'text' },
-    { value: 'tipoFuente', label: 'Tipo de Origen', type: 'select', options: ['WEB', 'MANUAL', 'IMPORTACION'] },
-];
+
 
 // Operadores disponibles según el tipo de campo
 const getAvailableOperators = (fieldType: string) => {
@@ -62,11 +59,12 @@ export const FilterRow: React.FC<FilterRowProps> = ({
     filter,
     index,
     showLogicOperator,
+    availableFilters,
     onUpdate,
     onRemove,
     disabled = false
 }) => {
-    const selectedFilterDef = FILTER_OPTIONS.find(f => f.value === filter.campo);
+    const selectedFilterDef = availableFilters.find(f => f.value === filter.campo);
 
     // Obtener operadores disponibles para el campo seleccionado
     const availableOperators = useMemo(() => {
@@ -74,7 +72,7 @@ export const FilterRow: React.FC<FilterRowProps> = ({
     }, [selectedFilterDef]);
 
     const handleFieldChange = (campo: string) => {
-        const newFilterDef = FILTER_OPTIONS.find(f => f.value === campo);
+        const newFilterDef = availableFilters.find(f => f.value === campo);
         const newOperators = newFilterDef ? getAvailableOperators(newFilterDef.type) : [];
 
         // Si el operador actual no es válido para el nuevo campo, usar el primero disponible
@@ -122,7 +120,7 @@ export const FilterRow: React.FC<FilterRowProps> = ({
                     required
                 >
                     <option value="">Seleccionar filtro...</option>
-                    {FILTER_OPTIONS.map(opt => (
+                    {availableFilters.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                 </select>

@@ -6,102 +6,151 @@ import { Button } from '../../../../../shared/components/ui/Button';
 import { useCampaignsContext } from '../context/CampaignsContext';
 import { useCampaignAccessControl } from '../hooks/useCampaignAccessControl';
 import { useAuth } from '../../../../../shared/context/AuthContext';
+import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
+import { LoadingDots } from '../../../../../shared/components/ui/LoadingDots';
+import { useCachedCampaignData, useCampaignCache } from '../context/CampaignCacheContext';
 
 export const CallQueuePage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { autoNext, setAutoNext } = useCampaignsContext();
     const { isChecking: checkingAccess } = useCampaignAccessControl(id);
-    const [cola, setCola] = useState<Contacto[]>([]);
     const [campanias, setCampanias] = useState<CampaniaTelefonica[]>([]);
-    const [metricas, setMetricas] = useState<MetricasDiarias | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loadingCampanias, setLoadingCampanias] = useState(true);
     const [colaPausada, setColaPausada] = useState(false);
-    const { user } = useAuth();
+    const [loadingSiguiente, setLoadingSiguiente] = useState(false);
+    const [loadingPausar, setLoadingPausar] = useState(false);
+    const [tomandoContacto, setTomandoContacto] = useState<number | null>(null);
+    const { user, hasRole } = useAuth();
+    const isAdmin = hasRole('ADMIN');
     const idAgente = user?.agentId;
 
+    // Usar caché para cola y métricas cuando hay ID de campaña
+    const { data: cola = [], loading: loadingCola, refresh: refreshCola } = useCachedCampaignData<Contacto[]>(
+        id ? Number(id) : undefined,
+        'queue'
+    );
+    const { data: metricas, loading: loadingMetricas } = useCachedCampaignData<MetricasDiarias>(
+        id ? Number(id) : undefined,
+        'dailyMetrics'
+    );
+    const { invalidateCache, preloadCampaignData } = useCampaignCache();
+
+    const loading = loadingCola || loadingMetricas;
+
+    /**
+     * ESTRATEGIA DE PRECARGA EN SEGUNDO PLANO
+     * 
+     * Cuando el usuario ingresa a la cola de una campaña (primera pestaña),
+     * automáticamente se inicia la precarga de datos de TODAS las demás pestañas
+     * en segundo plano. Esto mejora significativamente la experiencia de usuario:
+     * 
+     * - La cola se carga normalmente (con loading state visible)
+     * - Mientras tanto, en paralelo y sin bloquear, se cargan:
+     *   • Leads de la campaña
+     *   • Historial de llamadas
+     *   • Métricas de campaña
+     *   • Scripts y guiones
+     * 
+     * Resultado: Navegación instantánea entre pestañas (datos ya en caché)
+     * 
+     * Filosofía: Event-Driven + Intelligent Preloading
+     */
     useEffect(() => {
-        if (!checkingAccess) {
-            loadCola();
-            if (id) {
-                loadMetricas();
-            }
+        if (id && !checkingAccess) {
+            // Precargar datos de todas las pestañas en paralelo
+            preloadCampaignData(Number(id));
+        }
+    }, [id, checkingAccess, preloadCampaignData]);
+
+    useEffect(() => {
+        if (!checkingAccess && !id) {
+            loadCampanias();
         }
     }, [id, checkingAccess]);
 
-    const loadCola = async () => {
+    const loadCampanias = async () => {
         try {
-            setLoading(true);
-            if (id) {
-                const data = await telemarketingApi.getCola(Number(id));
-                setCola(data);
-            } else {
-                if (!idAgente) {
-                    setCampanias([]);
-                    return;
-                }
-                const data = await telemarketingApi.getCampaniasAsignadas();
-                setCampanias(data);
+            setLoadingCampanias(true);
+            if (!idAgente) {
+                setCampanias([]);
+                return;
             }
+            const data = await telemarketingApi.getCampaniasAsignadas();
+            setCampanias(data);
         } catch (error) {
-            console.error('Error cargando cola:', error);
+            console.error('Error cargando campañas:', error);
         } finally {
-            setLoading(false);
+            setLoadingCampanias(false);
         }
     };
 
-    const loadMetricas = async () => {
-        try {
-            if (!idAgente) {
-                setMetricas(null);
-                return;
-            }
-            const data = await telemarketingApi.getMetricasDiarias(Number(id));
-            setMetricas(data);
-        } catch (error) {
-            console.error('Error cargando métricas:', error);
-        }
-    };
 
     const handleObtenerSiguiente = async () => {
         try {
+            setLoadingSiguiente(true);
             const contacto = await telemarketingApi.getSiguienteContacto(Number(id));
+
+            // Invalidar caché después de obtener siguiente contacto
+            if (id) {
+                invalidateCache(Number(id), ['queue', 'dailyMetrics']);
+            }
+
             if (contacto) {
                 navigate(`/marketing/campanas/telefonicas/campanias/${id}/llamar/${contacto.id}`);
             }
         } catch (error) {
             console.error('Error obteniendo siguiente contacto:', error);
+        } finally {
+            setLoadingSiguiente(false);
         }
     };
 
     const handleTomarContacto = async (idContacto: number) => {
         try {
+            setTomandoContacto(idContacto);
             const contacto = await telemarketingApi.tomarContacto(Number(id), idContacto);
+
+            // Invalidar caché después de tomar contacto
+            if (id) {
+                invalidateCache(Number(id), ['queue', 'dailyMetrics']);
+            }
+
             if (contacto) {
                 navigate(`/marketing/campanas/telefonicas/campanias/${id}/llamar/${contacto.id}`);
             }
         } catch (error) {
             console.error('Error tomando contacto:', error);
+        } finally {
+            setTomandoContacto(null);
         }
     };
 
     const handlePausarCola = async () => {
         try {
             if (!id) return;
+            setLoadingPausar(true);
             await telemarketingApi.pausarCola(Number(id));
             setColaPausada(true);
+            // No invalidamos caché, solo cambiamos estado UI
         } catch (error) {
             console.error('Error pausando cola:', error);
+        } finally {
+            setLoadingPausar(false);
         }
     };
 
     const handleReanudarCola = async () => {
         try {
             if (!id) return;
+            setLoadingPausar(true);
             await telemarketingApi.reanudarCola(Number(id));
             setColaPausada(false);
+            // No invalidamos caché, solo cambiamos estado UI
         } catch (error) {
             console.error('Error reanudando cola:', error);
+        } finally {
+            setLoadingPausar(false);
         }
     };
 
@@ -114,7 +163,7 @@ export const CallQueuePage: React.FC = () => {
         return colors[prioridad] || 'bg-gray-200 text-gray-600';
     };
 
-    if (!idAgente) {
+    if (!isAdmin && !idAgente) {
         return (
             <div className="flex items-center justify-center h-full p-6">
                 <div className="max-w-lg text-center space-y-4">
@@ -134,9 +183,10 @@ export const CallQueuePage: React.FC = () => {
                     <p className="text-gray-500 mt-2">Selecciona una campaña para gestionar su cola de llamadas.</p>
                 </div>
 
-                {loading || checkingAccess ? (
-                    <div className="flex items-center justify-center h-64">
-                        <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
+                {loading || checkingAccess || loadingCampanias ? (
+                    <div className="flex flex-col items-center justify-center h-64 gap-4">
+                        <LoadingSpinner size="lg" />
+                        <LoadingDots text="Cargando campañas asignadas" className="text-gray-600 font-medium" />
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -176,8 +226,9 @@ export const CallQueuePage: React.FC = () => {
 
     if (checkingAccess) {
         return (
-            <div className="flex items-center justify-center h-screen">
-                <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
+            <div className="flex flex-col items-center justify-center h-screen gap-4">
+                <LoadingSpinner size="lg" />
+                <LoadingDots text="Verificando permisos" className="text-gray-600 font-medium" />
             </div>
         );
     }
@@ -238,15 +289,35 @@ export const CallQueuePage: React.FC = () => {
                     </label>
                 </div>
                 <div className="flex flex-wrap gap-3 mt-4 border-t border-gray-200 pt-4">
-                    <Button variant="primary" onClick={handleObtenerSiguiente} className="flex-grow">
-                        Obtener siguiente contacto
+                    <Button
+                        variant="primary"
+                        onClick={handleObtenerSiguiente}
+                        className="flex-grow"
+                        disabled={loadingSiguiente}
+                    >
+                        {loadingSiguiente ? (
+                            <>
+                                <LoadingSpinner size="sm" className="mr-2 text-white" />
+                                <LoadingDots text="Obteniendo siguiente contacto" />
+                            </>
+                        ) : (
+                            'Obtener siguiente contacto'
+                        )}
                     </Button>
                     <Button
                         variant="secondary"
                         onClick={colaPausada ? handleReanudarCola : handlePausarCola}
                         className="flex-grow"
+                        disabled={loadingPausar}
                     >
-                        {colaPausada ? 'Reanudar cola' : 'Pausar cola'}
+                        {loadingPausar ? (
+                            <>
+                                <LoadingSpinner size="sm" className="mr-2 text-gray-600" />
+                                <LoadingDots text={colaPausada ? 'Reanudando' : 'Pausando'} />
+                            </>
+                        ) : (
+                            colaPausada ? 'Reanudar cola' : 'Pausar cola'
+                        )}
                     </Button>
                 </div>
             </div>
@@ -254,8 +325,9 @@ export const CallQueuePage: React.FC = () => {
             {/* Queue Table */}
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex-1">
                 {loading ? (
-                    <div className="flex items-center justify-center h-64">
-                        <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
+                    <div className="flex flex-col items-center justify-center h-64 gap-4">
+                        <LoadingSpinner size="lg" />
+                        <LoadingDots text="Cargando cola de llamadas" className="text-gray-600 font-medium" />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -286,10 +358,18 @@ export const CallQueuePage: React.FC = () => {
                                         </td>
                                         <td className="p-4">
                                             <button
-                                                className="h-8 px-3 rounded-full bg-primary text-white text-xs font-bold hover:bg-primary/90"
+                                                className="h-8 px-3 rounded-full bg-primary text-white text-xs font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                                                 onClick={() => handleTomarContacto(contacto.id)}
+                                                disabled={tomandoContacto === contacto.id}
                                             >
-                                                Tomar
+                                                {tomandoContacto === contacto.id ? (
+                                                    <>
+                                                        <LoadingSpinner size="sm" className="text-white" />
+                                                        <LoadingDots text="Tomando" />
+                                                    </>
+                                                ) : (
+                                                    'Tomar'
+                                                )}
                                             </button>
                                         </td>
                                     </tr>

@@ -45,6 +45,7 @@ interface HistorialItem {
     nombreCampana: string;
     fechaAccion: string;
     tipoAccion: string;
+    usuarioResponsable: string;
     descripcionDetalle: string;
 }
 

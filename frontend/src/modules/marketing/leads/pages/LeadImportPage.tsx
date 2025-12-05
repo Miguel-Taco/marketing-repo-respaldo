@@ -37,7 +37,7 @@ export const LeadImportPage: React.FC = () => {
 
             setUploading(false);
             loadHistory(currentPage, true); // Force refresh import history
-            fetchLeads(); // Also refresh leads list
+            fetchLeads(true); // Also refresh leads list
 
             // IMPORTANTE: Cerrar el modal y limpiar WebSocket después de 2 segundos
             // para que el usuario tenga tiempo de ver el resultado final

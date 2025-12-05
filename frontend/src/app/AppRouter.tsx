@@ -22,129 +22,135 @@ import { EncuestaPage } from '../modules/marketing/campañas/encuestas/EncuestaP
 import { CreateEncuestaPage } from '../modules/marketing/campañas/encuestas/pages/CreateEncuestaPage';
 import { ViewEncuestaPage } from '../modules/marketing/campañas/encuestas/pages/ViewEncuestaPage';
 import { CampanasGestorProvider } from '../modules/marketing/campañas/gestor/context/CampanasGestorContext';
+import { EncuestasProvider } from '../modules/marketing/campañas/encuestas/context/EncuestasContext';
 import { AuthProvider } from '../shared/context/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { ProtectedRoute } from '../shared/components/routing/ProtectedRoute';
+import { MailingProvider } from '../modules/marketing/campañas/mailing/context/MailingContext';
 
 export const AppRouter: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
-          <SegmentosProvider>
-            <LeadsProvider>
-              <CampaignsProvider>
-                <ImportHistoryProvider>
-                  <CampanasGestorProvider>
-                    <Routes>
-                      {/* Ruta pública de Login */}
-                      <Route path="/login" element={<LoginPage />} />
+          <MailingProvider>
+            <SegmentosProvider>
+              <LeadsProvider>
+                <CampaignsProvider>
+                  <ImportHistoryProvider>
+                    <CampanasGestorProvider>
+                      <EncuestasProvider>
+                        <Routes>
+                          {/* Ruta pública de Login */}
+                          <Route path="/login" element={<LoginPage />} />
 
-                      {/* Rutas Protegidas */}
-                      <Route path="/" element={
-                        <ProtectedRoute>
-                          <MainLayout />
-                        </ProtectedRoute>
-                      }>
-                        <Route index element={<Navigate to="/leads" replace />} />
-
-                        {/* Rutas de Leads */}
-                        <Route path="leads" element={<LeadsListPage />} />
-                        <Route path="leads/new" element={
-                          <ProtectedRoute requiredRole="ADMIN">
-                            <LeadCapturePage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="leads/import" element={
-                          <ProtectedRoute requiredRole="ADMIN">
-                            <LeadImportPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="leads/:id" element={<LeadDetailPage />} />
-
-                        {/* Rutas de Segmentación */}
-                        <Route path="marketing/segmentacion" element={<Outlet />}>
-                          <Route index element={<SegmentationPage />} />
-                          <Route path="new" element={
-                            <ProtectedRoute requiredRole="ADMIN">
-                              <CreateSegmentPage />
+                          {/* Rutas Protegidas */}
+                          <Route path="/" element={
+                            <ProtectedRoute>
+                              <MainLayout />
                             </ProtectedRoute>
-                          } />
-                          <Route path="edit/:id" element={
-                            <ProtectedRoute requiredRole="ADMIN">
-                              <EditSegmentPage />
-                            </ProtectedRoute>
-                          } />
-                        </Route>
+                          }>
+                            <Route index element={<Navigate to="/leads" replace />} />
 
-                        {/* Rutas de Encuestas */}
-                        <Route path="encuestas" element={<EncuestaPage />} />
-                        <Route path="encuestas/new" element={
-                          <ProtectedRoute requiredRole="ADMIN">
-                            <CreateEncuestaPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="encuestas/edit/:id" element={
-                          <ProtectedRoute requiredRole="ADMIN">
-                            <CreateEncuestaPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="encuestas/view/:id" element={<ViewEncuestaPage />} />
+                            {/* Rutas de Leads */}
+                            <Route path="leads" element={<LeadsListPage />} />
+                            <Route path="leads/new" element={
+                              <ProtectedRoute requiredRole="ADMIN">
+                                <LeadCapturePage />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="leads/import" element={
+                              <ProtectedRoute requiredRole="ADMIN">
+                                <LeadImportPage />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="leads/:id" element={<LeadDetailPage />} />
 
-                        {/* Rutas de Campañas - Solo ADMIN */}
-                        <Route path="marketing/campanas/:tab?" element={
-                          <ProtectedRoute requiredRole="ADMIN">
-                            <CampanasListPage />
-                          </ProtectedRoute>
-                        } />
+                            {/* Rutas de Segmentación */}
+                            <Route path="marketing/segmentacion" element={<Outlet />}>
+                              <Route index element={<SegmentationPage />} />
+                              <Route path="new" element={
+                                <ProtectedRoute requiredRole="ADMIN">
+                                  <CreateSegmentPage />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="edit/:id" element={
+                                <ProtectedRoute requiredRole="ADMIN">
+                                  <EditSegmentPage />
+                                </ProtectedRoute>
+                              } />
+                            </Route>
 
-                        {/* Rutas de Campa?as de Mailing */}
-                        <Route path="marketing/campanas/mailing" element={
-                          <ProtectedRoute requiredModule="MAILING">
-                            <MailingListPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="marketing/campanas/mailing/:id/edit" element={
-                          <ProtectedRoute requiredRole="ADMIN" requiredModule="MAILING">
-                            <MailingEditorPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="marketing/campanas/mailing/:id/metricas" element={
-                          <ProtectedRoute requiredModule="MAILING">
-                            <MetricsDetailPage />
-                          </ProtectedRoute>
-                        } />
+                            {/* Rutas de Encuestas */}
+                            <Route path="encuestas" element={<EncuestaPage />} />
+                            <Route path="encuestas/new" element={
+                              <ProtectedRoute requiredRole="ADMIN">
+                                <CreateEncuestaPage />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="encuestas/edit/:id" element={
+                              <ProtectedRoute requiredRole="ADMIN">
+                                <CreateEncuestaPage />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="encuestas/view/:id" element={<ViewEncuestaPage />} />
 
-                        {/* Alias para acceder por /emailing (compatibilidad con Sidebar) */}
-                        <Route path="emailing" element={
-                          <ProtectedRoute requiredModule="MAILING">
-                            <MailingListPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="emailing/:id/edit" element={
-                          <ProtectedRoute requiredRole="ADMIN" requiredModule="MAILING">
-                            <MailingEditorPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="emailing/:id/metricas" element={
-                          <ProtectedRoute requiredModule="MAILING">
-                            <MetricsDetailPage />
-                          </ProtectedRoute>
-                        } />
+                            {/* Rutas de Campañas - Solo ADMIN */}
+                            <Route path="marketing/campanas/:tab?" element={
+                              <ProtectedRoute requiredRole="ADMIN">
+                                <CampanasListPage />
+                              </ProtectedRoute>
+                            } />
 
-                        {/* Rutas de Campa?as Telef?nicas */}
-                        <Route path="marketing/campanas/telefonicas/*" element={
-                          <ProtectedRoute requiredModule="TELEFONIA">
-                            <TelemarketingRoutes />
-                          </ProtectedRoute>
-                        } />
-                      </Route>
-                    </Routes>
-                  </CampanasGestorProvider>
-                </ImportHistoryProvider>
-              </CampaignsProvider>
-            </LeadsProvider>
-          </SegmentosProvider>
+                            {/* Rutas de Campa?as de Mailing */}
+                            <Route path="marketing/campanas/mailing" element={
+                              <ProtectedRoute requiredModule="MAILING">
+                                <MailingListPage />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="marketing/campanas/mailing/:id/edit" element={
+                              <ProtectedRoute requiredRole="ADMIN" requiredModule="MAILING">
+                                <MailingEditorPage />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="marketing/campanas/mailing/:id/metricas" element={
+                              <ProtectedRoute requiredModule="MAILING">
+                                <MetricsDetailPage />
+                              </ProtectedRoute>
+                            } />
+
+                            {/* Alias para acceder por /emailing (compatibilidad con Sidebar) */}
+                            <Route path="emailing" element={
+                              <ProtectedRoute requiredModule="MAILING">
+                                <MailingListPage />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="emailing/:id/edit" element={
+                              <ProtectedRoute requiredRole="ADMIN" requiredModule="MAILING">
+                                <MailingEditorPage />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="emailing/:id/metricas" element={
+                              <ProtectedRoute requiredModule="MAILING">
+                                <MetricsDetailPage />
+                              </ProtectedRoute>
+                            } />
+
+                            {/* Rutas de Campa?as Telef?nicas */}
+                            <Route path="marketing/campanas/telefonicas/*" element={
+                              <ProtectedRoute requiredModule="TELEFONIA">
+                                <TelemarketingRoutes />
+                              </ProtectedRoute>
+                            } />
+                          </Route>
+                        </Routes>
+                      </EncuestasProvider>
+                    </CampanasGestorProvider>
+                  </ImportHistoryProvider>
+                </CampaignsProvider>
+              </LeadsProvider>
+            </SegmentosProvider>
+          </MailingProvider>                     
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -6,11 +6,14 @@ import { Button } from '../../../../../shared/components/ui/Button';
 import { downloadCSV } from '../../../../../shared/utils/exportUtils';
 import { SurveyDetailModal } from '../components/SurveyDetailModal';
 import { useAuth } from '../../../../../shared/context/AuthContext';
+import { useCachedCampaignData } from '../context/CampaignCacheContext';
+import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
+import { LoadingDots } from '../../../../../shared/components/ui/LoadingDots';
 
 export const CallHistoryPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const [llamadas, setLlamadas] = useState<Llamada[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [llamadasGlobales, setLlamadasGlobales] = useState<Llamada[]>([]);
+    const [loadingGlobal, setLoadingGlobal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [resultadoFilter, setResultadoFilter] = useState<string>('Todos');
     const [selectedLlamada, setSelectedLlamada] = useState<Llamada | null>(null);
@@ -20,47 +23,54 @@ export const CallHistoryPage: React.FC = () => {
     const { user } = useAuth();
     const currentAgentId = user?.agentId;
 
+    // Usar caché para historial de campaña específica
+    const { data: llamadasCampania = [], loading: loadingCampania } = useCachedCampaignData<Llamada[]>(
+        id ? Number(id) : undefined,
+        'history'
+    );
+
+    // Determinar qué datos usar
+    const llamadas = id ? llamadasCampania : llamadasGlobales;
+    const loading = id ? loadingCampania : loadingGlobal;
+
     useEffect(() => {
-        loadHistorial();
+        // Solo cargar historial global si no hay ID de campaña
+        if (!id && currentAgentId !== undefined) {
+            loadHistorialGlobal();
+        }
     }, [id, currentAgentId]);
 
-    const loadHistorial = async () => {
+    useEffect(() => {
+        // Seleccionar primera llamada cuando cambien los datos
+        if (llamadas.length > 0 && !selectedLlamada) {
+            setSelectedLlamada(llamadas[0]);
+        }
+    }, [llamadas]);
+
+    const loadHistorialGlobal = async () => {
         try {
-            setLoading(true);
-            if (id) {
-                const campaignId = Number(id);
-                if (Number.isNaN(campaignId)) {
-                    throw new Error('ID de campania invalido');
-                }
-                const data = await telemarketingApi.getHistorialLlamadas(campaignId);
-                setLlamadas(data);
-                setSelectedLlamada(data[0] ?? null);
-            } else {
-                if (currentAgentId === undefined) {
-                    console.warn('No hay agente asignado para cargar el historial global');
-                    setLlamadas([]);
-                    setSelectedLlamada(null);
-                    return;
-                }
-
-                const campanias = await telemarketingApi.getCampaniasAsignadas();
-                const allCallsPromises = campanias.map(c =>
-                    telemarketingApi.getHistorialLlamadas(c.id).then(calls =>
-                        calls.map(call => ({ ...call, nombreCampania: c.nombre }))
-                    )
-                );
-                const results = await Promise.all(allCallsPromises);
-                const allCalls = results
-                    .flat()
-                    .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime());
-
-                setLlamadas(allCalls);
-                setSelectedLlamada(allCalls[0] ?? null);
+            setLoadingGlobal(true);
+            if (currentAgentId === undefined) {
+                setLlamadasGlobales([]);
+                return;
             }
+
+            const campanias = await telemarketingApi.getCampaniasAsignadas();
+            const allCallsPromises = campanias.map(c =>
+                telemarketingApi.getHistorialLlamadas(c.id).then(calls =>
+                    calls.map(call => ({ ...call, nombreCampania: c.nombre }))
+                )
+            );
+            const results = await Promise.all(allCallsPromises);
+            const allCalls = results
+                .flat()
+                .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime());
+
+            setLlamadasGlobales(allCalls);
         } catch (error) {
-            console.error('Error cargando historial:', error);
+            console.error('Error cargando historial global:', error);
         } finally {
-            setLoading(false);
+            setLoadingGlobal(false);
         }
     };
 
@@ -82,7 +92,7 @@ export const CallHistoryPage: React.FC = () => {
     };
 
     const normalizeResultado = (value?: string | null) =>
-        value?.toString().trim().toUpperCase().replace(/\s+/g, '_') ?? '';
+        value?.toString().trim().toUpperCase().replace(/\\s+/g, '_') ?? '';
 
     const filteredLlamadas = llamadas.filter(l => {
         const normalizedFilter = normalizeResultado(resultadoFilter);
@@ -228,8 +238,9 @@ export const CallHistoryPage: React.FC = () => {
                     {/* Tabla de llamadas */}
                     <div className="flex flex-col flex-1 bg-white rounded-lg border border-gray-200 overflow-hidden">
                         {loading ? (
-                            <div className="flex items-center justify-center h-64">
-                                <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
+                            <div className="flex flex-col items-center justify-center h-64 gap-4">
+                                <LoadingSpinner size="lg" />
+                                <LoadingDots text="Cargando historial de llamadas" className="text-gray-600 font-medium" />
                             </div>
                         ) : (
                             <div className="overflow-x-auto">

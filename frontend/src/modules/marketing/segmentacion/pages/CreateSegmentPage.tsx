@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../../shared/components/ui/Button';
 import { FilterBuilder } from '../components/FilterBuilder';
 import { SegmentPreviewTable } from '../components/SegmentPreviewTable';
-import { FilterDefinition } from '../components/FilterRow';
+import { FilterDefinition, FilterOption } from '../components/FilterRow';
 import { TemplateModal } from '../components/TemplateModal';
 import { SavingProgressModal } from '../components/SavingProgressModal';
 import { ConfirmCancelModal } from '../components/ConfirmCancelModal';
@@ -31,6 +31,11 @@ export const CreateSegmentPage: React.FC = () => {
     const [previewMembers, setPreviewMembers] = useState<any[]>([]);
     const [previewCount, setPreviewCount] = useState(0);
     const [leadIds, setLeadIds] = useState<number[]>([]);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+
+    // Available filters based on audience
+    const [availableFilters, setAvailableFilters] = useState<FilterOption[]>([]);
 
     // Function to fetch preview data
     const fetchPreview = useCallback(async () => {
@@ -77,35 +82,17 @@ export const CreateSegmentPage: React.FC = () => {
             setPreviewCount(count);
             setLeadIds(ids);
 
-            // Fetch actual lead data using batch endpoint (1 request instead of N)
+            // Fetch actual data using batch endpoint based on audience type
             if (ids.length > 0) {
-                const leadsToFetch = ids.slice(0, 10);
-                console.log('Fetching lead details in batch for IDs:', leadsToFetch);
-
-                const batchResponse = await leadsApi.getLeadsBatch(leadsToFetch);
-                const leads = batchResponse.data;
-
-                console.log('Batch response:', leads);
-
-                // Transform lead data to preview format
-                const members = leads.map(lead => {
-                    return {
-                        id: lead.id,
-                        nombre: lead.nombreCompleto,
-                        edad: lead.demograficos?.edad || 0,
-                        correo: lead.contacto?.email || '',
-                        telefono: lead.contacto?.telefono || '',
-                        direccion: lead.demograficos?.distritoNombre
-                            ? `${lead.demograficos.distritoNombre}, ${lead.demograficos.provinciaNombre || ''}`
-                            : 'No especificado'
-                    };
-                });
-
-                console.log('Transformed members:', members);
-                setPreviewMembers(members);
+                // Reset to first page when new search is performed
+                setCurrentPage(0);
+                // Calculate total pages
+                const totalPgs = Math.ceil(ids.length / 10);
+                setTotalPages(totalPgs);
             } else {
-                console.log('No lead IDs to fetch');
+                console.log('No IDs to fetch');
                 setPreviewMembers([]);
+                setTotalPages(0);
             }
         } catch (error: any) {
             console.error('Error fetching preview:', error);
@@ -117,6 +104,138 @@ export const CreateSegmentPage: React.FC = () => {
             setIsPreviewLoading(false);
         }
     }, [tipoAudiencia, filters, nombre]);
+
+    // Effect to fetch details when page or IDs change
+    useEffect(() => {
+        const fetchDetails = async () => {
+            if (leadIds.length === 0) {
+                setPreviewMembers([]);
+                return;
+            }
+
+            setIsPreviewLoading(true);
+            try {
+                // Calculate pagination
+                const startIdx = currentPage * 10;
+                const endIdx = startIdx + 10;
+                const idsToFetch = leadIds.slice(startIdx, endIdx);
+
+                console.log(`Fetching page ${currentPage + 1}, IDs:`, idsToFetch);
+
+                if (tipoAudiencia === 'CLIENTE') {
+                    // TODO: Cuando tengas API real de clientes, crear clientesApi.getClientesBatch
+                    // Por ahora, simular con datos mock
+                    const mockMembers = idsToFetch.map(id => ({
+                        id: id,
+                        nombre: `Cliente ${id}`,
+                        edad: 20 + (id % 40),
+                        correo: `cliente${id}@test.com`,
+                        telefono: `99${id}123456`
+                    }));
+                    setPreviewMembers(mockMembers);
+                } else {
+                    // LEAD: usar API real
+                    const batchResponse = await leadsApi.getLeadsBatch(idsToFetch);
+                    const leads = batchResponse.data;
+
+                    // Transform lead data to preview format (sin dirección)
+                    const members = leads.map(lead => {
+                        return {
+                            id: lead.id,
+                            nombre: lead.nombreCompleto,
+                            edad: lead.demograficos?.edad || 0,
+                            correo: lead.contacto?.email || '',
+                            telefono: lead.contacto?.telefono || ''
+                        };
+                    });
+                    setPreviewMembers(members);
+                }
+            } catch (error) {
+                console.error('Error fetching details:', error);
+                setPreviewMembers([]);
+            } finally {
+                setIsPreviewLoading(false);
+            }
+        };
+
+        fetchDetails();
+    }, [leadIds, currentPage, tipoAudiencia]);
+
+    // Fetch available filters when audience type changes
+    useEffect(() => {
+        const fetchFilters = async () => {
+            if (!tipoAudiencia) {
+                setAvailableFilters([]);
+                setFilters([]); // Clear filters when no audience selected
+                return;
+            }
+
+            // Para LEAD: usar filtros hardcodeados originales
+            if (tipoAudiencia === 'LEAD') {
+                const leadFilters: FilterOption[] = [
+                    { value: 'genero', label: 'Género', type: 'select', options: ['Masculino', 'Femenino', 'Otro'] },
+                    { value: 'edad', label: 'Edad', type: 'number' },
+                    { value: 'provincia', label: 'Provincia', type: 'text' },
+                    { value: 'estado_civil', label: 'Estado Civil', type: 'select', options: ['Soltero(a)', 'Casado(a)', 'Divorciado(a)', 'Viudo(a)'] },
+                    { value: 'distrito', label: 'Distrito', type: 'text' },
+                    { value: 'departamento', label: 'Departamento', type: 'text' },
+                    { value: 'utmSource', label: 'Fuente de Campaña', type: 'text' },
+                    { value: 'utmMedium', label: 'Medio de Campaña', type: 'text' },
+                    { value: 'utmCampaign', label: 'Nombre de Campaña', type: 'text' },
+                    { value: 'tipoFuente', label: 'Tipo de Origen', type: 'select', options: ['WEB', 'MANUAL', 'IMPORTACION'] },
+                ];
+                setAvailableFilters(leadFilters);
+                setFilters([]);
+                return;
+            }
+
+            // Para CLIENTE: cargar desde API con labels mejorados
+            try {
+                const response = await segmentacionApi.getFiltersByAudience(tipoAudiencia);
+                const filters = (response as any).data || response;
+
+                // Mapeo de campos a labels amigables
+                const labelMap: Record<string, string> = {
+                    'edad': 'Edad',
+                    'genero': 'Género',
+                    'nivelEducativo': 'Nivel Educativo',
+                    'ocupacion': 'Ocupación',
+                    'total_gastado': 'Total Gastado',
+                    'total_transacciones': 'Total de Transacciones',
+                    'score_fidelidad': 'Score de Fidelidad',
+                    'acepta_publicidad': 'Acepta Publicidad'
+                };
+
+                // Filtros que tienen sentido mostrar (excluir email, etc.)
+                const allowedFields = ['edad', 'genero', 'nivelEducativo', 'ocupacion',
+                    'total_gastado', 'total_transacciones', 'score_fidelidad',
+                    'acepta_publicidad'];
+
+                const filterOptions: FilterOption[] = filters
+                    .filter((f: any) => allowedFields.includes(f.campo))
+                    .map((f: any) => ({
+                        value: f.campo,
+                        label: labelMap[f.campo] || f.campo,
+                        // Tipos correctos según el campo
+                        type: f.campo === 'genero' ? 'select' :
+                            f.campo === 'nivelEducativo' ? 'select' :
+                                f.campo === 'acepta_publicidad' ? 'select' :
+                                    ['edad', 'total_gastado', 'total_transacciones', 'score_fidelidad'].includes(f.campo) ? 'number' : 'text',
+                        options: f.campo === 'genero' ? ['MASCULINO', 'FEMENINO', 'OTRO'] :
+                            f.campo === 'nivelEducativo' ? ['SECUNDARIA', 'TECNICO', 'UNIVERSITARIO', 'POSTGRADO'] :
+                                f.campo === 'acepta_publicidad' ? ['true', 'false'] : undefined
+                    }));
+
+                setAvailableFilters(filterOptions);
+                setFilters([]); // Clear existing filters when audience changes
+            } catch (error) {
+                console.error('Error fetching filters:', error);
+                setAvailableFilters([]);
+            }
+        };
+
+        fetchFilters();
+    }, [tipoAudiencia]);
 
     const handleSave = async () => {
         if (!nombre || !tipoAudiencia) {
@@ -351,9 +470,11 @@ export const CreateSegmentPage: React.FC = () => {
                     {/* Filter Builder */}
                     <FilterBuilder
                         filters={filters}
+                        availableFilters={availableFilters}
                         onFiltersChange={setFilters}
                         onPreview={fetchPreview}
                         isPreviewLoading={isPreviewLoading}
+                        disabled={!tipoAudiencia}
                     />
 
                 </div>
@@ -363,6 +484,9 @@ export const CreateSegmentPage: React.FC = () => {
                     <SegmentPreviewTable
                         members={previewMembers}
                         totalCount={previewCount}
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
                         isLoading={isPreviewLoading}
                     />
                 </div>

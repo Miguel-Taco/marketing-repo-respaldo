@@ -1,11 +1,13 @@
 import axios from 'axios';
 import { LoginRequest, LoginResponse, UserInfo } from '../types/auth.types';
 
-const API_URL = 'http://localhost:8080/api/auth';
+const ENV_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+const API_BASE_URL = ENV_API_URL.replace(/\/v1\/?$/, ''); // Removes /v1 suffix to get base /api
+const API_URL = `${API_BASE_URL}/auth`;
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
-    baseURL: 'http://localhost:8080/api',
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },

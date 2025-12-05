@@ -4,6 +4,7 @@ import { useLeads } from '../hooks/useLeads';
 import { LeadTable } from '../components/LeadTable';
 import { DeleteLeadsModal } from '../components/DeleteLeadsModal';
 import { ChangeStatusModal } from '../components/ChangeStatusModal';
+import { LeadReportModal } from '../components/LeadReportModal';
 import { leadsApi } from '../services/leads.api';
 import { Button } from '../../../../shared/components/ui/Button';
 import { Tabs } from '../../../../shared/components/ui/Tabs';
@@ -19,6 +20,7 @@ export const LeadsListPage: React.FC = () => {
     // Estados para modales
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [changeStatusModalOpen, setChangeStatusModalOpen] = useState(false);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
 
     // Estados de acción
@@ -154,6 +156,12 @@ export const LeadsListPage: React.FC = () => {
     // Obtener los objetos lead seleccionados
     const selectedLeads = leads.filter(lead => selectedIds.includes(lead.id));
 
+    // Efecto para recargar la lista al montar (para actualizar estados al volver del detalle)
+    // REMOVED: Ya no es necesario porque LeadsContext maneja el caching y recarga solo si es necesario.
+    // React.useEffect(() => {
+    //    refresh();
+    // }, []);
+
     return (
         <div className="space-y-6">
             {/* Nivel 2: Header Principal */}
@@ -164,6 +172,10 @@ export const LeadsListPage: React.FC = () => {
                 </div>
                 {isAdmin && (
                     <div className="flex space-x-3">
+                        <Button variant="secondary" onClick={() => setReportModalOpen(true)}>
+                            <span className="material-symbols-outlined text-lg mr-1.5">description</span>
+                            Reportes
+                        </Button>
                         <Button variant="secondary" onClick={() => navigate('/leads/import')}>
                             <span className="material-symbols-outlined text-lg mr-1.5">upload</span>
                             Importar Leads
@@ -197,7 +209,7 @@ export const LeadsListPage: React.FC = () => {
                         <span className="material-symbols-outlined absolute left-3 top-2.5 text-gray-400">search</span>
                         <input
                             type="text"
-                            placeholder="Buscar por nombre, email o teléfono..."
+                            placeholder="Buscar por nombre..."
                             className="w-full pl-10 pr-4 py-2 border border-separator rounded-lg focus:ring-2 focus:ring-primary focus:outline-none transition-all"
                             value={searchTerm}
                             onChange={handleSearch}
@@ -412,6 +424,13 @@ export const LeadsListPage: React.FC = () => {
                 onConfirm={confirmChangeStatus}
                 isLoading={isChangingStatus}
             />
+
+            {/* Modal de Reportes */}
+            <LeadReportModal
+                isOpen={reportModalOpen}
+                onClose={() => setReportModalOpen(false)}
+            />
         </div>
     );
 };
+

@@ -3,15 +3,6 @@ import { campanasApi } from '../services/campanas.api';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-interface HistorialItem {
-    idHistorial: number;
-    idCampana: number;
-    nombreCampana: string;
-    fechaAccion: string;
-    tipoAccion: string;
-    descripcionDetalle: string;
-}
-
 import { useCampanasGestorContext } from '../context/CampanasGestorContext';
 
 interface HistorialTabProps {
@@ -147,23 +138,31 @@ export const HistorialTab: React.FC<HistorialTabProps> = ({ onTotalElementsChang
                     <ul className="divide-y divide-separator">
                         {filteredHistorial.map((item) => (
                             <li key={item.idHistorial} className="p-6 hover:bg-gray-50 transition-colors">
-                                <p className="text-gray-500 text-sm">
-                                    <span className="font-bold text-primary hover:underline cursor-pointer">
-                                        {item.nombreCampana}
-                                    </span>
-                                    {' '}ha sido{' '}
-                                    <span className={`font-medium ${getActionColor(item.tipoAccion)}`}>
-                                        {formatActionName(item.tipoAccion)}
-                                    </span>.
-                                </p>
-                                <p className="text-gray-500 text-sm mt-1">
-                                    {format(new Date(item.fechaAccion), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
-                                    {item.descripcionDetalle && (
-                                        <span className="block mt-1 text-gray-600 italic">
-                                            "{item.descripcionDetalle}"
-                                        </span>
-                                    )}
-                                </p>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-gray-500 text-sm">
+                                            <span className="font-bold text-primary hover:underline cursor-pointer">
+                                                {item.nombreCampana}
+                                            </span>
+                                            {' '}ha sido{' '}
+                                            <span className={`font-medium ${getActionColor(item.tipoAccion)}`}>
+                                                {formatActionName(item.tipoAccion)}
+                                            </span>
+                                            {' '}por{' '}
+                                            <span className="font-medium text-dark">
+                                                {item.usuarioResponsable || 'Sistema'}
+                                            </span>.
+                                        </p>
+                                        <p className="text-gray-500 text-sm mt-1">
+                                            {format(new Date(item.fechaAccion), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
+                                            {item.descripcionDetalle && (
+                                                <span className="block mt-1 text-gray-600 italic">
+                                                    "{item.descripcionDetalle}"
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
                             </li>
                         ))}
                     </ul>

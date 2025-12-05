@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../../shared/components/layout/Sidebar';
+import { ScheduledCallsNotification } from '../../modules/marketing/campañas/telefonicas/components/ScheduledCallsNotification';
 
 export const MainLayout: React.FC = () => {
     return (
@@ -12,6 +13,9 @@ export const MainLayout: React.FC = () => {
             <main className="flex-1 ml-20 p-8">
                 <Outlet />
             </main>
+
+            {/* Scheduled Calls Notification */}
+            <ScheduledCallsNotification />
         </div>
     );
 };

@@ -1,13 +1,13 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs } from '../../../../../shared/components/ui/Tabs';
 import { Input } from '../../../../../shared/components/ui/Input';
 import { Badge } from '../../../../../shared/components/ui/Badge';
 import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
 import { useToast } from '../../../../../shared/components/ui/Toast';
-import { mailingApi } from '../services/mailing.api';
 import { CampanaMailing, ESTADO_COLORS, PRIORIDAD_COLORS, MetricasMailing } from '../types/mailing.types';
 import { useAuth } from '../../../../../shared/context/AuthContext';
+import { useMailing } from '../context/MailingContext';
 
 interface CampanaConMetricas extends CampanaMailing {
     metricas?: MetricasMailing;
@@ -17,49 +17,52 @@ export const MailingListPage: React.FC = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
     const { user, hasRole } = useAuth();
+    
+    const { listarCampanas, metricsCache, obtenerMetricas } = useMailing();
 
     const [activeTab, setActiveTab] = useState('pendiente');
     const [campanas, setCampanas] = useState<CampanaConMetricas[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [metricsCache, setMetricsCache] = useState<Map<number, MetricasMailing>>(new Map());
+    
+    // ✅ KEY PARA FORZAR RE-RENDER LIMPIO AL CAMBIAR DE PESTAÑA
+    const [tableKey, setTableKey] = useState('pendiente');
 
     const idAgente = user?.agentId;
     const isAdmin = hasRole('ADMIN');
     const canEditCampaigns = isAdmin;
     const assignmentKey = (user?.campaniasMailing || []).join(',');
 
-    useEffect(() => {
-        if (isAdmin || idAgente) {
-            loadCampanas();
-        } else {
-            setCampanas([]);
-            setError('No tienes un agente asignado para operaciones de mailing.');
-        }
-    }, [activeTab, idAgente, isAdmin, assignmentKey]);
-
-    const loadCampanas = async () => {
+    // ✅ SEPARAR LA LÓGICA DE CARGAR CAMPAÑAS
+    const loadCampanas = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
+
             if (!isAdmin && !idAgente) {
                 setError('No hay agente asignado para campañas de mailing');
                 setCampanas([]);
                 return;
             }
-            const data = await mailingApi.listarCampanas(activeTab);
+
+            // ✅ Obtener datos del context
+            const data = await listarCampanas(activeTab);
+
             if (!isAdmin && (!user?.campaniasMailing || user.campaniasMailing.length === 0)) {
                 setError('No tienes campañas de mailing asignadas. Solicita acceso al administrador.');
                 setCampanas([]);
                 return;
             }
 
+            // ✅ Filtrar solo campañas asignadas
             const visibleCampanas = !isAdmin && user?.campaniasMailing?.length
                 ? (data || []).filter(c => user.campaniasMailing?.includes(c.id))
                 : (data || []);
 
+            // ✅ CRITICAL: Establecer campanas Y tableKey al mismo tiempo
             setCampanas(visibleCampanas);
+            setTableKey(activeTab); // Esto fuerza re-render limpio de la tabla
 
             // Cargar métricas para campañas en estado ENVIADO o FINALIZADO
             if (['enviado', 'finalizado'].includes(activeTab)) {
@@ -73,28 +76,26 @@ export const MailingListPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab, isAdmin, idAgente, user?.campaniasMailing, listarCampanas, showToast]);
+
+    // ✅ EFECTO QUE SE EJECUTA CUANDO CAMBIA activeTab
+    useEffect(() => {
+        loadCampanas();
+    }, [activeTab, loadCampanas]);
 
     const cargarMetricas = async (campanasData: CampanaMailing[]) => {
-        const nuevasMetricas = new Map(metricsCache);
-
         for (const campana of campanasData) {
-            if (!nuevasMetricas.has(campana.id)) {
-                try {
-                    const metricas = await mailingApi.obtenerMetricas(campana.id);
-                    nuevasMetricas.set(campana.id, metricas);
-                } catch (err) {
-                    console.error(`Error cargando métricas para campaña ${campana.id}:`, err);
-                }
+            try {
+                await obtenerMetricas(campana.id);
+            } catch (err) {
+                console.error(`Error cargando métricas para campaña ${campana.id}:`, err);
             }
         }
 
-        setMetricsCache(nuevasMetricas);
-
-        // Actualizar campanas con métricas
+        // ✅ Actualizar campanas con métricas después de cargar todas
         setCampanas(prev => prev.map(c => ({
             ...c,
-            metricas: nuevasMetricas.get(c.id)
+            metricas: metricsCache.get(c.id)
         })));
     };
 
@@ -111,7 +112,6 @@ export const MailingListPage: React.FC = () => {
         navigate(`/emailing/${id}/metricas`);
     };
 
-    // Determinar qué columnas mostrar según el estado
     const mostrarMetricas = ['enviado', 'finalizado'].includes(activeTab);
 
     return (
@@ -154,8 +154,11 @@ export const MailingListPage: React.FC = () => {
                 </button>
             </div>
 
-            {/* Tabla */}
-            <div className="bg-white rounded-lg shadow-sm border border-separator overflow-hidden">
+            {/* Tabla - ✅ KEY FUERZA RE-RENDER LIMPIO */}
+            <div 
+                key={tableKey}
+                className="bg-white rounded-lg shadow-sm border border-separator overflow-hidden"
+            >
                 {error ? (
                     <div className="p-8">
                         <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -184,7 +187,6 @@ export const MailingListPage: React.FC = () => {
                                     <th className="p-4 text-sm font-semibold text-dark tracking-wide">DESCRIPCIÓN</th>
                                     <th className="p-4 text-sm font-semibold text-dark tracking-wide w-32">FECHA DE INICIO</th>
 
-                                    {/* Columnas Dinámicas según Estado */}
                                     {mostrarMetricas && (
                                         <>
                                             <th className="p-4 text-sm font-semibold text-dark tracking-wide w-28 text-center">TASA APERTURA</th>
@@ -222,7 +224,7 @@ export const MailingListPage: React.FC = () => {
                                     </tr>
                                 ) : (
                                     filteredCampanas.map((campana) => (
-                                        <tr key={campana.id} className="hover:bg-gray-50 transition-colors">
+                                        <tr key={`${activeTab}-${campana.id}`} className="hover:bg-gray-50 transition-colors">
                                             {/* Prioridad */}
                                             <td className="p-4">
                                                 <span className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${PRIORIDAD_COLORS[campana.prioridad]}`}>
@@ -254,17 +256,14 @@ export const MailingListPage: React.FC = () => {
                                             {/* Columnas Dinámicas */}
                                             {mostrarMetricas && campana.metricas && (
                                                 <>
-                                                    {/* Tasa Apertura */}
                                                     <td className="p-4 text-sm text-gray-900 font-medium text-center">
                                                         {campana.metricas.tasaApertura.toFixed(1)}%
                                                     </td>
 
-                                                    {/* Tasa Clics */}
                                                     <td className="p-4 text-sm text-gray-900 font-medium text-center">
                                                         {campana.metricas.tasaClics.toFixed(1)}%
                                                     </td>
 
-                                                    {/* Bajas (solo para FINALIZADO) */}
                                                     {activeTab === 'finalizado' && (
                                                         <td className="p-4 text-sm text-gray-900 font-medium text-center">
                                                             {campana.metricas.bajas}
@@ -276,7 +275,6 @@ export const MailingListPage: React.FC = () => {
                                             {/* Acciones */}
                                             <td className="p-4 text-center">
                                                 <div className="flex gap-2 justify-center">
-                                                    {/* Botón Editar (solo PENDIENTE/LISTO) */}
                                                     {canEditCampaigns && ['pendiente', 'listo'].includes(activeTab) && (
                                                         <button
                                                             onClick={() => handleEdit(campana.id)}
@@ -287,7 +285,6 @@ export const MailingListPage: React.FC = () => {
                                                         </button>
                                                     )}
 
-                                                    {/* Botón Métricas (solo ENVIADO/FINALIZADO) */}
                                                     {mostrarMetricas && (
                                                         <button
                                                             onClick={() => handleViewMetrics(campana.id)}

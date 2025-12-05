@@ -10,11 +10,15 @@ import { ViewScriptModal } from '../components/ViewScriptModal';
 import { FileUploadDropzone } from '../components/FileUploadDropzone';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { Button } from '../../../../../shared/components/ui/Button';
+import { useCampaignCache } from '../context/CampaignCacheContext';
+import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
+import { LoadingDots } from '../../../../../shared/components/ui/LoadingDots';
 
 export const ScriptManagementPage: React.FC = () => {
     const { id: campaignId } = useParams<{ id: string }>();
     const [guiones, setGuiones] = useState<GuionDTO[]>([]);
     const [loading, setLoading] = useState(false);
+    const { invalidateCache } = useCampaignCache();
 
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -56,6 +60,11 @@ export const ScriptManagementPage: React.FC = () => {
         loadGuiones();
         setIsCreateModalOpen(false);
         setSelectedGuionForEdit(null);
+
+        // Invalidar caché de guiones si estamos en contexto de campaña
+        if (campaignId) {
+            invalidateCache(Number(campaignId), ['scripts', 'guion']);
+        }
     };
 
     const handleEdit = (guion: GuionDTO) => {
@@ -87,6 +96,12 @@ export const ScriptManagementPage: React.FC = () => {
             await guionesApi.deleteGuion(selectedGuionForDelete.id);
             // Reload the scripts list after successful deletion
             await loadGuiones();
+
+            // Invalidar caché de guiones si estamos en contexto de campaña
+            if (campaignId) {
+                invalidateCache(Number(campaignId), ['scripts', 'guion']);
+            }
+
             // Close modal and reset state
             setIsDeleteModalOpen(false);
             setSelectedGuionForDelete(null);
@@ -112,6 +127,9 @@ export const ScriptManagementPage: React.FC = () => {
             await guionesApi.uploadGuionFile(Number(campaignId), file);
             // Reload the scripts list after successful upload
             await loadGuiones();
+
+            // Invalidar caché de guiones de la campaña
+            invalidateCache(Number(campaignId), ['scripts', 'guion']);
         } catch (error: any) {
             console.error('Error uploading file:', error);
             throw new Error(error.response?.data?.message || 'Error al subir el archivo');
@@ -184,8 +202,9 @@ export const ScriptManagementPage: React.FC = () => {
 
             {/* Content */}
             {loading ? (
-                <div className="flex-1 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                    <LoadingSpinner size="lg" />
+                    <LoadingDots text="Cargando guiones" className="text-gray-600 font-medium" />
                 </div>
             ) : filteredGuiones.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-gray-500 bg-white rounded-lg border border-gray-200 border-dashed m-1">

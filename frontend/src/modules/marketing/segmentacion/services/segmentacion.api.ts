@@ -67,5 +67,10 @@ export const segmentacionApi = {
     exportSegment: (id: number, segmentName: string) => {
         const filename = generateExportFilename(`segmento_${segmentName.replace(/\s+/g, '_')}`);
         return exportToExcel(`${ENDPOINT}/${id}/export`, undefined, 'GET', undefined, filename);
+    },
+
+    // 10. Obtener filtros disponibles por tipo de audiencia
+    getFiltersByAudience: (tipoAudiencia: string) => {
+        return http.get<any[]>(`/catalogo-filtros/por-audiencia?tipoAudiencia=${tipoAudiencia}`);
     }
 };

@@ -18,7 +18,7 @@ export const LeadCapturePage: React.FC = () => {
         const result = await createLead(data);
         if (result.success) {
             // Refresh the leads list so it's ready when user navigates back
-            fetchLeads();
+            fetchLeads(true);
             setShowSuccessModal(true);
         } else {
             setErrorMessage(result.error || 'Error desconocido al crear el lead');

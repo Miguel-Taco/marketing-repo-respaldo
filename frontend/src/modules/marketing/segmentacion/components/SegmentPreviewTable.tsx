@@ -6,18 +6,23 @@ interface PreviewMember {
     edad: number;
     correo: string;
     telefono: string;
-    direccion: string;
 }
 
 interface SegmentPreviewTableProps {
     members: PreviewMember[];
     totalCount: number;
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
     isLoading?: boolean;
 }
 
 export const SegmentPreviewTable: React.FC<SegmentPreviewTableProps> = ({
     members,
     totalCount,
+    currentPage,
+    totalPages,
+    onPageChange,
     isLoading = false
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -26,8 +31,7 @@ export const SegmentPreviewTable: React.FC<SegmentPreviewTableProps> = ({
         const search = searchTerm.toLowerCase();
         return (
             member.nombre.toLowerCase().includes(search) ||
-            member.correo.toLowerCase().includes(search) ||
-            member.direccion.toLowerCase().includes(search)
+            member.correo.toLowerCase().includes(search)
         );
     });
 
@@ -58,7 +62,7 @@ export const SegmentPreviewTable: React.FC<SegmentPreviewTableProps> = ({
             <div className="relative mb-6">
                 <input
                     type="search"
-                    placeholder="Buscar por Nombre, Correo o Dirección..."
+                    placeholder="Buscar por Nombre o Correo..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 border border-separator rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
@@ -85,15 +89,12 @@ export const SegmentPreviewTable: React.FC<SegmentPreviewTableProps> = ({
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase border-b-2 border-gray-200 w-32">
                                 Número
                             </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase border-b-2 border-gray-200">
-                                Dirección
-                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {filteredMembers.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
                                     {searchTerm ? 'No se encontraron miembros que coincidan con la búsqueda.' : 'No hay miembros para mostrar.'}
                                 </td>
                             </tr>
@@ -104,17 +105,32 @@ export const SegmentPreviewTable: React.FC<SegmentPreviewTableProps> = ({
                                     <td className="px-4 py-3 text-sm text-gray-800">{member.edad}</td>
                                     <td className="px-4 py-3 text-sm text-gray-800">{member.correo}</td>
                                     <td className="px-4 py-3 text-sm text-gray-800">{member.telefono}</td>
-                                    <td className="px-4 py-3 text-sm text-gray-800">{member.direccion}</td>
                                 </tr>
                             ))
                         )}
                     </tbody>
                 </table>
 
-                {/* Footer Info */}
-                {filteredMembers.length > 0 && (
-                    <div className="mt-4 text-center text-xs text-gray-500 bg-gray-50 py-3 rounded">
-                        Mostrando {filteredMembers.length} de {totalCount} miembros.
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between bg-gray-50 py-3 px-4 rounded">
+                        <button
+                            onClick={() => onPageChange(currentPage - 1)}
+                            disabled={currentPage === 0}
+                            className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Anterior
+                        </button>
+                        <span className="text-sm text-gray-600">
+                            Página {currentPage + 1} de {totalPages}
+                        </span>
+                        <button
+                            onClick={() => onPageChange(currentPage + 1)}
+                            disabled={currentPage >= totalPages - 1}
+                            className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Siguiente
+                        </button>
                     </div>
                 )}
             </div>

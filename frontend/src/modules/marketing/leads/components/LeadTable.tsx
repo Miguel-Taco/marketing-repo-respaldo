@@ -1,5 +1,7 @@
 import React from 'react';
 import { Lead } from '../types/lead.types';
+import { LeadStatusBadge } from './LeadStatusBadge';
+import { LoadingSpinner } from '../../../../shared/components/ui/LoadingSpinner';
 
 interface LeadTableProps {
   leads: Lead[];
@@ -7,7 +9,7 @@ interface LeadTableProps {
   onViewDetail: (id: number) => void;
   selectedIds: number[];
   onSelectionChange: (ids: number[]) => void;
-  onDelete: (id: number) => void;
+  onDelete?: (id: number) => void;
 }
 
 export const LeadTable: React.FC<LeadTableProps> = ({
@@ -22,7 +24,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+          <LoadingSpinner size="lg" />
           <p className="mt-4 text-gray-600">Cargando leads...</p>
         </div>
       </div>
@@ -104,12 +106,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                 <div className="text-sm text-gray-500">{lead.contacto.email}</div>
               </td>
               <td className="p-4 whitespace-nowrap">
-                <span className={`chip ${lead.estado === 'CALIFICADO' ? 'bg-success-chip text-success-chip' :
-                  lead.estado === 'NUEVO' ? 'bg-default-chip text-default-chip' :
-                    'bg-warn-chip text-warn-chip'
-                  }`}>
-                  {lead.estado}
-                </span>
+                <LeadStatusBadge estado={lead.estado} />
               </td>
               <td className="p-4 whitespace-nowrap">
                 <div className="text-dark">{getSourceLabel(lead)}</div>
@@ -130,16 +127,18 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                   >
                     Ver Detalle
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(lead.id);
-                    }}
-                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors focus:outline-none"
-                    title="Eliminar lead"
-                  >
-                    <span className="material-symbols-outlined text-xl">delete</span>
-                  </button>
+                  {onDelete && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(lead.id);
+                      }}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors focus:outline-none"
+                      title="Eliminar lead"
+                    >
+                      <span className="material-symbols-outlined text-xl">delete</span>
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

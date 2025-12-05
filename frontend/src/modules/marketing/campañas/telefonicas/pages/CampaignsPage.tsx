@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useCampaignsContext } from '../context/CampaignsContext';
 import { Button } from '../../../../../shared/components/ui/Button';
 import { PageHeader } from '../../../../../shared/components/layout/PageHeader';
+import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
+import { LoadingDots } from '../../../../../shared/components/ui/LoadingDots';
 
 export const CampaignsPage: React.FC = () => {
     const navigate = useNavigate();
@@ -134,8 +136,9 @@ export const CampaignsPage: React.FC = () => {
             {/* Tabla de campañas */}
             <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden flex-1">
                 {loading ? (
-                    <div className="flex items-center justify-center h-64">
-                        <span className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></span>
+                    <div className="flex flex-col items-center justify-center h-64 gap-4">
+                        <LoadingSpinner size="lg" />
+                        <LoadingDots text="Cargando campañas asignadas" className="text-gray-600 font-medium" />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -190,8 +193,8 @@ export const CampaignsPage: React.FC = () => {
                                         <td className="px-4 py-2 text-right">
                                             <button
                                                 className={`rounded-full px-4 py-2 text-xs font-bold transition-colors ${canAccessCampaign(campania.estado)
-                                                        ? 'bg-primary text-white hover:bg-primary/90 cursor-pointer'
-                                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                    ? 'bg-primary text-white hover:bg-primary/90 cursor-pointer'
+                                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                                     }`}
                                                 onClick={() => {
                                                     if (canAccessCampaign(campania.estado)) {

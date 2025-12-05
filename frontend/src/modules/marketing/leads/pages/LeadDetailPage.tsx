@@ -7,6 +7,7 @@ import { Button } from '../../../../shared/components/ui/Button';
 import { LeadStatusBadge } from '../components/LeadStatusBadge';
 import { useLeadMutations } from '../hooks/useLeadMutations';
 import { Modal } from '../../../../shared/components/ui/Modal';
+import { LoadingSpinner } from '../../../../shared/components/ui/LoadingSpinner';
 
 export const LeadDetailPage: React.FC = () => {
     const { id } = useParams();
@@ -75,7 +76,14 @@ export const LeadDetailPage: React.FC = () => {
         }
     };
 
-    if (loading || !lead) return <div className="p-10 text-center">Cargando detalle...</div>;
+    if (loading || !lead) {
+        return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center">
+                <LoadingSpinner size="lg" />
+                <p className="mt-4 text-gray-500 text-lg">Cargando detalle del lead...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

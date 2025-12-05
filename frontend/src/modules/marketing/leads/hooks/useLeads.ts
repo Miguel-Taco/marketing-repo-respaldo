@@ -10,7 +10,8 @@ export const useLeads = () => {
         totalPages: context.totalPages,
         totalElements: context.totalElements,
         currentPage: context.currentPage,
-        refresh: () => context.fetchLeads(true), // Force refresh
+        refresh: context.refresh,
+        fetchLeads: context.fetchLeads,
         setFilter: context.setFilter
     };
 };

@@ -96,3 +96,15 @@ export interface LoteImportacion {
     estadoCalculado: 'COMPLETADO' | 'CON_ERRORES' | 'EN_PROCESO' | 'VACIO';
 }
 
+export interface LeadReportFilterDTO {
+    fechaInicio?: string;
+    fechaFin?: string;
+    estado?: LeadState;
+    fuenteTipo?: LeadSourceType;
+    search?: string;
+    edadMin?: number;
+    edadMax?: number;
+    genero?: string;
+    distrito?: string;
+}
+

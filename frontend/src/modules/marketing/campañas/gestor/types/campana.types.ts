@@ -127,5 +127,6 @@ export interface HistorialItem {
     idCampana: number;
     fechaAccion: string; // ISO 8601
     tipoAccion: TipoAccion;
+    usuarioResponsable: string;
     descripcionDetalle: string | null;
 }

@@ -4,12 +4,15 @@ import type { MetricasAgente } from '../types';
 import { Button } from '../../../../../shared/components/ui/Button';
 import { downloadCSV } from '../../../../../shared/utils/exportUtils';
 import { useAuth } from '../../../../../shared/context/AuthContext';
+import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
+import { LoadingDots } from '../../../../../shared/components/ui/LoadingDots';
 
 export const AgentMetricsPage: React.FC = () => {
     const [metricas, setMetricas] = useState<MetricasAgente | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const { user } = useAuth();
+    const { user, hasRole } = useAuth();
+    const isAdmin = hasRole('ADMIN');
     const idAgente = user?.agentId;
 
     useEffect(() => {
@@ -56,7 +59,7 @@ export const AgentMetricsPage: React.FC = () => {
         return `${mins}m ${secs}s`;
     };
 
-    if (!idAgente) {
+    if (!isAdmin && !idAgente) {
         return (
             <div className="flex flex-col items-center justify-center h-screen gap-4">
                 <h2 className="text-2xl font-bold text-gray-900">No tienes un agente asignado</h2>
@@ -67,8 +70,9 @@ export const AgentMetricsPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen">
-                <span className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full"></span>
+            <div className="flex flex-col items-center justify-center h-screen gap-4">
+                <LoadingSpinner size="lg" />
+                <LoadingDots text="Cargando métricas" className="text-gray-600 font-medium" />
             </div>
         );
     }

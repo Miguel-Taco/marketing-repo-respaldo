@@ -1,8 +1,9 @@
 import React from 'react';
-import { FilterRow, FilterDefinition } from './FilterRow';
+import { FilterRow, FilterDefinition, FilterOption } from './FilterRow';
 
 interface FilterBuilderProps {
     filters: FilterDefinition[];
+    availableFilters: FilterOption[];
     onFiltersChange: (filters: FilterDefinition[]) => void;
     onPreview?: () => void;
     isPreviewLoading?: boolean;
@@ -11,6 +12,7 @@ interface FilterBuilderProps {
 
 export const FilterBuilder: React.FC<FilterBuilderProps> = ({
     filters,
+    availableFilters,
     onFiltersChange,
     onPreview,
     isPreviewLoading = false,
@@ -51,6 +53,7 @@ export const FilterBuilder: React.FC<FilterBuilderProps> = ({
                             filter={filter}
                             index={index}
                             showLogicOperator={index > 0}
+                            availableFilters={availableFilters}
                             onUpdate={handleUpdateFilter}
                             onRemove={handleRemoveFilter}
                             disabled={disabled}

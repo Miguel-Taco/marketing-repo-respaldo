@@ -8,20 +8,26 @@ import { generateMarkdownFromScript } from '../utils/markdownGenerator';
 import { MarkdownViewer } from '../components/MarkdownViewer';
 import { useCampaignsContext } from '../context/CampaignsContext';
 import { useAuth } from '../../../../../shared/context/AuthContext';
+import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
+import { LoadingDots } from '../../../../../shared/components/ui/LoadingDots';
+import { useCampaignCache } from '../context/CampaignCacheContext';
 
 export const CallScreenPage: React.FC = () => {
     const { id, idContacto } = useParams<{ id: string; idContacto: string }>();
     const navigate = useNavigate();
-    const { autoNext } = useCampaignsContext();
+    const { autoNext, fetchCampanias } = useCampaignsContext();
     const [contacto, setContacto] = useState<Contacto | null>(null);
     const [guion, setGuion] = useState<Guion | null>(null);
     const [loading, setLoading] = useState(true);
     const [enLlamada, setEnLlamada] = useState(false);
     const [showResultModal, setShowResultModal] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [tiempoInicio, setTiempoInicio] = useState<Date | null>(null);
     const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
-    const { user } = useAuth();
+    const { user, hasRole } = useAuth();
+    const isAdmin = hasRole('ADMIN');
     const hasAgent = Boolean(user?.agentId);
+    const { invalidateCache } = useCampaignCache();
 
     useEffect(() => {
         if (id && idContacto) {
@@ -75,6 +81,7 @@ export const CallScreenPage: React.FC = () => {
 
     const handleSaveResult = async (data: ResultadoLlamadaRequest, abrirSiguiente: boolean) => {
         try {
+            setSaving(true);
             const requestCompleto: ResultadoLlamadaRequest = {
                 ...data,
                 inicio: tiempoInicio!,
@@ -85,6 +92,29 @@ export const CallScreenPage: React.FC = () => {
             };
 
             await telemarketingApi.registrarResultado(Number(id), requestCompleto);
+
+            // INVALIDAR CACHÉ: Esta es la acción más importante
+            // Invalida todos los datos que se ven afectados por registrar una llamada
+            const cacheTypesToInvalidate: any[] = [
+                'queue',          // El contacto sale de la cola
+                'history',        // Nueva llamada en historial
+                'leads',          // Estado del lead actualizado
+                'dailyMetrics',   // Métricas diarias incrementadas
+                'campaignMetrics' // Métricas de campaña actualizadas
+            ];
+
+            // Si la llamada fue reagendada, invalidar también las llamadas programadas
+            if (requestCompleto.fechaReagendamiento) {
+                cacheTypesToInvalidate.push('scheduledCalls');
+            }
+
+            if (id) {
+                invalidateCache(Number(id), cacheTypesToInvalidate);
+            }
+
+            // También invalidar la lista global de campañas (porcentaje de avance)
+            fetchCampanias(true);
+
             setShowResultModal(false);
             setEnLlamada(false);
             setTiempoInicio(null);
@@ -102,6 +132,8 @@ export const CallScreenPage: React.FC = () => {
         } catch (error) {
             console.error('Error guardando resultado:', error);
             alert('Error al guardar el resultado. Por favor, intente nuevamente.');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -110,7 +142,7 @@ export const CallScreenPage: React.FC = () => {
         return Math.floor((new Date().getTime() - tiempoInicio.getTime()) / 1000);
     };
 
-    if (!hasAgent) {
+    if (!isAdmin && !hasAgent) {
         return (
             <div className="flex items-center justify-center h-screen">
                 <div className="max-w-md text-center space-y-4">
@@ -126,8 +158,9 @@ export const CallScreenPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen">
-                <span className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full"></span>
+            <div className="flex flex-col items-center justify-center h-screen gap-4">
+                <LoadingSpinner size="lg" />
+                <LoadingDots text="Cargando información del contacto y guion" className="text-gray-600 font-medium" />
             </div>
         );
     }
@@ -309,6 +342,7 @@ export const CallScreenPage: React.FC = () => {
                 idContacto={contacto.id}
                 duracionSegundos={tiempoTranscurrido}
                 autoNext={autoNext}
+                isSaving={saving}
             />
         </div>
     );

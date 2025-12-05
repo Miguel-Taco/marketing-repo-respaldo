@@ -96,6 +96,17 @@ export const telemarketingApi = {
         await apiClient.post(`${BASE_URL}/campanias-telefonicas/${idCampania}/reanudar-cola`);
     },
 
+    /**
+     * Obtiene las llamadas programadas del agente actual
+     */
+    async getLlamadasProgramadas(): Promise<Contacto[]> {
+        const response = await apiClient.get(
+            `${BASE_URL}/agentes/me/llamadas-programadas`
+        );
+        return response.data.data;
+    },
+
+
     // ========== LLAMADAS ==========
 
     /**

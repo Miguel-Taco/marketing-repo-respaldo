@@ -7,6 +7,7 @@ import { ScaleQuestionComponent } from './ScaleQuestionComponent';
 import { ChoiceQuestionComponent } from './ChoiceQuestionComponent';
 import { encuestasApi } from '../services/encuestas.api';
 import { Encuesta } from '../types';
+import { useEncuestasContext } from '../context/EncuestasContext';
 
 // Interfaces for Analytics Data
 interface TrendData {
@@ -27,8 +28,7 @@ interface SummaryData {
 }
 
 export const AnalyticsTab: React.FC = () => {
-    const [encuestas, setEncuestas] = useState<Encuesta[]>([]);
-    const [selectedEncuestaId, setSelectedEncuestaId] = useState<string>('');
+    const { encuestas, fetchEncuestas, analyticsCache, cacheAnalytics, analyticsSelectedId, setAnalyticsSelectedId } = useEncuestasContext();
     const [trendData, setTrendData] = useState<TrendData[]>([]);
     const [indicatorsData, setIndicatorsData] = useState<IndicatorData[]>([]);
     const [summaryData, setSummaryData] = useState<SummaryData>({ totalRespuestas: 0, alertasUrgentes: 0 });
@@ -38,47 +38,60 @@ export const AnalyticsTab: React.FC = () => {
     const [selectedRange, setSelectedRange] = useState<string>('all');
 
     useEffect(() => {
-        loadEncuestas();
-    }, []);
+        // Ensure encuestas are loaded
+        fetchEncuestas();
+    }, [fetchEncuestas]);
 
     useEffect(() => {
-        if (selectedEncuestaId) {
-            loadAnalytics(parseInt(selectedEncuestaId), selectedRange);
+        // If we already have a selected ID in context, don't override it with default logic
+        if (analyticsSelectedId) {
+            return;
         }
-    }, [selectedEncuestaId, selectedRange]);
 
-    const loadEncuestas = async () => {
-        try {
-            const data = await encuestasApi.getAll();
-            setEncuestas(data);
-            if (data.length > 0) {
-                // Encontrar la última encuesta ACTIVA
-                const ultimaActiva = [...data]
-                    .sort((a, b) => b.idEncuesta - a.idEncuesta)
-                    .find(e => e.estado === 'ACTIVA');
+        if (encuestas.length > 0) {
+            // Encontrar la última encuesta ACTIVA
+            const ultimaActiva = [...encuestas]
+                .sort((a, b) => b.idEncuesta - a.idEncuesta)
+                .find(e => e.estado === 'ACTIVA');
 
-                if (ultimaActiva) {
-                    setSelectedEncuestaId(ultimaActiva.idEncuesta.toString());
-                } else {
-                    setSelectedEncuestaId(data[data.length - 1].idEncuesta.toString());
-                }
+            if (ultimaActiva) {
+                setAnalyticsSelectedId(ultimaActiva.idEncuesta.toString());
+            } else {
+                // Si no hay activas, seleccionar la última creada
+                setAnalyticsSelectedId(encuestas[encuestas.length - 1].idEncuesta.toString());
             }
-        } catch (error) {
-            console.error('Error loading encuestas:', error);
         }
-    };
+    }, [encuestas, analyticsSelectedId, setAnalyticsSelectedId]);
 
-    const loadAnalytics = async (id: number, range: string) => {
+    useEffect(() => {
+        if (analyticsSelectedId) {
+            loadAnalytics(parseInt(analyticsSelectedId), selectedRange);
+        }
+    }, [analyticsSelectedId, selectedRange]);
+
+    const loadAnalytics = async (id: number, range: string, force = false) => {
+        const cacheKey = `${id}-${range}`;
+        if (!force && analyticsCache[cacheKey]) {
+            const cached = analyticsCache[cacheKey];
+            setTrendData(cached.trendData);
+            setSummaryData(cached.summaryData);
+            setIndicatorsData(cached.indicatorsData);
+            return;
+        }
+
         setLoading(true);
         try {
-            const trendData = await encuestasApi.getTendencia(id);
+            const [trendData, summaryData, indicatorsData] = await Promise.all([
+                encuestasApi.getTendencia(id),
+                encuestasApi.getResumen(id, range),
+                encuestasApi.getIndicadores(id, range)
+            ]);
+
             setTrendData(trendData);
-
-            const summaryData = await encuestasApi.getResumen(id, range);
             setSummaryData(summaryData);
-
-            const indicatorsData = await encuestasApi.getIndicadores(id, range);
             setIndicatorsData(indicatorsData);
+
+            cacheAnalytics(cacheKey, { trendData, summaryData, indicatorsData });
 
         } catch (error) {
             console.error('Error loading analytics:', error);
@@ -91,12 +104,12 @@ export const AnalyticsTab: React.FC = () => {
     };
 
     const handleRefresh = () => {
-        if (selectedEncuestaId) {
-            loadAnalytics(parseInt(selectedEncuestaId), selectedRange);
+        if (analyticsSelectedId) {
+            loadAnalytics(parseInt(analyticsSelectedId), selectedRange, true);
         }
     };
 
-    const selectedEncuesta = encuestas.find(e => e.idEncuesta.toString() === selectedEncuestaId);
+    const selectedEncuesta = encuestas.find(e => e.idEncuesta.toString() === analyticsSelectedId);
 
     const dateOptions = [
         { value: 'all', label: 'Todas las respuestas' },
@@ -114,13 +127,13 @@ export const AnalyticsTab: React.FC = () => {
                 <div className="w-full md:w-1/3">
                     <Select
                         options={filteredEncuestas.map(e => ({ value: e.idEncuesta.toString(), label: e.titulo }))}
-                        value={selectedEncuestaId}
+                        value={analyticsSelectedId}
                         onChange={(e) => {
                             setLoading(true); // Set loading immediately
                             setIndicatorsData([]); // Clear previous data
                             setTrendData([]); // Clear previous data
                             setSummaryData({ totalRespuestas: 0, alertasUrgentes: 0 }); // Clear summary
-                            setSelectedEncuestaId(e.target.value);
+                            setAnalyticsSelectedId(e.target.value);
                         }}
                         placeholder="Seleccionar Encuesta"
                     />

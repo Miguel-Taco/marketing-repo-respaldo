@@ -1,7 +1,7 @@
 import { apiClient } from '../../../../../shared/services/api.client';
 import { Encuesta, EncuestaDisponible } from '../../../../../shared/types/encuesta.types';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1/marketing/campanas/encuestas';
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'}/marketing/campanas/encuestas`;
 
 export const encuestasApi = {
     // GET /api/v1/marketing/campanas/encuestas - List all surveys

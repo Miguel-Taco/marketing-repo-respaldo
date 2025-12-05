@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { ResultadoLlamadaRequest } from '../types';
 import { Button } from '../../../../../shared/components/ui/Button';
+import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
+import { LoadingDots } from '../../../../../shared/components/ui/LoadingDots';
 
 interface CallResultModalProps {
     isOpen: boolean;
@@ -9,6 +11,7 @@ interface CallResultModalProps {
     idContacto: number;
     duracionSegundos: number;
     autoNext?: boolean;
+    isSaving?: boolean;
 }
 
 const formatDuration = (seconds: number): string => {
@@ -22,8 +25,7 @@ const RESULTADOS = [
     { id: 'NO_CONTESTA', label: 'No contesta' },
     { id: 'BUZON', label: 'Buzón de voz' },
     { id: 'NO_INTERESADO', label: 'No interesado' },
-    { id: 'INTERESADO', label: 'Interesado' },
-    { id: 'VENTA', label: 'Venta' }
+    { id: 'INTERESADO', label: 'Interesado' }
 ];
 
 export const CallResultModal: React.FC<CallResultModalProps> = ({
@@ -32,7 +34,8 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
     onSave,
     idContacto,
     duracionSegundos,
-    autoNext = false
+    autoNext = false,
+    isSaving = false
 }) => {
     const [resultado, setResultado] = useState('');
     const [motivo, setMotivo] = useState('');
@@ -58,7 +61,7 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
             resultado,
             motivo: motivo || undefined,
             notas: notas || undefined,
-            fechaReagendamiento: (resultado === 'CONTACTADO' || resultado === 'INTERESADO' || resultado === 'BUZON') && fechaReagendamiento && horaReagendamiento
+            fechaReagendamiento: (resultado === 'NO_CONTESTA' || resultado === 'BUZON') && fechaReagendamiento && horaReagendamiento
                 ? `${fechaReagendamiento}T${horaReagendamiento}:00`
                 : undefined,
             derivadoVentas: crearOportunidad || undefined,
@@ -125,7 +128,7 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
                     </div>
 
                     {/* Reagendamiento */}
-                    {(resultado === 'CONTACTADO' || resultado === 'INTERESADO' || resultado === 'BUZON') && (
+                    {(resultado === 'NO_CONTESTA' || resultado === 'BUZON') && (
                         <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
                             <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
                                 <span className="material-symbols-outlined">calendar_clock</span>
@@ -155,7 +158,7 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
                     )}
 
                     {/* Derivación a Ventas */}
-                    {(resultado === 'VENTA' || resultado === 'INTERESADO') && (
+                    {resultado === 'INTERESADO' && (
                         <div className="p-4 bg-green-50 rounded-lg border border-green-100">
                             <h3 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
                                 <span className="material-symbols-outlined">monetization_on</span>
@@ -213,11 +216,22 @@ export const CallResultModal: React.FC<CallResultModalProps> = ({
                 </div>
 
                 <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose}>
+                    <Button variant="secondary" onClick={onClose} disabled={isSaving}>
                         Cancelar
                     </Button>
-                    <Button variant="primary" onClick={() => handleSubmit(autoNext)} disabled={!resultado}>
-                        {autoNext ? 'Guardar y Continuar' : 'Guardar Resultado'}
+                    <Button
+                        variant="primary"
+                        onClick={() => handleSubmit(autoNext)}
+                        disabled={!resultado || isSaving}
+                    >
+                        {isSaving ? (
+                            <>
+                                <LoadingSpinner size="sm" className="mr-2 text-white" />
+                                <LoadingDots text="Guardando resultado" />
+                            </>
+                        ) : (
+                            autoNext ? 'Guardar y Continuar' : 'Guardar Resultado'
+                        )}
                     </Button>
                 </div>
             </div>

@@ -18,6 +18,7 @@ interface LeadsContextProps {
     };
     setFilter: (key: string, value: any) => void;
     fetchLeads: (force?: boolean) => Promise<void>;
+    refresh: () => Promise<void>;
 }
 
 const LeadsContext = createContext<LeadsContextProps | undefined>(undefined);
@@ -46,14 +47,6 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const fetchLeads = useCallback(async (force = false) => {
         // Si ya tenemos datos y no es forzado, no hacemos nada (cache hit)
-        // Pero si cambiaron los filtros, deberíamos invalidar?
-        // La estrategia aquí es: si los filtros cambian, useEffect en el consumidor o aquí debería disparar.
-        // Para simplificar: fetchLeads siempre trae datos basados en 'filters'.
-        // La optimización es: si llamamos fetchLeads con los MISMOS filtros que ya tenemos cargados, no traer.
-        // Pero comparar filtros es complejo.
-        // El requerimiento es: "cuando cambio de pestaña... no volver a hacer la consulta".
-        // Esto implica que al montar el componente, si ya hay datos, no se llama a fetchLeads automáticamente.
-
         if (!force && hasLoaded) {
             return;
         }
@@ -81,35 +74,7 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }, [filters, hasLoaded]);
 
     // Efecto para recargar cuando cambian los filtros
-    // OJO: Si cambiamos filtros, queremos recargar SÍ o SÍ.
-    // Por tanto, necesitamos un useEffect que escuche 'filters'.
-    // Pero si ponemos useEffect aquí, se ejecutará al inicio.
     React.useEffect(() => {
-        // Si cambiamos filtros, reseteamos hasLoaded para forzar carga?
-        // O simplemente llamamos a la API.
-        // Mejor estrategia:
-        // Cuando se actualiza un filtro, setHasLoaded(false) para que la próxima llamada (o este efecto) cargue.
-
-        // Vamos a hacer que el cambio de filtro dispare la carga automáticamente.
-        // Pero necesitamos distinguir la "primera carga" de "cambio de filtros".
-
-        // Si es la primera vez (mount), y no hemos cargado, cargamos.
-        // Si cambiamos filtros, cargamos.
-
-        // El problema es que al montar el Provider, filters es default.
-        // Si ya veníamos de otra pestaña, el Provider se desmontó?
-        // Si el Provider está en AppRouter, NO se desmonta al cambiar de ruta (siempre que estemos dentro del Router).
-        // Entonces, al cambiar de pestaña (Ruta A -> Ruta B), el Provider sigue vivo.
-        // Los filtros siguen igual.
-        // El useEffect de 'filters' NO se dispara porque no cambiaron.
-        // Entonces NO se hace fetch. ¡Perfecto!
-
-        // Pero necesitamos cargar la primera vez.
-        // Si hasLoaded es false, cargamos.
-
-        // Y si cambiamos filtros, hasLoaded debería invalidarse?
-        // Si cambio pagina, quiero nuevos datos.
-
         const load = async () => {
             setLoading(true);
             try {
@@ -134,10 +99,40 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         };
 
         if (isAuthenticated) {
-            load();
+            // Si ya cargamos (hasLoaded) y cambiaron los filtros, recargamos.
+            // Si NO hemos cargado (primera vez), cargamos.
+            // PERO: Si hasLoaded es true, y los filtros NO cambiaron (porque useEffect se dispara por mount),
+            // no deberíamos cargar si ya tenemos datos.
+            // El problema es que este useEffect depende de [filters].
+            // Al montar, filters es el inicial. Si venimos de otra pestaña, el estado se mantuvo?
+            // Si LeadsProvider está arriba en AppRouter, el estado se mantiene.
+            // Entonces al navegar, filters no cambia. Este useEffect NO se dispara si filters es igual.
+            // EXCEPTO si el componente se desmontó y montó.
+            // Si LeadsProvider NO se desmonta, este useEffect no corre al navegar.
+            // Si LeadsProvider SE desmonta, perdemos el estado y hasLoaded es false.
+
+            // Asumimos LeadsProvider persiste (está en AppRouter).
+            // Entonces este useEffect solo corre cuando filters cambia.
+            // Y necesitamos una carga inicial si hasLoaded es false.
+            if (!hasLoaded) {
+                load();
+            } else {
+                // Si ya cargó, y este efecto se disparó, es porque filters cambió?
+                // O porque isAuthenticated cambió?
+                // Si filters cambió, queremos recargar.
+                // Como detectamos si filters cambió respecto al anterior?
+                // React useEffect se dispara si deps cambian.
+                // Si estamos aquí, es porque filters o isAuthenticated cambiaron.
+                // Si hasLoaded es true, asumimos que es un cambio de filtro y recargamos.
+                // PERO cuidado con el mount inicial si ya estaba cargado.
+                // (React StrictMode puede ejecutar efectos doble vez, pero en prod no).
+
+                // Simplificación: Si cambiamos filtros, invalidamos hasLoaded implícitamente al cargar nuevo data.
+                load();
+            }
         }
 
-    }, [filters, isAuthenticated]); // Se ejecuta al montar (filters inicial) y al cambiar filters.
+    }, [filters, isAuthenticated]);
 
     // Clear state on logout
     React.useEffect(() => {
@@ -151,36 +146,15 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setFilters(prev => {
             // Si el valor es el mismo, no actualizamos para evitar re-render/fetch
             if (prev[key as keyof typeof prev] === value) return prev;
+            // Al cambiar filtro, hasLoaded sigue true, pero el useEffect de arriba detectará el cambio y recargará.
             return { ...prev, [key]: value };
         });
     };
 
-    // Wrapper para forzar recarga manual (botón refresh)
+    // Wrapper para forzar recarga manual
     const refresh = useCallback(async () => {
-        // Forzamos re-ejecución del fetch con los mismos filtros
-        // Podemos hacerlo invalidando hasLoaded o llamando directo a la API
-        // Llamamos directo para reutilizar lógica
-        setLoading(true);
-        try {
-            const response = await leadsApi.getAll(
-                filters.page,
-                10,
-                filters.estado || undefined,
-                filters.search || undefined,
-                filters.fuenteTipo || undefined
-            );
-            const paginatedData = response.data;
-            setLeads(paginatedData?.content || []);
-            setTotalPages(paginatedData?.totalPages || 0);
-            setTotalElements(paginatedData?.totalElements || 0);
-            setCurrentPage(paginatedData?.number || 0);
-            setHasLoaded(true);
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }, [filters]);
+        await fetchLeads(true);
+    }, [fetchLeads]);
 
     return (
         <LeadsContext.Provider value={{
@@ -192,7 +166,8 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             currentPage,
             filters,
             setFilter,
-            fetchLeads: refresh // Exponemos refresh como fetchLeads para compatibilidad o uso manual
+            fetchLeads,
+            refresh
         }}>
             {children}
         </LeadsContext.Provider>
