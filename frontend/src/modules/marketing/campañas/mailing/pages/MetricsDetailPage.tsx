@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { mailingApi } from '../services/mailing.api';
 import { CampanaMailing, MetricasMailing } from '../types/mailing.types';
-import { MailingStatsCards } from '../components/MailingStatsCards';
-import { MetricsPanel } from '../components/MetricsPanel';
 import { LoadingSpinner } from '../../../../../shared/components/ui/LoadingSpinner';
 import { useToast } from '../../../../../shared/components/ui/Toast';
 
@@ -97,49 +95,135 @@ export const MetricsDetailPage: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             {/* Header */}
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex items-start justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-dark">
+                    <h1 className="text-3xl font-bold text-gray-900">
                         Reporte de Métricas: {campaign.nombre}
                     </h1>
-                    <p className="text-gray-500 mt-1">Análisis detallado del rendimiento de la campaña</p>
                 </div>
                 <button
                     onClick={() => navigate('/emailing')}
-                    className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                    className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition font-medium"
                 >
                     <span className="material-symbols-outlined">arrow_back</span>
-                    <span className="font-medium">Volver a la lista</span>
+                    <span>Volver a la lista</span>
                 </button>
             </div>
 
-            {/* Stats Cards */}
-            <MailingStatsCards metricas={metricas} loading={loading} />
+            {/* Stats Cards - 3 Columnas */}
+            {metricas && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Tasa de Apertura */}
+                    <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+                        <p className="text-gray-600 text-sm font-medium mb-2">Tasa de Apertura</p>
+                        <p className="text-5xl font-bold text-blue-600">
+                            {metricas.tasaApertura.toFixed(1)}%
+                        </p>
+                    </div>
 
-            {/* Metrics Panel / Summary Table */}
-            <MetricsPanel 
-                metricas={metricas} 
-                loading={loading}
-                ultimaActualizacion={metricas?.id ? new Date().toISOString() : undefined}
-            />
+                    {/* Tasa de Clics (CTR) */}
+                    <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+                        <p className="text-gray-600 text-sm font-medium mb-2">Tasa de Clics (CTR)</p>
+                        <p className="text-5xl font-bold text-blue-600">
+                            {metricas.tasaClics.toFixed(1)}%
+                        </p>
+                    </div>
 
-            {/* Info Adicional */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <div className="flex gap-3">
-                    <span className="material-symbols-outlined text-blue-600 text-2xl flex-shrink-0">info</span>
-                    <div className="text-sm text-blue-800">
-                        <p className="font-semibold">💡 Información útil</p>
-                        <ul className="mt-2 space-y-1 text-blue-700">
-                            <li>• <strong>Tasa de Apertura:</strong> Porcentaje de destinatarios que abrieron el email</li>
-                            <li>• <strong>Tasa de Clics (CTR):</strong> Porcentaje de destinatarios que hicieron clic en el CTA</li>
-                            <li>• <strong>Bajas:</strong> Cantidad de personas que se dieron de baja de la lista</li>
-                            <li>• Las métricas se actualizan automáticamente cada 30 segundos</li>
-                        </ul>
+                    {/* Bajas */}
+                    <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+                        <p className="text-gray-600 text-sm font-medium mb-2">Bajas</p>
+                        <p className="text-5xl font-bold text-gray-900">
+                            {metricas.bajas}
+                        </p>
                     </div>
                 </div>
-            </div>
+            )}
+
+            {/* Tabla - Resumen de Rendimiento */}
+            {metricas && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-6 border-b border-gray-200">
+                        <h3 className="text-lg font-semibold text-gray-900">Resumen de Rendimiento</h3>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-100">
+                                <tr>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-900">Métrica</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-900 text-center">Total</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-900 text-center">Porcentaje</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                <tr className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">Enviados</td>
+                                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">
+                                        {metricas.enviados.toLocaleString('es-ES')}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600 text-center">100.0%</td>
+                                </tr>
+                                <tr className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">Rebotes</td>
+                                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">
+                                        {metricas.rebotes}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600 text-center">
+                                        {metricas.enviados > 0 
+                                            ? ((metricas.rebotes / metricas.enviados) * 100).toFixed(1) 
+                                            : '0.0'}%
+                                    </td>
+                                </tr>
+                                <tr className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">Entregados</td>
+                                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">
+                                        {metricas.entregados.toLocaleString('es-ES')}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600 text-center">
+                                        {metricas.enviados > 0 
+                                            ? ((metricas.entregados / metricas.enviados) * 100).toFixed(1) 
+                                            : '0.0'}%
+                                    </td>
+                                </tr>
+                                <tr className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">Aperturas (Únicas)</td>
+                                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">
+                                        {metricas.aperturas.toLocaleString('es-ES')}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600 text-center">
+                                        {metricas.tasaApertura.toFixed(1)}%
+                                    </td>
+                                </tr>
+                                <tr className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">Clics (Únicos)</td>
+                                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">
+                                        {metricas.clics.toLocaleString('es-ES')}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600 text-center">
+                                        {metricas.tasaClics.toFixed(1)}%
+                                    </td>
+                                </tr>
+                                <tr className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">Bajas</td>
+                                    <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">
+                                        {metricas.bajas}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600 text-center">
+                                        {metricas.tasaBajas.toFixed(1)}%
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Footer - Última actualización */}
+                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 text-center">
+                        Última actualización: {new Date().toLocaleString('es-ES')}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

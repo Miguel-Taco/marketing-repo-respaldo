@@ -8,6 +8,7 @@ import { useToast } from '../../../../../shared/components/ui/Toast';
 import { CampanaMailing, ESTADO_COLORS, PRIORIDAD_COLORS, MetricasMailing } from '../types/mailing.types';
 import { useAuth } from '../../../../../shared/context/AuthContext';
 import { useMailing } from '../context/MailingContext';
+import { MailingFilters, type FilterValues } from '../components/MailingFilters';
 
 interface CampanaConMetricas extends CampanaMailing {
     metricas?: MetricasMailing;
@@ -25,16 +26,18 @@ export const MailingListPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    
-    // ✅ KEY PARA FORZAR RE-RENDER LIMPIO AL CAMBIAR DE PESTAÑA
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [filters, setFilters] = useState<FilterValues>({
+        nombre: '',
+        fechaInicio: '',
+        prioridad: 'todas'
+    });
     const [tableKey, setTableKey] = useState('pendiente');
 
     const idAgente = user?.agentId;
     const isAdmin = hasRole('ADMIN');
     const canEditCampaigns = isAdmin;
-    const assignmentKey = (user?.campaniasMailing || []).join(',');
 
-    // ✅ SEPARAR LA LÓGICA DE CARGAR CAMPAÑAS
     const loadCampanas = useCallback(async () => {
         try {
             setLoading(true);
@@ -46,7 +49,6 @@ export const MailingListPage: React.FC = () => {
                 return;
             }
 
-            // ✅ Obtener datos del context
             const data = await listarCampanas(activeTab);
 
             if (!isAdmin && (!user?.campaniasMailing || user.campaniasMailing.length === 0)) {
@@ -55,16 +57,13 @@ export const MailingListPage: React.FC = () => {
                 return;
             }
 
-            // ✅ Filtrar solo campañas asignadas
             const visibleCampanas = !isAdmin && user?.campaniasMailing?.length
                 ? (data || []).filter(c => user.campaniasMailing?.includes(c.id))
                 : (data || []);
 
-            // ✅ CRITICAL: Establecer campanas Y tableKey al mismo tiempo
             setCampanas(visibleCampanas);
-            setTableKey(activeTab); // Esto fuerza re-render limpio de la tabla
+            setTableKey(activeTab);
 
-            // Cargar métricas para campañas en estado ENVIADO o FINALIZADO
             if (['enviado', 'finalizado'].includes(activeTab)) {
                 await cargarMetricas(visibleCampanas);
             }
@@ -78,7 +77,6 @@ export const MailingListPage: React.FC = () => {
         }
     }, [activeTab, isAdmin, idAgente, user?.campaniasMailing, listarCampanas, showToast]);
 
-    // ✅ EFECTO QUE SE EJECUTA CUANDO CAMBIA activeTab
     useEffect(() => {
         loadCampanas();
     }, [activeTab, loadCampanas]);
@@ -92,17 +90,31 @@ export const MailingListPage: React.FC = () => {
             }
         }
 
-        // ✅ Actualizar campanas con métricas después de cargar todas
         setCampanas(prev => prev.map(c => ({
             ...c,
             metricas: metricsCache.get(c.id)
         })));
     };
 
-    const filteredCampanas = campanas.filter(c =>
-        c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // ✅ FILTRADO OPTIMIZADO
+    const filteredCampanas = campanas.filter(c => {
+        const matchesSearch = c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const matchesNombre = !filters.nombre || 
+            c.nombre.toLowerCase().includes(filters.nombre.toLowerCase());
+        
+        const matchesFecha = !filters.fechaInicio || 
+            new Date(c.fechaInicio).toISOString().split('T')[0] === filters.fechaInicio;
+        
+        const matchesPrioridad = filters.prioridad === 'todas' || c.prioridad === filters.prioridad;
+        
+        return matchesSearch && matchesNombre && matchesFecha && matchesPrioridad;
+    });
+
+    const handleApplyFilters = (newFilters: FilterValues) => {
+        setFilters(newFilters);
+    };
 
     const handleEdit = (id: number) => {
         navigate(`/emailing/${id}/edit`);
@@ -135,7 +147,7 @@ export const MailingListPage: React.FC = () => {
                 onChange={setActiveTab}
             />
 
-            {/* Search Bar */}
+            {/* Search Bar + Filters Button */}
             <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between gap-4">
                 <div className="flex-1 relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
@@ -148,11 +160,23 @@ export const MailingListPage: React.FC = () => {
                         className="w-full pl-10"
                     />
                 </div>
-                <button className="flex items-center gap-2 px-4 py-2 border border-separator rounded-lg hover:bg-gray-50 transition-colors">
+                
+                {/* ✅ BOTÓN FILTROS CON ONCLICK */}
+                <button 
+                    onClick={() => setIsFilterModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 border border-separator rounded-lg hover:bg-gray-50 transition-colors bg-white"
+                >
                     <span className="material-symbols-outlined text-gray-600">tune</span>
                     <span className="text-sm font-medium text-gray-600">Filtros</span>
                 </button>
             </div>
+
+            {/* ✅ MODAL DE FILTROS */}
+            <MailingFilters
+                isOpen={isFilterModalOpen}
+                onClose={() => setIsFilterModalOpen(false)}
+                onApply={handleApplyFilters}
+            />
 
             {/* Tabla - ✅ KEY FUERZA RE-RENDER LIMPIO */}
             <div 
@@ -217,7 +241,7 @@ export const MailingListPage: React.FC = () => {
                                                 <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">inbox</span>
                                                 <p className="text-gray-500 text-lg font-medium">No se encontraron campañas</p>
                                                 <p className="text-gray-400 text-sm mt-2">
-                                                    {searchTerm ? 'Intenta con otro término de búsqueda' : 'Aún no hay campañas en este estado'}
+                                                    Intenta con otros filtros o búsqueda
                                                 </p>
                                             </div>
                                         </td>
