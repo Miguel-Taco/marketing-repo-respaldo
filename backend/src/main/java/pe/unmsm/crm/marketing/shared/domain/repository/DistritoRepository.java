@@ -7,29 +7,26 @@ import pe.unmsm.crm.marketing.shared.domain.model.Distrito;
 import java.util.List;
 
 public interface DistritoRepository extends JpaRepository<Distrito, String> {
-        List<Distrito> findByProvinciaId(String provinciaId);
+        List<Distrito> findByProvincia_Id(String provinciaId);
 
         // Query personalizada con TRIM para manejar espacios en nombres de BD
-        @Query("SELECT d FROM Distrito d WHERE UPPER(TRIM(d.nombre)) = UPPER(TRIM(:nombre)) AND d.provinciaId = :provinciaId")
+        @Query("SELECT d FROM Distrito d WHERE UPPER(TRIM(d.nombre)) = UPPER(TRIM(:nombre)) AND d.provincia.id = :provinciaId")
         java.util.Optional<Distrito> findByNombreIgnoreCaseAndProvinciaId(@Param("nombre") String nombre,
                         @Param("provinciaId") String provinciaId);
 
         // Optimización: Traer todos los nombres en una sola consulta
-        @Query("SELECT new map(d.nombre as distrito, p.nombre as provincia, dep.nombre as departamento) " +
-                        "FROM Distrito d, Provincia p, Departamento dep " +
-                        "WHERE d.id = :distritoId " +
-                        "AND d.provinciaId = p.id " +
-                        "AND p.departamentoId = dep.id")
+        @Query("SELECT new map(d.nombre as distrito, d.provincia.nombre as provincia, d.provincia.departamento.nombre as departamento) "
+                        +
+                        "FROM Distrito d " +
+                        "WHERE d.id = :distritoId")
         java.util.Map<String, String> findNombresCompletos(@Param("distritoId") String distritoId);
 
         // NUEVO: Buscar ID por nombres de Distrito, Provincia y Departamento en UNA
         // sola consulta
         @Query("SELECT d.id FROM Distrito d " +
-                        "JOIN Provincia p ON d.provinciaId = p.id " +
-                        "JOIN Departamento dep ON p.departamentoId = dep.id " +
                         "WHERE UPPER(TRIM(d.nombre)) = UPPER(TRIM(:distrito)) " +
-                        "AND UPPER(TRIM(p.nombre)) = UPPER(TRIM(:provincia)) " +
-                        "AND UPPER(TRIM(dep.nombre)) = UPPER(TRIM(:departamento))")
+                        "AND UPPER(TRIM(d.provincia.nombre)) = UPPER(TRIM(:provincia)) " +
+                        "AND UPPER(TRIM(d.provincia.departamento.nombre)) = UPPER(TRIM(:departamento))")
         java.util.Optional<String> findIdByNombres(@Param("distrito") String distrito,
                         @Param("provincia") String provincia,
                         @Param("departamento") String departamento);

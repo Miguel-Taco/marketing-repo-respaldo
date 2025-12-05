@@ -4,13 +4,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import pe.unmsm.crm.marketing.segmentacion.domain.model.*;
 import pe.unmsm.crm.marketing.segmentacion.infra.dto.LeadIntegrationResponse;
 
-import jakarta.annotation.PostConstruct;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,16 +24,16 @@ public class LeadCacheService {
     private final RestTemplate restTemplate;
     private final ConcurrentHashMap<Long, LeadIntegrationResponse> leadCache;
     private volatile boolean cacheLoaded = false;
-    private static final String LEAD_API_URL = "http://localhost:8080/api/v1/internal/leads/all";
+    private static final String LEAD_API_BASE_URL = "http://localhost:8080/api/v1/internal/leads";
 
     public LeadCacheService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
         this.leadCache = new ConcurrentHashMap<>();
     }
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void warmUpCache() {
-        log.info("=== Iniciando precarga de caché de leads ===");
+        log.info("=== Iniciando precarga de caché de leads (ApplicationReady) ===");
         loadAllLeadsIntoCache();
     }
 
@@ -42,7 +42,7 @@ public class LeadCacheService {
             long startTime = System.currentTimeMillis();
 
             ResponseEntity<List<LeadIntegrationResponse>> response = restTemplate.exchange(
-                    LEAD_API_URL,
+                    LEAD_API_BASE_URL + "/all",
                     HttpMethod.GET,
                     null,
                     new ParameterizedTypeReference<List<LeadIntegrationResponse>>() {
@@ -121,12 +121,54 @@ public class LeadCacheService {
                 .count();
     }
 
-    @Scheduled(fixedRate = 300000) // 5 minutos
-    public void scheduledRefresh() {
-        log.info("=== Ejecutando actualización programada de caché de leads (cada 5 min) ===");
-        loadAllLeadsIntoCache();
+    /**
+     * Actualiza un lead individual en el caché (llamado por eventos)
+     * Si el lead no existe en el caché, lo agrega
+     * Si el lead ya no cumple los criterios (estado cambiado), lo elimina
+     */
+    public void updateLeadInCache(Long leadId) {
+        try {
+            log.debug("🔄 [CACHE] Actualizando lead ID {} en caché...", leadId);
+
+            // Llamar al endpoint individual para obtener el lead actualizado
+            String url = LEAD_API_BASE_URL + "/" + leadId;
+            ResponseEntity<LeadIntegrationResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<LeadIntegrationResponse>() {
+                    });
+
+            if (response.getBody() != null) {
+                LeadIntegrationResponse lead = response.getBody();
+                leadCache.put(leadId, lead);
+                log.info("✓ [CACHE] Lead ID {} actualizado en caché", leadId);
+            } else {
+                // Si la API devuelve null, significa que el lead ya no cumple los criterios
+                // (ej. cambió a estado CONVERTIDO o DESCARTADO)
+                leadCache.remove(leadId);
+                log.info("✓ [CACHE] Lead ID {} removido del caché (no cumple criterios)", leadId);
+            }
+        } catch (Exception e) {
+            log.error("✗ [CACHE] Error al actualizar lead ID {}: {}", leadId, e.getMessage());
+        }
     }
 
+    /**
+     * Remueve un lead del caché (llamado por eventos de eliminación)
+     */
+    public void removeLeadFromCache(Long leadId) {
+        LeadIntegrationResponse removed = leadCache.remove(leadId);
+        if (removed != null) {
+            log.info("✓ [CACHE] Lead ID {} eliminado del caché", leadId);
+        } else {
+            log.debug("ℹ️  [CACHE] Lead ID {} no estaba en caché", leadId);
+        }
+    }
+
+    /**
+     * Refresca el caché completo manualmente (solo para casos excepcionales)
+     */
     public void refreshCache() {
         log.info("Refrescando caché de leads manualmente...");
         loadAllLeadsIntoCache();
@@ -136,7 +178,9 @@ public class LeadCacheService {
         if (segmento.getReglaPrincipal() == null) {
             return true;
         }
-        return evaluateRule(lead, segmento.getReglaPrincipal());
+        return
+
+        evaluateRule(lead, segmento.getReglaPrincipal());
     }
 
     private boolean evaluateRule(LeadIntegrationResponse lead, ReglaSegmento regla) {
@@ -172,7 +216,11 @@ public class LeadCacheService {
             case "distrito":
             case "distritoid":
             case "ciudad":
-                return evaluateDistrito(lead.getDistritoId(), operador, valor);
+                return evaluateLocation(lead.getDistritoNombre(), operador, valor);
+            case "provincia":
+                return evaluateLocation(lead.getProvinciaNombre(), operador, valor);
+            case "departamento":
+                return evaluateLocation(lead.getDepartamentoNombre(), operador, valor);
             case "niveleducativo":
                 return evaluateEquals(lead.getNivelEducativo(), valor, operador);
             case "estadocivil":
@@ -253,40 +301,25 @@ public class LeadCacheService {
         return g;
     }
 
-    private boolean evaluateDistrito(String distritoId, String operador, String valor) {
-        if (distritoId == null) {
+    private boolean evaluateLocation(String locationName, String operador, String valor) {
+        if (locationName == null || locationName.isBlank()) {
             return false;
         }
 
-        // SOLUCIÓN TEMPORAL: Como el frontend envía nombres ('Lima') pero tenemos
-        // códigos ('150101'),
-        // vamos a hacer que CUALQUIER lead con distrito coincida si el usuario busca
-        // por nombre común
-
-        // Normalizar
-        String distritoNorm = distritoId.trim().toLowerCase();
+        // Normalizar para comparación case-insensitive
+        String locationNorm = locationName.trim().toLowerCase();
         String valorNorm = valor.trim().toLowerCase();
 
-        // Si el valor es "lima", aceptar CUALQUIER código que empiece con "1501" (Lima)
-        // Esto es una solución temporal hasta que la API devuelva nombres
-        if ("lima".equals(valorNorm)) {
-            // Códigos de Lima empiezan con 1501
-            if ("IGUAL".equalsIgnoreCase(operador)) {
-                return distritoNorm.startsWith("1501");
-            }
-        }
-
-        // Comparación normal (código exacto)
-        boolean result = false;
+        // Comparación por nombre
         if ("IGUAL".equalsIgnoreCase(operador)) {
-            result = distritoNorm.equals(valorNorm);
+            return locationNorm.equals(valorNorm);
         } else if ("DIFERENTE".equalsIgnoreCase(operador)) {
-            result = !distritoNorm.equals(valorNorm);
+            return !locationNorm.equals(valorNorm);
         } else if ("CONTIENE".equalsIgnoreCase(operador)) {
-            result = distritoNorm.contains(valorNorm);
+            return locationNorm.contains(valorNorm);
         }
 
-        return result;
+        return true;
     }
 
     private boolean evaluateEquals(String fieldValue, String expectedValue, String operador) {

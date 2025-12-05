@@ -2,6 +2,9 @@ package pe.unmsm.crm.marketing.campanas.mailing.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,8 +16,23 @@ import pe.unmsm.crm.marketing.campanas.mailing.application.mapper.MailingMapper;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.*;
 import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.*;
 import pe.unmsm.crm.marketing.shared.infra.exception.*;
+
 import java.util.List;
 
+/**
+ * Servicio principal para gestión de Campañas de Mailing.
+ * 
+ * ESTRATEGIA DE CACHÉ:
+ * 
+ * - Los métodos de LECTURA usan @Cacheable para almacenar resultados
+ * - Los métodos de ESCRITURA usan @CacheEvict para invalidar el caché
+ * - Las claves de caché incluyen parámetros relevantes (estado, ID de campaña)
+ * 
+ * CACHÉS UTILIZADOS:
+ * - mailing_campanias_lista: Listados por estado
+ * - mailing_campania_detalle: Detalle individual
+ * - mailing_metricas: Métricas de campaña
+ */
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -25,69 +43,54 @@ public class CampanaMailingService {
     private final JpaMetricaMailingRepository metricasRepo;
     private final MailingMapper mapper;
 
-    public CampanaMailing crearCampana(CrearCampanaMailingRequest req) {
-        log.info("Creando campaña: {}", req.getNombre());
-        CampanaMailing c = mapper.toEntity(req);
-        CampanaMailing saved = campanaRepo.save(c);
+    // ========================================================================
+    // OPERACIONES DE ESCRITURA (Invalidan caché)
+    // ========================================================================
 
+    /**
+     * Crea una nueva campaña de mailing.
+     * Invalida el caché de listados porque hay una nueva campaña pendiente.
+     */
+    @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
+    public CampanaMailing crearCampana(CrearCampanaMailingRequest req) {
+        log.info("📝 Creando campaña: {}", req.getNombre());
+        
+        // Validaciones
         if (req.getPrioridad() == null || req.getPrioridad().trim().isEmpty()) {
             throw new ValidationException("La prioridad es obligatoria");
         }
+        
+        CampanaMailing c = mapper.toEntity(req);
+        CampanaMailing saved = campanaRepo.save(c);
+
+        // Crear métricas iniciales
         MetricaCampana m = MetricaCampana.builder()
                 .campanaMailing(saved)
                 .enviados(0)
+                .entregados(0)
+                .aperturas(0)
+                .clics(0)
+                .rebotes(0)
+                .bajas(0)
                 .build();
         metricasRepo.save(m);
 
+        log.info("✓ Campaña {} creada con ID: {}", req.getNombre(), saved.getId());
         return saved;
     }
 
-    public List<CampanaMailing> listarPendientes(List<Integer> campaniasPermitidas) {
-        if (isEmpty(campaniasPermitidas)) {
-            return List.of();
-        }
-        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 1);
-    }
-
-    public List<CampanaMailing> listarListos(List<Integer> campaniasPermitidas) {
-        if (isEmpty(campaniasPermitidas)) {
-            return List.of();
-        }
-        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 2);
-    }
-
-    public List<CampanaMailing> listarEnviados(List<Integer> campaniasPermitidas) {
-        if (isEmpty(campaniasPermitidas)) {
-            return List.of();
-        }
-        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 3);
-    }
-
-    public List<CampanaMailing> listarFinalizados(List<Integer> campaniasPermitidas) {
-        if (isEmpty(campaniasPermitidas)) {
-            return List.of();
-        }
-        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 5);
-    }
-
-    public List<CampanaMailing> listarTodas(List<Integer> campaniasPermitidas) {
-        if (isEmpty(campaniasPermitidas)) {
-            return List.of();
-        }
-        return campanaRepo.findByIdInOrderByFechaInicio(campaniasPermitidas);
-    }
-
-    public CampanaMailing obtenerDetalle(Integer id) {
-        return campanaRepo.findById(id)
-                .orElseThrow(() -> new NotFoundException("CampanaMailing", id.longValue()));
-    }
-
-    private boolean isEmpty(List<Integer> ids) {
-        return ids == null || ids.isEmpty();
-    }
-
+    /**
+     * Guarda borrador de una campaña.
+     * Invalida el caché del detalle de esa campaña específica.
+     */
+    @Caching(evict = {
+        @CacheEvict(value = "mailing_campania_detalle", key = "#id"),
+        @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
+    })
     public void guardarBorrador(Integer id, ActualizarContenidoRequest req) {
-        CampanaMailing c = obtenerDetalle(id);
+        log.info("💾 Guardando borrador para campaña {}", id);
+        
+        CampanaMailing c = obtenerDetalleSinCache(id);
 
         if (req.getAsunto() != null)
             c.setAsunto(req.getAsunto());
@@ -96,57 +99,63 @@ public class CampanaMailingService {
         if (req.getCtaTexto() != null)
             c.setCtaTexto(req.getCtaTexto());
 
+        // Si estaba en LISTO, regresa a PENDIENTE
         if (c.getIdEstado().equals(2)) {
-            log.info("Campaña {} estaba en LISTO, regresando a PENDIENTE por edición", id);
+            log.info("  Campaña {} regresando de LISTO a PENDIENTE por edición", id);
             c.setIdEstado(1);
         }
 
         campanaRepo.save(c);
-        log.info("Borrador guardado para campaña {}", id);
+        log.info("✓ Borrador guardado para campaña {}", id);
     }
 
+    /**
+     * Marca una campaña como LISTO.
+     * Invalida cachés de listado y detalle.
+     */
+    @Caching(evict = {
+        @CacheEvict(value = "mailing_campania_detalle", key = "#id"),
+        @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
+    })
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void marcarListo(Integer id) {
-        CampanaMailing c = obtenerDetalle(id);
+        log.info("✅ Marcando campaña {} como LISTO", id);
+        
+        CampanaMailing c = obtenerDetalleSinCache(id);
 
-        if (c.getAsunto() == null || c.getAsunto().trim().isEmpty()) {
-            throw new ValidationException("Asunto es obligatorio");
-        }
-        if (c.getCuerpo() == null || c.getCuerpo().trim().isEmpty()) {
-            throw new ValidationException("Cuerpo es obligatorio");
-        }
-        if (c.getCtaTexto() == null || c.getCtaTexto().trim().isEmpty()) {
-            throw new ValidationException("Texto CTA es obligatorio");
-        }
+        // Validar contenido completo
+        validarContenidoCompleto(c);
 
         c.setIdEstado(2); // LISTO
         campanaRepo.save(c);
-        log.info("Campaña {} marcada como LISTO", id);
+        
+        log.info("✓ Campaña {} marcada como LISTO", id);
     }
 
-    public MetricasMailingResponse obtenerMetricas(Integer id) {
-        MetricaCampana m = metricasRepo.findByCampanaMailingId(id)
-                .orElseThrow(() -> new NotFoundException("Métricas", id.longValue()));
-        return mapper.toMetricasResponse(m);
-    }
-
+    /**
+     * Pausa una campaña desde el Gestor.
+     * Este método es llamado por el módulo de Gestión de Campañas.
+     */
+    @Caching(evict = {
+        @CacheEvict(value = "mailing_campania_detalle", allEntries = true),
+        @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
+    })
     public void pausarPorGestor(Long idCampanaGestion) {
-        log.info("Pausando campaña desde Gestor: {}", idCampanaGestion);
+        log.info("⏸️ Pausando campaña desde Gestor: {}", idCampanaGestion);
 
         CampanaMailing c = campanaRepo.findByIdCampanaGestion(idCampanaGestion)
                 .orElseThrow(() -> new NotFoundException(
-                        "CampanaMailing con idCampanaGestion",
-                        idCampanaGestion));
+                        "CampanaMailing con idCampanaGestion", idCampanaGestion));
 
         // Ya está cancelada/pausada?
         if (c.getIdEstado().equals(6)) {
-            log.info("Campaña {} ya estaba cancelada", c.getId());
+            log.info("  Campaña {} ya estaba cancelada", c.getId());
             return;
         }
 
         // Si ya fue ENVIADA (3), no se puede pausar
         if (c.getIdEstado().equals(3)) {
-            log.warn("Campaña {} ya fue ENVIADA, no se puede pausar. Se marca como CANCELADA de todas formas.",
+            log.warn("  Campaña {} ya fue ENVIADA, no se puede pausar. Se marca como CANCELADA de todas formas.",
                     c.getId());
         }
 
@@ -157,73 +166,194 @@ public class CampanaMailingService {
         log.info("✓ Campaña {} pausada por Gestor (estado=CANCELADO)", c.getId());
     }
 
+    /**
+     * Cancela una campaña desde el Gestor.
+     */
+    @Caching(evict = {
+        @CacheEvict(value = "mailing_campania_detalle", allEntries = true),
+        @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
+    })
     public void cancelarPorGestor(Long idCampanaGestion) {
-        log.info("Cancelando campaña desde Gestor: {}", idCampanaGestion);
+        log.info("🚫 Cancelando campaña desde Gestor: {}", idCampanaGestion);
 
         CampanaMailing c = campanaRepo.findByIdCampanaGestion(idCampanaGestion)
                 .orElseThrow(() -> new NotFoundException(
-                        "CampanaMailing con idCampanaGestion",
-                        idCampanaGestion));
+                        "CampanaMailing con idCampanaGestion", idCampanaGestion));
 
-        // Ya está cancelada?
         if (c.getIdEstado().equals(6)) {
-            log.info("Campaña {} ya estaba cancelada", c.getId());
+            log.info("  Campaña {} ya estaba cancelada", c.getId());
             return;
         }
 
-        // Cambiar a CANCELADO (6)
-        c.setIdEstado(6);
+        c.setIdEstado(6); // CANCELADO
         campanaRepo.save(c);
 
-        log.info("✓ Campaña {} cancelada por Gestor (idCampanaGestion={})",
-                c.getId(), idCampanaGestion);
+        log.info("✓ Campaña {} cancelada (idCampanaGestion={})", c.getId(), idCampanaGestion);
     }
 
+    /**
+     * Reprograma una campaña desde el Gestor.
+     */
+    @Caching(evict = {
+        @CacheEvict(value = "mailing_campania_detalle", allEntries = true),
+        @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
+    })
     public void reprogramarPorGestor(Long idCampanaGestion, ReprogramarCampanaRequest req) {
-        log.info("Reprogramando campaña desde Gestor: {}", idCampanaGestion);
+        log.info("📅 Reprogramando campaña desde Gestor: {}", idCampanaGestion);
 
         CampanaMailing c = campanaRepo.findByIdCampanaGestion(idCampanaGestion)
                 .orElseThrow(() -> new NotFoundException(
-                        "CampanaMailing con idCampanaGestion",
-                        idCampanaGestion));
+                        "CampanaMailing con idCampanaGestion", idCampanaGestion));
 
         // Validar fechas
         if (req.getFechaInicio().isAfter(req.getFechaFin())) {
             throw new ValidationException("Fecha de inicio debe ser anterior a fecha de fin");
         }
 
-        // Actualizar fechas
-        c.setFechaInicio(req.getFechaInicio());
-        c.setFechaFin(req.getFechaFin());
-
-        // Si estaba CANCELADA (6), volver a PENDIENTE (1)
-        if (c.getIdEstado().equals(6)) {
-            c.setIdEstado(1);
-            log.info("Campaña {} reprogramada: CANCELADO → PENDIENTE", c.getId());
-        }
-
-        // Si estaba VENCIDA (4), volver a PENDIENTE (1)
-        if (c.getIdEstado().equals(4)) {
-            c.setIdEstado(1);
-            log.info("Campaña {} reprogramada: VENCIDO → PENDIENTE", c.getId());
-        }
-
-        // Si estaba en LISTO (2), volver a PENDIENTE (1) para que revise el contenido
-        if (c.getIdEstado().equals(2)) {
-            c.setIdEstado(1);
-            log.info("Campaña {} reprogramada: LISTO → PENDIENTE (debe revisar contenido)", c.getId());
-        }
-
-        // Si ya fue ENVIADA (3) o FINALIZADA (5), no se puede reprogramar
+        // No se puede reprogramar si ya fue ENVIADA o FINALIZADA
         if (c.getIdEstado().equals(3) || c.getIdEstado().equals(5)) {
             throw new ValidationException(
                     "No se puede reprogramar una campaña en estado " +
                             EstadoCampanaMailing.fromId(c.getIdEstado()).getNombre());
         }
 
-        campanaRepo.save(c);
+        // Actualizar fechas
+        c.setFechaInicio(req.getFechaInicio());
+        c.setFechaFin(req.getFechaFin());
 
-        log.info("✓ Campaña {} reprogramada: {} a {}",
-                c.getId(), req.getFechaInicio(), req.getFechaFin());
+        // Volver a PENDIENTE si estaba en otro estado
+        if (c.getIdEstado().equals(6) || c.getIdEstado().equals(4) || c.getIdEstado().equals(2)) {
+            c.setIdEstado(1);
+            log.info("  Campaña {} regresada a PENDIENTE", c.getId());
+        }
+
+        campanaRepo.save(c);
+        log.info("✓ Campaña {} reprogramada: {} a {}", c.getId(), req.getFechaInicio(), req.getFechaFin());
+    }
+
+    // ========================================================================
+    // OPERACIONES DE LECTURA (Usan caché)
+    // ========================================================================
+
+    /**
+     * Lista campañas en estado PENDIENTE.
+     * Resultado cacheado por 2 minutos.
+     */
+    @Cacheable(value = "mailing_campanias_lista", key = "'pendientes_' + #campaniasPermitidas.hashCode()")
+    @Transactional(readOnly = true)
+    public List<CampanaMailing> listarPendientes(List<Integer> campaniasPermitidas) {
+        log.debug("📋 Consultando campañas PENDIENTES (sin caché)");
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 1);
+    }
+
+    /**
+     * Lista campañas en estado LISTO.
+     * Resultado cacheado por 2 minutos.
+     */
+    @Cacheable(value = "mailing_campanias_lista", key = "'listos_' + #campaniasPermitidas.hashCode()")
+    @Transactional(readOnly = true)
+    public List<CampanaMailing> listarListos(List<Integer> campaniasPermitidas) {
+        log.debug("📋 Consultando campañas LISTAS (sin caché)");
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 2);
+    }
+
+    /**
+     * Lista campañas en estado ENVIADO.
+     * Resultado cacheado por 2 minutos.
+     */
+    @Cacheable(value = "mailing_campanias_lista", key = "'enviados_' + #campaniasPermitidas.hashCode()")
+    @Transactional(readOnly = true)
+    public List<CampanaMailing> listarEnviados(List<Integer> campaniasPermitidas) {
+        log.debug("📋 Consultando campañas ENVIADAS (sin caché)");
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 3);
+    }
+
+    /**
+     * Lista campañas en estado FINALIZADO.
+     * Resultado cacheado por 2 minutos.
+     */
+    @Cacheable(value = "mailing_campanias_lista", key = "'finalizados_' + #campaniasPermitidas.hashCode()")
+    @Transactional(readOnly = true)
+    public List<CampanaMailing> listarFinalizados(List<Integer> campaniasPermitidas) {
+        log.debug("📋 Consultando campañas FINALIZADAS (sin caché)");
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInAndIdEstado(campaniasPermitidas, 5);
+    }
+
+    /**
+     * Lista todas las campañas.
+     * Resultado cacheado por 2 minutos.
+     */
+    @Cacheable(value = "mailing_campanias_lista", key = "'todas_' + #campaniasPermitidas.hashCode()")
+    @Transactional(readOnly = true)
+    public List<CampanaMailing> listarTodas(List<Integer> campaniasPermitidas) {
+        log.debug("📋 Consultando TODAS las campañas (sin caché)");
+        if (isEmpty(campaniasPermitidas)) {
+            return List.of();
+        }
+        return campanaRepo.findByIdInOrderByFechaInicio(campaniasPermitidas);
+    }
+
+    /**
+     * Obtiene detalle de una campaña.
+     * Resultado cacheado por 5 minutos.
+     */
+    @Cacheable(value = "mailing_campania_detalle", key = "#id")
+    @Transactional(readOnly = true)
+    public CampanaMailing obtenerDetalle(Integer id) {
+        log.debug("🔍 Consultando detalle de campaña {} (sin caché)", id);
+        return obtenerDetalleSinCache(id);
+    }
+
+    /**
+     * Obtiene métricas de una campaña.
+     * Resultado cacheado por 30 segundos (se actualiza frecuentemente).
+     */
+    @Cacheable(value = "mailing_metricas", key = "#id")
+    @Transactional(readOnly = true)
+    public MetricasMailingResponse obtenerMetricas(Integer id) {
+        log.debug("📊 Consultando métricas de campaña {} (sin caché)", id);
+        MetricaCampana m = metricasRepo.findByCampanaMailingId(id)
+                .orElseThrow(() -> new NotFoundException("Métricas", id.longValue()));
+        return mapper.toMetricasResponse(m);
+    }
+
+    // ========================================================================
+    // MÉTODOS AUXILIARES
+    // ========================================================================
+
+    /**
+     * Obtiene detalle sin usar caché (para uso interno en operaciones de escritura)
+     */
+    private CampanaMailing obtenerDetalleSinCache(Integer id) {
+        return campanaRepo.findById(id)
+                .orElseThrow(() -> new NotFoundException("CampanaMailing", id.longValue()));
+    }
+
+    private boolean isEmpty(List<Integer> ids) {
+        return ids == null || ids.isEmpty();
+    }
+
+    private void validarContenidoCompleto(CampanaMailing c) {
+        if (c.getAsunto() == null || c.getAsunto().trim().isEmpty()) {
+            throw new ValidationException("Asunto es obligatorio");
+        }
+        if (c.getCuerpo() == null || c.getCuerpo().trim().isEmpty()) {
+            throw new ValidationException("Cuerpo es obligatorio");
+        }
+        if (c.getCtaTexto() == null || c.getCtaTexto().trim().isEmpty()) {
+            throw new ValidationException("Texto CTA es obligatorio");
+        }
     }
 }

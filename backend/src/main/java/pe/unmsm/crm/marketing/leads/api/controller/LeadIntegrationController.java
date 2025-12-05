@@ -53,4 +53,18 @@ public class LeadIntegrationController {
                 null, null, null, null, null, null, null, null);
         return ResponseEntity.ok(leads);
     }
+
+    /**
+     * Endpoint para obtener UN SOLO lead por ID (para actualizaciones incrementales
+     * del caché)
+     * Incluye datos completos de ubicación (distrito, provincia, departamento)
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<LeadIntegrationDTO> obtenerLeadPorId(@PathVariable Long id) {
+        LeadIntegrationDTO lead = integrationService.obtenerLeadPorId(id);
+        if (lead == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(lead);
+    }
 }

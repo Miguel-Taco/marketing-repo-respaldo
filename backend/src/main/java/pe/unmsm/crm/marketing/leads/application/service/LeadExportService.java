@@ -6,13 +6,11 @@ import pe.unmsm.crm.marketing.leads.domain.model.Lead;
 import pe.unmsm.crm.marketing.shared.application.service.ExcelExportService;
 import pe.unmsm.crm.marketing.shared.application.service.ExcelExportService.ExcelConfig;
 import pe.unmsm.crm.marketing.shared.application.service.ExcelExportService.ColumnConfig;
-import pe.unmsm.crm.marketing.shared.application.service.UbigeoService;
 
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Service for exporting Leads to Excel format
@@ -23,7 +21,6 @@ import java.util.Map;
 public class LeadExportService {
 
         private final ExcelExportService excelExportService;
-        private final UbigeoService ubigeoService;
 
         private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -85,13 +82,13 @@ public class LeadExportService {
                 columns.add(new ColumnConfig<>("Fuente",
                                 lead -> lead.getFuenteTipo() != null ? lead.getFuenteTipo().toString() : ""));
 
-                // Distrito (with ubigeo resolution)
+                // Distrito (using object graph)
                 columns.add(new ColumnConfig<>("Distrito", this::getDistritoName));
 
-                // Provincia (with ubigeo resolution)
+                // Provincia (using object graph)
                 columns.add(new ColumnConfig<>("Provincia", this::getProvinciaName));
 
-                // Departamento (with ubigeo resolution)
+                // Departamento (using object graph)
                 columns.add(new ColumnConfig<>("Departamento", this::getDepartamentoName));
 
                 // Fecha Creación
@@ -104,32 +101,31 @@ public class LeadExportService {
         }
 
         /**
-         * Helper methods for ubigeo name resolution
+         * Helper methods using object graph for location names
          */
         private String getDistritoName(Lead lead) {
                 if (lead.getDemograficos() == null || lead.getDemograficos().getDistrito() == null) {
                         return "";
                 }
-                Map<String, String> ubigeoNombres = ubigeoService.obtenerNombresUbigeo(
-                                lead.getDemograficos().getDistrito());
-                return ubigeoNombres != null ? ubigeoNombres.getOrDefault("distrito", "") : "";
+                return lead.getDemograficos().getDistrito().getNombre();
         }
 
         private String getProvinciaName(Lead lead) {
                 if (lead.getDemograficos() == null || lead.getDemograficos().getDistrito() == null) {
                         return "";
                 }
-                Map<String, String> ubigeoNombres = ubigeoService.obtenerNombresUbigeo(
-                                lead.getDemograficos().getDistrito());
-                return ubigeoNombres != null ? ubigeoNombres.getOrDefault("provincia", "") : "";
+                var distrito = lead.getDemograficos().getDistrito();
+                return distrito.getProvincia() != null ? distrito.getProvincia().getNombre() : "";
         }
 
         private String getDepartamentoName(Lead lead) {
                 if (lead.getDemograficos() == null || lead.getDemograficos().getDistrito() == null) {
                         return "";
                 }
-                Map<String, String> ubigeoNombres = ubigeoService.obtenerNombresUbigeo(
-                                lead.getDemograficos().getDistrito());
-                return ubigeoNombres != null ? ubigeoNombres.getOrDefault("departamento", "") : "";
+                var distrito = lead.getDemograficos().getDistrito();
+                if (distrito.getProvincia() != null && distrito.getProvincia().getDepartamento() != null) {
+                        return distrito.getProvincia().getDepartamento().getNombre();
+                }
+                return "";
         }
 }

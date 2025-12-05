@@ -7,8 +7,6 @@ import pe.unmsm.crm.marketing.leads.api.dto.LeadIntegrationDTO;
 import pe.unmsm.crm.marketing.leads.domain.enums.EstadoLead;
 import pe.unmsm.crm.marketing.leads.domain.model.Lead;
 import pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository;
-import pe.unmsm.crm.marketing.shared.domain.model.Distrito;
-import pe.unmsm.crm.marketing.shared.domain.repository.DistritoRepository;
 import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
 import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
 import pe.unmsm.crm.marketing.shared.logging.AccionLog;
@@ -25,7 +23,6 @@ import java.util.stream.Collectors;
 public class LeadIntegrationService {
 
         private final LeadRepository leadRepository;
-        private final DistritoRepository distritoRepository;
         private final AuditoriaService auditoriaService;
 
         @Transactional(readOnly = true)
@@ -78,20 +75,13 @@ public class LeadIntegrationService {
                 String departamentoNombre = "";
 
                 if (lead.getDemograficos() != null && lead.getDemograficos().getDistrito() != null) {
-                        String distritoId = lead.getDemograficos().getDistrito();
+                        var dist = lead.getDemograficos().getDistrito();
+                        distritoNombre = dist.getNombre();
 
-                        // Obtener nombre del distrito desde el repositorio
-                        distritoNombre = distritoRepository.findById(distritoId)
-                                        .map(Distrito::getNombre)
-                                        .orElse("");
-
-                        // Mapeo temporal basado en códigos conocidos
-                        // Formato: DDPPDD (Departamento-Provincia-Distrito)
-                        // Ejemplo: "150101" = Lima (15), Lima (01), Cercado (01)
-                        if (distritoId.startsWith("15")) {
-                                departamentoNombre = "Lima";
-                                if (distritoId.startsWith("1501")) {
-                                        provinciaNombre = "Lima";
+                        if (dist.getProvincia() != null) {
+                                provinciaNombre = dist.getProvincia().getNombre();
+                                if (dist.getProvincia().getDepartamento() != null) {
+                                        departamentoNombre = dist.getProvincia().getDepartamento().getNombre();
                                 }
                         }
                 }
@@ -106,8 +96,10 @@ public class LeadIntegrationService {
                                 // Demográficos
                                 .edad(lead.getDemograficos() != null ? lead.getDemograficos().getEdad() : null)
                                 .genero(lead.getDemograficos() != null ? lead.getDemograficos().getGenero() : null)
-                                .distritoId(lead.getDemograficos() != null ? lead.getDemograficos().getDistrito()
-                                                : null)
+                                .distritoId(lead.getDemograficos() != null
+                                                && lead.getDemograficos().getDistrito() != null
+                                                                ? lead.getDemograficos().getDistrito().getId()
+                                                                : null)
                                 .distritoNombre(distritoNombre)
                                 .provinciaNombre(provinciaNombre)
                                 .departamentoNombre(departamentoNombre)
@@ -122,5 +114,30 @@ public class LeadIntegrationService {
                                 .utmCampaign(lead.getTracking() != null ? lead.getTracking().getCampaign() : null)
                                 .tipoFuente(lead.getFuenteTipo() != null ? lead.getFuenteTipo().name() : null)
                                 .build();
+        }
+
+        /**
+         * Obtiene un solo lead por ID con datos completos de ubicación
+         * Para actualizaciones incrementales del caché de segmentación
+         */
+        @Transactional(readOnly = true)
+        public LeadIntegrationDTO obtenerLeadPorId(Long id) {
+                // Usar findAllByIdWithLocation para traer el lead CON ubicación en una sola
+                // consulta
+                List<Lead> leads = leadRepository.findAllByIdWithLocation(Arrays.asList(id));
+
+                if (leads.isEmpty()) {
+                        return null;
+                }
+
+                Lead lead = leads.get(0);
+
+                // Verificar que el lead esté en estado permitido (NUEVO o CALIFICADO)
+                List<EstadoLead> estadosPermitidos = Arrays.asList(EstadoLead.NUEVO, EstadoLead.CALIFICADO);
+                if (!estadosPermitidos.contains(lead.getEstado())) {
+                        return null; // No devolver leads en otros estados
+                }
+
+                return mapToDTO(lead);
         }
 }

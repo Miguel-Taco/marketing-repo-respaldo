@@ -1,6 +1,7 @@
 package pe.unmsm.crm.marketing.leads.application.service;
 
 import lombok.RequiredArgsConstructor;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pe.unmsm.crm.marketing.leads.api.dto.LeadReportFilterDTO;
@@ -136,7 +137,7 @@ public class LeadReportService {
         LocalDateTime startDateTime = getStartDateTime(filtros.getFechaInicio());
         LocalDateTime endDateTime = getEndDateTime(filtros.getFechaFin());
 
-        List<Lead> leads = leadRepository.findByFechaCreacionBetweenOrderByFechaCreacionAsc(startDateTime, endDateTime);
+        List<Lead> leads = leadRepository.findByFechaCreacionBetweenWithLocation(startDateTime, endDateTime);
 
         Map<String, Long> byGenero = leads.stream()
                 .filter(l -> l.getDemograficos() != null && l.getDemograficos().getGenero() != null)
@@ -144,7 +145,17 @@ public class LeadReportService {
 
         Map<String, Long> byDistrito = leads.stream()
                 .filter(l -> l.getDemograficos() != null && l.getDemograficos().getDistrito() != null)
-                .collect(Collectors.groupingBy(l -> l.getDemograficos().getDistrito(), Collectors.counting()));
+                .collect(Collectors.groupingBy(l -> {
+                    var dist = l.getDemograficos().getDistrito();
+                    String nombreDistrito = dist.getNombre();
+                    String nombreProvincia = dist.getProvincia() != null ? dist.getProvincia().getNombre() : "";
+                    String nombreDepartamento = dist.getProvincia() != null
+                            && dist.getProvincia().getDepartamento() != null
+                                    ? dist.getProvincia().getDepartamento().getNombre()
+                                    : "";
+
+                    return String.format("%s / %s / %s", nombreDistrito, nombreProvincia, nombreDepartamento);
+                }, Collectors.counting()));
 
         Map<String, Object> data = buildBaseData("Reporte Demográfico",
                 "Análisis del perfil demográfico de los leads", startDateTime, endDateTime);

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import pe.unmsm.crm.marketing.leads.domain.event.LeadEstadoCambiadoEvent;
+import pe.unmsm.crm.marketing.leads.domain.event.LeadEliminadoEvent;
 import pe.unmsm.crm.marketing.leads.domain.model.Lead;
 import pe.unmsm.crm.marketing.leads.domain.enums.EstadoLead;
 import pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository;
@@ -74,8 +75,7 @@ public class LeadManagementService {
         }
 
         if (lead.getDemograficos() == null ||
-                lead.getDemograficos().getDistrito() == null ||
-                lead.getDemograficos().getDistrito().isBlank()) {
+                lead.getDemograficos().getDistrito() == null) {
             throw new BusinessException("VALIDATION_ERROR", "Se requiere distrito para calificar el lead.");
         }
     }
@@ -88,6 +88,9 @@ public class LeadManagementService {
         // Al borrar el Lead, la BD borrará el historial automáticamente por el ON
         // DELETE CASCADE
         leadRepository.deleteById(id);
+
+        // PATRÓN OBSERVER: Notificar eliminación
+        eventPublisher.publishEvent(new LeadEliminadoEvent(this, id));
 
         // AUDITORÍA: Registrar eliminación
         auditoriaService.registrarEvento(
@@ -111,6 +114,10 @@ public class LeadManagementService {
             Long nonNullId = Objects.requireNonNull(id, "El ID no puede ser null");
             if (leadRepository.existsById(nonNullId)) {
                 leadRepository.deleteById(nonNullId);
+
+                // PATRÓN OBSERVER: Notificar eliminación individual
+                eventPublisher.publishEvent(new LeadEliminadoEvent(this, nonNullId));
+
                 eliminados++;
             }
         }
@@ -163,6 +170,8 @@ public class LeadManagementService {
     }
 
     public List<Lead> obtenerLeadsPorIds(@NonNull List<@NonNull Long> ids) {
-        return leadRepository.findAllById(ids);
+        // OPTIMIZACIÓN: Usar findAllByIdWithLocation para traer leads CON ubicación
+        // en una sola consulta (evita N+1 queries)
+        return leadRepository.findAllByIdWithLocation(ids);
     }
 }

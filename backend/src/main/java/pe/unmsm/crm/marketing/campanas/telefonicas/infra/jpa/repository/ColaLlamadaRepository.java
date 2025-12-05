@@ -58,6 +58,17 @@ public interface ColaLlamadaRepository extends JpaRepository<ColaLlamadaEntity, 
                         Integer idAgenteActual, String estadoEnCola);
 
         /**
+         * Obtiene llamadas programadas pendientes para un agente que ya están vencidas
+         * o próximas
+         */
+        @Query("SELECT c FROM ColaLlamadaEntity c " +
+                        "WHERE c.idAgenteActual = :idAgente " +
+                        "AND c.estadoEnCola = 'PENDIENTE' " +
+                        "AND c.fechaProgramada IS NOT NULL " +
+                        "ORDER BY c.fechaProgramada ASC")
+        List<ColaLlamadaEntity> findScheduledCallsByAgent(@Param("idAgente") Integer idAgente);
+
+        /**
          * Cuenta los contactos pendientes de una campaña
          */
         @Query("SELECT COUNT(c) FROM ColaLlamadaEntity c " +

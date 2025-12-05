@@ -136,6 +136,17 @@ public class TelemarketingController {
     }
 
     /**
+     * GET /agentes/me/llamadas-programadas
+     * Obtiene las llamadas programadas del agente actual
+     */
+    @GetMapping("/agentes/me/llamadas-programadas")
+    public ResponseEntity<Map<String, Object>> obtenerLlamadasProgramadas() {
+        Long currentAgent = requireCurrentAgent();
+        List<ContactoDTO> llamadas = service.obtenerLlamadasProgramadas(currentAgent);
+        return ResponseUtils.success(llamadas, "Llamadas programadas obtenidas exitosamente");
+    }
+
+    /**
      * POST /public/v1/campanias-telefonicas/cola/urgente
      * Agrega un contacto urgente a la cola de una campaÃƒÂ±a con prioridad ALTA.
      * Endpoint pÃƒÂºblico para integraciÃƒÂ³n con gestor de encuestas.

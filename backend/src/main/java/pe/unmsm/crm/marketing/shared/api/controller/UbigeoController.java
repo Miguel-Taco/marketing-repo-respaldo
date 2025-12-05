@@ -23,11 +23,11 @@ public class UbigeoController {
 
     @GetMapping("/provincias/{depId}")
     public ResponseEntity<Map<String, Object>> getProvincias(@PathVariable String depId) {
-        return ResponseUtils.success(provRepo.findByDepartamentoId(depId), "Provincias cargadas");
+        return ResponseUtils.success(provRepo.findByDepartamento_Id(depId), "Provincias cargadas");
     }
 
     @GetMapping("/distritos/{provId}")
     public ResponseEntity<Map<String, Object>> getDistritos(@PathVariable String provId) {
-        return ResponseUtils.success(distRepo.findByProvinciaId(provId), "Distritos cargados");
+        return ResponseUtils.success(distRepo.findByProvincia_Id(provId), "Distritos cargados");
     }
 }

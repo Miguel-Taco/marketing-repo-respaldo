@@ -15,6 +15,12 @@ public class Provincia {
 
     private String nombre;
 
-    @Column(name = "id_departamento")
-    private String departamentoId;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_departamento")
+    private Departamento departamento;
+
+    public String getDepartamentoId() {
+        return departamento != null ? departamento.getId() : null;
+    }
 }

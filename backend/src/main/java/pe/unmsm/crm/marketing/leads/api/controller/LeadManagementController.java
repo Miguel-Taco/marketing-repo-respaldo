@@ -89,7 +89,7 @@ public class LeadManagementController {
         // Obtener nombres de ubigeo si existe distrito
         Map<String, String> ubigeoNombres = null;
         if (lead.getDemograficos() != null && lead.getDemograficos().getDistrito() != null) {
-            ubigeoNombres = ubigeoService.obtenerNombresUbigeo(lead.getDemograficos().getDistrito());
+            ubigeoNombres = ubigeoService.obtenerNombresUbigeo(lead.getDemograficos().getDistritoId());
         }
 
         LeadResponse response = LeadMapper.toResponse(lead, ubigeoNombres);
@@ -213,7 +213,7 @@ public class LeadManagementController {
                 .map(lead -> {
                     Map<String, String> ubigeoNombres = null;
                     if (lead.getDemograficos() != null && lead.getDemograficos().getDistrito() != null) {
-                        ubigeoNombres = ubigeoService.obtenerNombresUbigeo(lead.getDemograficos().getDistrito());
+                        ubigeoNombres = ubigeoService.obtenerNombresUbigeo(lead.getDemograficos().getDistritoId());
                     }
                     return LeadMapper.toResponse(lead, ubigeoNombres);
                 })
@@ -222,10 +222,4 @@ public class LeadManagementController {
         return ResponseUtils.success(responses, "Leads obtenidos exitosamente");
     }
 
-    }
-
-    
-    
-    
-
-    
+}

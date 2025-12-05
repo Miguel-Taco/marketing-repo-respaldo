@@ -11,9 +11,15 @@ import pe.unmsm.crm.marketing.leads.domain.enums.EstadoLead;
 import pe.unmsm.crm.marketing.leads.domain.vo.DatosContacto;
 import pe.unmsm.crm.marketing.leads.domain.vo.DatosDemograficos;
 import pe.unmsm.crm.marketing.leads.domain.vo.TrackingUTM;
+import pe.unmsm.crm.marketing.shared.domain.model.Distrito;
+import pe.unmsm.crm.marketing.shared.domain.repository.DistritoRepository;
+import lombok.RequiredArgsConstructor;
 
 @Component
+@RequiredArgsConstructor
 public class WebLeadFactory implements LeadFactory {
+
+    private final DistritoRepository distritoRepository;
 
     @Override
     public Lead convertirALead(Object origenStaging) {
@@ -34,21 +40,21 @@ public class WebLeadFactory implements LeadFactory {
 
         lead.setEstado(EstadoLead.NUEVO);
 
-        // Distrito is now String, so we pass it only to demograficos
-        String distrito = respuestas.get("distrito_id");
+        // Distrito: buscar entidad desde el ID
+        String distritoId = respuestas.get("distrito_id");
+        Distrito distrito = null;
+        if (distritoId != null && !distritoId.isBlank()) {
+            distrito = distritoRepository.findById(distritoId).orElse(null);
+        }
 
         DatosContacto contacto = new DatosContacto(
                 respuestas.get("email"),
                 respuestas.get("telefono"));
         lead.setContacto(contacto);
 
-        if (respuestas.containsKey("edad") || respuestas.containsKey("dni")) {
+        if (respuestas.containsKey("edad") || respuestas.containsKey("dni") || distrito != null) {
             Integer edad = parseIntSafe(respuestas.get("edad"));
-            // DatosDemograficos constructor: edad, genero, distrito
             lead.setDemograficos(new DatosDemograficos(edad, null, distrito));
-        } else if (distrito != null) {
-            // If only district is present
-            lead.setDemograficos(new DatosDemograficos(null, null, distrito));
         }
 
         TrackingUTM tracking = new TrackingUTM(

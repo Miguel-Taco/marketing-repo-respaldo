@@ -13,14 +13,12 @@ import pe.unmsm.crm.marketing.segmentacion.domain.model.ReglaSimple;
 import pe.unmsm.crm.marketing.segmentacion.domain.model.GrupoReglasAnd;
 import pe.unmsm.crm.marketing.segmentacion.domain.model.GrupoReglasOr;
 import pe.unmsm.crm.marketing.segmentacion.infra.persistence.JpaSegmentoMiembroRepository;
-import pe.unmsm.crm.marketing.shared.application.service.UbigeoService;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +27,6 @@ public class SegmentoExportService {
 
     private final LeadRepository leadRepository;
     private final JpaSegmentoMiembroRepository miembroRepository;
-    private final UbigeoService ubigeoService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -252,7 +249,7 @@ public class SegmentoExportService {
         List<Long> memberIds = miembroRepository.findByIdSegmento(segmento.getId()).stream()
                 .map(entity -> entity.getIdMiembro())
                 .collect(java.util.stream.Collectors.toList());
-        List<Lead> leads = leadRepository.findAllById(memberIds);
+        List<Lead> leads = memberIds.isEmpty() ? List.of() : leadRepository.findAllByIdWithLocation(memberIds);
 
         // Data rows
         for (Lead lead : leads) {
@@ -277,12 +274,16 @@ public class SegmentoExportService {
                             ? lead.getDemograficos().getGenero().toString()
                             : "");
 
-            // Ubigeo data
+            // Ubigeo data using object graph
             if (lead.getDemograficos() != null && lead.getDemograficos().getDistrito() != null) {
-                Map<String, String> ubigeo = ubigeoService.obtenerNombresUbigeo(lead.getDemograficos().getDistrito());
-                dataRow.createCell(6).setCellValue(ubigeo.getOrDefault("distrito", ""));
-                dataRow.createCell(7).setCellValue(ubigeo.getOrDefault("provincia", ""));
-                dataRow.createCell(8).setCellValue(ubigeo.getOrDefault("departamento", ""));
+                var distrito = lead.getDemograficos().getDistrito();
+                dataRow.createCell(6).setCellValue(distrito.getNombre());
+                dataRow.createCell(7).setCellValue(
+                        distrito.getProvincia() != null ? distrito.getProvincia().getNombre() : "");
+                dataRow.createCell(8).setCellValue(
+                        distrito.getProvincia() != null && distrito.getProvincia().getDepartamento() != null
+                                ? distrito.getProvincia().getDepartamento().getNombre()
+                                : "");
             } else {
                 dataRow.createCell(6).setCellValue("");
                 dataRow.createCell(7).setCellValue("");

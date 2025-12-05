@@ -9,6 +9,10 @@ import pe.unmsm.crm.marketing.campanas.encuestas.api.dto.EncuestaDto;
 import pe.unmsm.crm.marketing.campanas.encuestas.domain.builder.EncuestaBuilder;
 import pe.unmsm.crm.marketing.campanas.encuestas.domain.model.Encuesta;
 import pe.unmsm.crm.marketing.campanas.encuestas.domain.repository.EncuestaRepository;
+import pe.unmsm.crm.marketing.shared.logging.AccionLog;
+import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
+import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
+import pe.unmsm.crm.marketing.security.service.UserAuthorizationService;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,6 +25,12 @@ public class EncuestaService {
 
         @Autowired
         private pe.unmsm.crm.marketing.campanas.encuestas.domain.repository.CampanaExternalRepository campanaRepository;
+
+        @Autowired
+        private AuditoriaService auditoriaService;
+
+        @Autowired
+        private UserAuthorizationService userAuthorizationService;
 
         @Transactional
         public void archivarEncuesta(Integer id) {
@@ -41,7 +51,16 @@ public class EncuestaService {
                 }
 
                 encuesta.setEstado(Encuesta.EstadoEncuesta.ARCHIVADA);
+                encuesta.setEstado(Encuesta.EstadoEncuesta.ARCHIVADA);
                 encuestaRepository.save(encuesta);
+
+                // AUDITORÍA: Registrar cambio de estado
+                auditoriaService.registrarEvento(
+                                ModuloLog.ENCUESTAS,
+                                AccionLog.CAMBIAR_ESTADO,
+                                encuesta.getIdEncuesta().longValue(),
+                                userAuthorizationService.requireCurrentUsuario().getIdUsuario(),
+                                String.format("Encuesta archivada (ID: %d)", encuesta.getIdEncuesta()));
         }
 
         public List<pe.unmsm.crm.marketing.campanas.gestor.domain.model.Campana> listarCampanasAsociadas(Integer id) {
@@ -73,6 +92,15 @@ public class EncuestaService {
                                 .build();
 
                 Encuesta saved = encuestaRepository.save(encuesta);
+
+                // AUDITORÍA: Registrar creación
+                auditoriaService.registrarEvento(
+                                ModuloLog.ENCUESTAS,
+                                AccionLog.CREAR,
+                                saved.getIdEncuesta().longValue(),
+                                userAuthorizationService.requireCurrentUsuario().getIdUsuario(),
+                                String.format("Encuesta creada: '%s'", saved.getTitulo()));
+
                 return convertirAEncuestaCompletaDto(saved);
         }
 
@@ -108,6 +136,15 @@ public class EncuestaService {
                 encuesta.getPreguntas().forEach(pregunta -> pregunta.setEncuesta(encuesta));
 
                 Encuesta saved = encuestaRepository.save(encuesta);
+
+                // AUDITORÍA: Registrar actualización
+                auditoriaService.registrarEvento(
+                                ModuloLog.ENCUESTAS,
+                                AccionLog.ACTUALIZAR,
+                                saved.getIdEncuesta().longValue(),
+                                userAuthorizationService.requireCurrentUsuario().getIdUsuario(),
+                                String.format("Encuesta actualizada: '%s'", saved.getTitulo()));
+
                 return convertirAEncuestaCompletaDto(saved);
         }
 

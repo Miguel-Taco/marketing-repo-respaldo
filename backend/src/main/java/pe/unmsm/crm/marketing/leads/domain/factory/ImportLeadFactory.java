@@ -13,6 +13,8 @@ import pe.unmsm.crm.marketing.leads.domain.vo.DatosContacto;
 import pe.unmsm.crm.marketing.leads.domain.vo.DatosDemograficos;
 import pe.unmsm.crm.marketing.leads.domain.vo.TrackingUTM;
 import pe.unmsm.crm.marketing.shared.application.service.UbigeoService;
+import pe.unmsm.crm.marketing.shared.domain.model.Distrito;
+import pe.unmsm.crm.marketing.shared.domain.repository.DistritoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,6 +25,7 @@ public class ImportLeadFactory implements LeadFactory {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final UbigeoService ubigeoService;
+    private final DistritoRepository distritoRepository;
 
     @Override
     public Lead convertirALead(Object origenStaging) {
@@ -75,18 +78,24 @@ public class ImportLeadFactory implements LeadFactory {
 
             log.info("🎯 [IMPORT] DistritoId final asignado: '{}' para lead: {}", distritoId, nombre);
 
+            // Buscar la entidad Distrito desde el ID
+            Distrito distrito = null;
+            if (distritoId != null) {
+                distrito = distritoRepository.findById(distritoId).orElse(null);
+            }
+
             // DatosContacto: solo email y telefono (distrito va en demograficos)
             DatosContacto contacto = new DatosContacto(
                     String.valueOf(datos.get("email")),
                     String.valueOf(datos.getOrDefault("telefono", "")));
             lead.setContacto(contacto);
 
-            // Demograficos con distrito limpio
+            // Demograficos con distrito entidad
             if (datos.containsKey("edad") || datos.containsKey("genero") || datos.containsKey("distrito_id")
                     || datos.containsKey("direccion")) {
                 Integer edad = parseIntSafe(datos.get("edad"));
                 String genero = (String) datos.get("genero");
-                lead.setDemograficos(new DatosDemograficos(edad, genero, distritoId));
+                lead.setDemograficos(new DatosDemograficos(edad, genero, distrito));
             }
 
             TrackingUTM tracking = new TrackingUTM(

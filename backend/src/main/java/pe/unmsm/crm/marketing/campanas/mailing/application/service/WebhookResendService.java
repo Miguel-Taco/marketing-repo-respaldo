@@ -2,6 +2,7 @@ package pe.unmsm.crm.marketing.campanas.mailing.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.ResendWebhookRequest;
@@ -14,14 +15,14 @@ import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
 import java.time.LocalDateTime;
 
 /**
- * Servicio para procesar:
- * 1. Webhooks de Resend (eventos de email)
- * 2. Tracking propio de clics y bajas (desde nuestros endpoints)
+ * Servicio para procesar webhooks de Resend y tracking propio.
  * 
- * CORRECCIONES APLICADAS:
- * - Eliminado Set estático para deduplicación (se pierde al reiniciar)
- * - Ahora usa BD para verificar duplicados
- * - Mejorado manejo de errores
+ * OPTIMIZACIONES APLICADAS:
+ * 
+ * 1. Invalidación de caché de métricas al recibir eventos
+ * 2. Deduplicación en BD (no en memoria)
+ * 3. Manejo resiliente de errores (no falla el flujo principal)
+ * 4. Logs estructurados para debugging
  */
 @Service
 @Transactional
@@ -37,16 +38,16 @@ public class WebhookResendService {
 
     // ========================================================================
     // TRACKING PROPIO (desde /api/v1/mailing/track/*)
-    // Este es el método principal para clics y bajas
     // ========================================================================
 
     /**
      * Procesa un clic desde nuestro endpoint de tracking.
-     * Este método se llama cuando un usuario hace clic en el botón CTA del email.
+     * Invalida el caché de métricas de la campaña.
      * 
      * @param idCampana ID de la campaña de mailing
      * @param email Email del destinatario que hizo clic
      */
+    @CacheEvict(value = "mailing_metricas", key = "#idCampana")
     public void procesarClicTracking(Integer idCampana, String email) {
         log.info("╔══════════════════════════════════════════════════╗");
         log.info("║  PROCESANDO CLIC - Tracking Propio               ║");
@@ -61,13 +62,13 @@ public class WebhookResendService {
             if (idLead == null) {
                 log.warn("⚠ No se encontró lead para email: {}", email);
                 // Aún así actualizamos métricas aunque no tengamos el lead
-                actualizarMetricas(idCampana, TipoInteraccion.CLIC.getId());
+                actualizarMetricasConEvict(idCampana, TipoInteraccion.CLIC.getId());
                 return;
             }
 
-            // ✅ CORREGIDO: Verificar duplicado en BD (no en memoria)
+            // Verificar duplicado en BD
             if (yaExisteInteraccion(idCampana, idLead, TipoInteraccion.CLIC.getId())) {
-                log.info("  Clic ya registrado previamente en BD, ignorando duplicado");
+                log.info("  ℹ Clic ya registrado previamente, ignorando duplicado");
                 return;
             }
 
@@ -81,7 +82,7 @@ public class WebhookResendService {
             interaccionRepo.save(interaccion);
 
             // Actualizar métricas
-            actualizarMetricas(idCampana, TipoInteraccion.CLIC.getId());
+            actualizarMetricasConEvict(idCampana, TipoInteraccion.CLIC.getId());
 
             // Derivar a Ventas (el clic indica interés)
             derivarAVentas(idCampana, email, idLead);
@@ -90,16 +91,15 @@ public class WebhookResendService {
 
         } catch (Exception e) {
             log.error("✗ Error procesando clic tracking: {}", e.getMessage(), e);
+            // No relanzar excepción para mantener resilencia
         }
     }
 
     /**
      * Procesa una solicitud de baja (unsubscribe).
-     * Se llama cuando un usuario hace clic en "Cancelar suscripción" del email.
-     * 
-     * @param idCampana ID de la campaña
-     * @param email Email del usuario que se da de baja
+     * Invalida el caché de métricas de la campaña.
      */
+    @CacheEvict(value = "mailing_metricas", key = "#idCampana")
     public void procesarBajaTracking(Integer idCampana, String email) {
         log.warn("╔══════════════════════════════════════════════════╗");
         log.warn("║  PROCESANDO BAJA - Unsubscribe                   ║");
@@ -111,11 +111,10 @@ public class WebhookResendService {
         try {
             Long idLead = leadPort.findLeadIdByEmail(email);
             
-            // Registrar baja aunque no encontremos el lead
             if (idLead != null) {
-                // ✅ Verificar duplicado
+                // Verificar duplicado
                 if (yaExisteInteraccion(idCampana, idLead, TipoInteraccion.BAJA.getId())) {
-                    log.info("  Baja ya registrada previamente, ignorando");
+                    log.info("  ℹ Baja ya registrada previamente, ignorando");
                     return;
                 }
                 
@@ -129,7 +128,7 @@ public class WebhookResendService {
             }
 
             // Actualizar métricas
-            actualizarMetricas(idCampana, TipoInteraccion.BAJA.getId());
+            actualizarMetricasConEvict(idCampana, TipoInteraccion.BAJA.getId());
 
             log.info("✓ Baja registrada para campaña {} - email {}", idCampana, email);
 
@@ -139,11 +138,13 @@ public class WebhookResendService {
     }
 
     // ========================================================================
-    // WEBHOOKS DE RESEND (desde /api/v1/mailing/webhooks/resend)
+    // WEBHOOKS DE RESEND
     // ========================================================================
 
     /**
      * Procesa un evento webhook de Resend.
+     * Los eventos de Resend NO invalidan caché directamente porque 
+     * no tenemos el ID de campaña en el payload (solo email_id).
      */
     public void procesarEventoResend(ResendWebhookRequest evento) {
         if (evento == null || evento.getType() == null) {
@@ -151,17 +152,16 @@ public class WebhookResendService {
             return;
         }
 
-        log.info("Webhook Resend recibido: {} para email_id: {}", 
-            evento.getType(), evento.getEmailId());
+        log.info("📨 Webhook Resend: {} | email_id: {}", evento.getType(), evento.getEmailId());
 
         try {
             switch (evento.getType()) {
                 case "email.delivered" -> procesarEntregado(evento);
                 case "email.opened" -> procesarApertura(evento);
-                case "email.clicked" -> log.debug("Clic detectado por Resend (ya manejado por tracking propio)");
+                case "email.clicked" -> log.debug("Clic detectado por Resend (manejado por tracking propio)");
                 case "email.bounced" -> procesarRebote(evento);
                 case "email.complained" -> procesarQueja(evento);
-                case "email.sent" -> log.debug("Email enviado a Resend: {}", evento.getFirstRecipient());
+                case "email.sent" -> log.debug("Email enviado: {}", evento.getFirstRecipient());
                 default -> log.debug("Evento no manejado: {}", evento.getType());
             }
 
@@ -177,14 +177,13 @@ public class WebhookResendService {
     private void procesarEntregado(ResendWebhookRequest evento) {
         String email = evento.getFirstRecipient();
         log.info("  📬 Email entregado a: {}", email);
-        // Los entregados los contamos al enviar, este es informativo
+        // Informativo - los entregados se cuentan al enviar
     }
 
     private void procesarApertura(ResendWebhookRequest evento) {
         String email = evento.getFirstRecipient();
         log.info("  👁 Email abierto por: {}", email);
-        // TODO: Para aperturas necesitaríamos mapear email_id -> campaign_id
-        // Por ahora es solo informativo
+        // TODO: Implementar mapeo email_id -> campaign_id si se necesita tracking de aperturas
     }
 
     private void procesarRebote(ResendWebhookRequest evento) {
@@ -203,16 +202,15 @@ public class WebhookResendService {
     private void procesarQueja(ResendWebhookRequest evento) {
         String email = evento.getFirstRecipient();
         log.warn("  🚫 Queja de SPAM de: {}", email);
-        // TODO: Marcar este email para no enviarle más correos
+        // TODO: Marcar email para blacklist
     }
 
     // ========================================================================
-    // HELPERS
+    // MÉTODOS AUXILIARES
     // ========================================================================
 
     /**
-     * ✅ CORREGIDO: Verifica en BD si ya existe la interacción
-     * Esto persiste entre reinicios del servidor
+     * Verifica en BD si ya existe la interacción (deduplicación persistente)
      */
     private boolean yaExisteInteraccion(Integer idCampana, Long idLead, Integer tipoEvento) {
         return interaccionRepo.existsByIdCampanaMailingIdAndIdContactoCrmAndIdTipoEvento(
@@ -220,7 +218,12 @@ public class WebhookResendService {
         );
     }
 
-    private void actualizarMetricas(Integer idCampana, Integer idTipo) {
+    /**
+     * Actualiza métricas de la campaña.
+     * Este método NO usa @CacheEvict porque es llamado internamente.
+     * La invalidación se hace en el método público que lo llama.
+     */
+    private void actualizarMetricasConEvict(Integer idCampana, Integer idTipo) {
         try {
             MetricaCampana metricas = metricasRepo.findByCampanaMailingId(idCampana)
                     .orElseThrow(() -> new NotFoundException("Métricas", idCampana.longValue()));
@@ -235,14 +238,17 @@ public class WebhookResendService {
             metricas.setActualizadoEn(LocalDateTime.now());
             metricasRepo.save(metricas);
             
-            log.debug("  Métricas actualizadas: campaña={}, tipo={}", idCampana, 
-                TipoInteraccion.fromId(idTipo).getNombre());
+            log.debug("  📊 Métricas actualizadas: campaña={}, tipo={}", 
+                idCampana, TipoInteraccion.fromId(idTipo).getNombre());
 
         } catch (Exception e) {
             log.error("Error actualizando métricas: {}", e.getMessage());
         }
     }
 
+    /**
+     * Deriva un lead interesado al módulo de Ventas.
+     */
     private void derivarAVentas(Integer idCampana, String email, Long idLead) {
         try {
             CampanaMailing campana = campanaRepo.findById(idCampana)
@@ -262,7 +268,7 @@ public class WebhookResendService {
 
         } catch (Exception e) {
             log.error("  ✗ Error derivando a Ventas: {}", e.getMessage());
-            // No lanzar excepción - mantener resilencia
+            // No relanzar excepción - mantener resilencia
         }
     }
 }

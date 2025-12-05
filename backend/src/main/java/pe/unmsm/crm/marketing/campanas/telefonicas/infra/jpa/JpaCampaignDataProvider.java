@@ -239,6 +239,19 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         }
 
         @Override
+        @Transactional(readOnly = true)
+        public List<ContactoDTO> obtenerLlamadasProgramadas(Long idAgente) {
+                log.info("Obteniendo llamadas programadas para agente: {}", idAgente);
+                Integer agenteId = requireAgent(idAgente);
+
+                List<ColaLlamadaEntity> llamadasProgramadas = colaRepo.findScheduledCallsByAgent(agenteId);
+
+                return llamadasProgramadas.stream()
+                                .map(mapper::toContactoDTO)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
         @Transactional
         public LlamadaDTO registrarResultadoLlamada(Long idCampania, Long idAgente, ResultadoLlamadaRequest request) {
                 log.info("Registrando resultado de llamada [campaniaId={}, agenteId={}]",
@@ -336,10 +349,11 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                                 contacto.setEstadoEnCola("PENDIENTE");
                                 contacto.setFechaProgramada(request.getFechaReagendamiento());
                                 contacto.setPrioridadCola("ALTA"); // Alta prioridad para reagendados
-                                contacto.setIdAgenteActual(null); // Liberar al pool
+                                contacto.setIdAgenteActual(agenteId); // Mantener asignado al agente que reagendó
 
-                                log.info("Contacto reagendado para {} [contactoId={}]",
-                                                request.getFechaReagendamiento(), request.getIdContactoCola());
+                                log.info("Contacto reagendado para {} [contactoId={}, agenteId={}]",
+                                                request.getFechaReagendamiento(), request.getIdContactoCola(),
+                                                agenteId);
                         } else {
                                 // COMPLETAR: Marcar como completado
                                 contacto.setEstadoEnCola("COMPLETADO");

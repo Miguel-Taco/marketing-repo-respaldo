@@ -35,6 +35,8 @@ public interface CampaignDataProvider {
 
     void reanudarCola(Long idAgente, Long idCampania);
 
+    List<ContactoDTO> obtenerLlamadasProgramadas(Long idAgente);
+
     // Llamadas
     LlamadaDTO obtenerLlamada(Long idLlamada);
 

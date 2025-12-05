@@ -76,6 +76,10 @@ public class TelemarketingService {
         return campaignDataProvider.obtenerCola(idCampania);
     }
 
+    public List<ContactoDTO> obtenerLlamadasProgramadas(Long idAgente) {
+        return campaignDataProvider.obtenerLlamadasProgramadas(idAgente);
+    }
+
     public ContactoDTO obtenerSiguienteContacto(Long idCampania, Long idAgente) {
         CampaniaTelefonicaDTO campania = obtenerCampaniaPorId(idCampania);
         if (campania == null)

@@ -9,6 +9,8 @@ logging:
               BasicBinder: INFO
 
 spring:
+  jackson:
+    time-zone: America/Lima
   datasource:
     url: jdbc:mysql://${MYSQLHOST}:${MYSQLPORT}/${MYSQLDATABASE}?useSSL=false&serverTimezone=UTC
     username: ${MYSQLUSER}

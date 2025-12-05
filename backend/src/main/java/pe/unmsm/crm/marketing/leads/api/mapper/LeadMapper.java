@@ -103,9 +103,23 @@ public class LeadMapper {
             var builder = DatosDemograficosDTO.builder()
                     .edad(lead.getDemograficos().getEdad())
                     .genero(lead.getDemograficos().getGenero())
-                    .distrito(lead.getDemograficos().getDistrito());
+                    .distrito(lead.getDemograficos().getDistritoId());
 
-            if (ubigeoNombres != null) {
+            // OPTIMIZACIÓN: Si el distrito está cargado (LEFT JOIN FETCH), extraer nombres
+            // directamente
+            if (lead.getDemograficos().getDistrito() != null) {
+                var distrito = lead.getDemograficos().getDistrito();
+                builder.distritoNombre(distrito.getNombre());
+
+                if (distrito.getProvincia() != null) {
+                    builder.provinciaNombre(distrito.getProvincia().getNombre());
+
+                    if (distrito.getProvincia().getDepartamento() != null) {
+                        builder.departamentoNombre(distrito.getProvincia().getDepartamento().getNombre());
+                    }
+                }
+            } else if (ubigeoNombres != null) {
+                // Fallback: usar ubigeoNombres si se proporcionó (para compatibilidad)
                 builder.distritoNombre(ubigeoNombres.get("distrito"))
                         .provinciaNombre(ubigeoNombres.get("provincia"))
                         .departamentoNombre(ubigeoNombres.get("departamento"));

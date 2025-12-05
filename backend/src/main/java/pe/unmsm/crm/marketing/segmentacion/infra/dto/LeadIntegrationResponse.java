@@ -17,6 +17,9 @@ public class LeadIntegrationResponse {
     private Integer edad;
     private String genero;
     private String distritoId;
+    private String distritoNombre;
+    private String provinciaNombre;
+    private String departamentoNombre;
     private String nivelEducativo;
     private String estadoCivil;
     private String utmSource;
