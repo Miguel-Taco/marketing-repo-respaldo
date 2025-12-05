@@ -20,18 +20,16 @@ import java.util.Optional;
 /**
  * Servicio para procesar webhooks de Resend y tracking propio.
  * 
- * FLUJO PRINCIPAL DE DERIVACIÓN A VENTAS:
+ * FLUJO DE WEBHOOKS DE RESEND:
+ * 1. Resend envía webhook con email_id
+ * 2. Buscamos en email_metadata para obtener id_campana_mailing
+ * 3. Actualizamos métricas de esa campaña
  * 
- * 1. Usuario recibe email de la campaña
- * 2. Usuario hace clic en el botón CTA
- * 3. La URL del CTA pasa por nuestro endpoint de tracking (/api/v1/mailing/track/click)
- * 4. Este servicio:
- *    a) Registra la interacción (clic) en la BD
- *    b) Actualiza las métricas de la campaña
- *    c) Obtiene información completa del lead
- *    d) Construye el payload para Ventas
- *    e) Envía el lead interesado a Ventas
- * 5. El usuario es redirigido a la URL real (encuesta)
+ * FLUJO DE TRACKING PROPIO (CLICS):
+ * 1. Usuario hace clic en CTA del correo
+ * 2. URL pasa por /api/v1/mailing/track/click con cid (campaign_id)
+ * 3. Registramos interacción y derivamos a Ventas
+ * 4. Redirigimos a la URL real (encuesta)
  */
 @Service
 @Transactional
@@ -42,8 +40,211 @@ public class WebhookResendService {
     private final JpaInteraccionLogRepository interaccionRepo;
     private final JpaMetricaMailingRepository metricasRepo;
     private final JpaCampanaMailingRepository campanaRepo;
+    private final JpaEmailMetadataRepository emailMetadataRepo;
     private final IVentasPort ventasPort;
     private final ILeadPort leadPort;
+
+    // ========================================================================
+    // WEBHOOKS DE RESEND (email.opened, email.delivered, etc.)
+    // ========================================================================
+
+    /**
+     * Procesa un evento webhook de Resend.
+     * 
+     * IMPORTANTE: Usamos el email_id del webhook para buscar en email_metadata
+     * y así obtener el id_campana_mailing correspondiente.
+     */
+    public void procesarEventoResend(ResendWebhookRequest evento) {
+        if (evento == null || evento.getType() == null) {
+            log.warn("Evento Resend inválido o sin tipo");
+            return;
+        }
+
+        String emailId = evento.getEmailId();
+        String tipoEvento = evento.getType();
+        String emailDestinatario = evento.getFirstRecipient();
+
+        log.info("╔══════════════════════════════════════════════════════════════╗");
+        log.info("║  PROCESANDO WEBHOOK RESEND                                   ║");
+        log.info("╠══════════════════════════════════════════════════════════════╣");
+        log.info("║  Tipo: {}", tipoEvento);
+        log.info("║  Email ID: {}", emailId);
+        log.info("║  Destinatario: {}", emailDestinatario);
+        log.info("╚══════════════════════════════════════════════════════════════╝");
+
+        try {
+            switch (tipoEvento) {
+                case "email.delivered" -> procesarEntregado(emailId, emailDestinatario);
+                case "email.opened" -> procesarApertura(emailId, emailDestinatario);
+                case "email.clicked" -> log.info("  ℹ Clic detectado por Resend (manejado por tracking propio)");
+                case "email.bounced" -> procesarRebote(evento);
+                case "email.complained" -> procesarQueja(emailId, emailDestinatario);
+                case "email.sent" -> log.debug("  📤 Email enviado: {}", emailDestinatario);
+                default -> log.debug("  ⚠ Evento no manejado: {}", tipoEvento);
+            }
+
+        } catch (Exception e) {
+            log.error("  ✗ Error procesando evento Resend {}: {}", tipoEvento, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Procesa evento de entrega (email.delivered)
+     */
+    private void procesarEntregado(String emailId, String emailDestinatario) {
+        log.info("  📬 Procesando ENTREGA...");
+        
+        // Buscar metadata por email_id de Resend
+        Optional<EmailMetadata> metadataOpt = emailMetadataRepo.findByResendEmailId(emailId);
+        
+        if (metadataOpt.isEmpty()) {
+            log.warn("  ⚠ No se encontró metadata para email_id: {}", emailId);
+            log.warn("    Intentando buscar por email destinatario...");
+            
+            // Fallback: buscar por email si no hay email_id (para emails enviados antes de la corrección)
+            // Esto no es ideal porque un email puede estar en múltiples campañas
+            return;
+        }
+        
+        EmailMetadata metadata = metadataOpt.get();
+        Integer idCampana = metadata.getIdCampanaMailing();
+        
+        log.info("  ✓ Campaña identificada: {}", idCampana);
+        
+        // Actualizar métrica de entregados
+        actualizarMetricaEntregado(idCampana);
+        
+        log.info("  ✓ Entrega registrada para campaña {}", idCampana);
+    }
+
+    /**
+     * ✅ CORREGIDO: Procesa evento de apertura (email.opened)
+     * Ahora busca la campaña usando email_metadata y actualiza métricas
+     */
+    private void procesarApertura(String emailId, String emailDestinatario) {
+        log.info("  👁 Procesando APERTURA...");
+        
+        // Buscar metadata por email_id de Resend
+        Optional<EmailMetadata> metadataOpt = emailMetadataRepo.findByResendEmailId(emailId);
+        
+        if (metadataOpt.isEmpty()) {
+            log.warn("  ⚠ No se encontró metadata para email_id: {}", emailId);
+            return;
+        }
+        
+        EmailMetadata metadata = metadataOpt.get();
+        Integer idCampana = metadata.getIdCampanaMailing();
+        Long idLead = metadata.getIdLead();
+        
+        log.info("  ✓ Campaña identificada: {}", idCampana);
+        log.info("  ✓ Lead ID: {}", idLead);
+        
+        // Verificar duplicado (evitar contar múltiples aperturas del mismo usuario)
+        if (idLead != null && yaExisteInteraccion(idCampana, idLead, TipoInteraccion.APERTURA.getId())) {
+            log.info("  ℹ Apertura ya registrada para este lead, ignorando duplicado");
+            return;
+        }
+        
+        // Si no tenemos lead_id, intentar buscarlo
+        if (idLead == null) {
+            idLead = leadPort.findLeadIdByEmail(emailDestinatario);
+        }
+        
+        // Registrar interacción si tenemos el lead
+        if (idLead != null) {
+            InteraccionLog interaccion = InteraccionLog.builder()
+                    .idCampanaMailingId(idCampana)
+                    .idTipoEvento(TipoInteraccion.APERTURA.getId())
+                    .idContactoCrm(idLead)
+                    .fechaEvento(LocalDateTime.now())
+                    .build();
+            interaccionRepo.save(interaccion);
+            log.info("  ✓ Interacción de apertura registrada");
+        }
+        
+        // ✅ Actualizar métrica de aperturas
+        actualizarMetricas(idCampana, TipoInteraccion.APERTURA.getId());
+        
+        log.info("  ✓ Apertura registrada para campaña {} - email {}", idCampana, emailDestinatario);
+    }
+
+    /**
+     * Procesa evento de rebote (email.bounced)
+     */
+    private void procesarRebote(ResendWebhookRequest evento) {
+        String emailId = evento.getEmailId();
+        String emailDestinatario = evento.getFirstRecipient();
+        String tipoRebote = evento.getData().getBounce() != null 
+            ? evento.getData().getBounce().getType() 
+            : "unknown";
+        String mensaje = evento.getData().getBounce() != null 
+            ? evento.getData().getBounce().getMessage() 
+            : "";
+        
+        log.warn("  ⚠ Procesando REBOTE ({})...", tipoRebote);
+        log.warn("    Mensaje: {}", mensaje);
+        
+        Optional<EmailMetadata> metadataOpt = emailMetadataRepo.findByResendEmailId(emailId);
+        
+        if (metadataOpt.isEmpty()) {
+            log.warn("  ⚠ No se encontró metadata para email_id: {}", emailId);
+            return;
+        }
+        
+        EmailMetadata metadata = metadataOpt.get();
+        Integer idCampana = metadata.getIdCampanaMailing();
+        Long idLead = metadata.getIdLead();
+        
+        // Registrar interacción
+        if (idLead != null) {
+            InteraccionLog interaccion = InteraccionLog.builder()
+                    .idCampanaMailingId(idCampana)
+                    .idTipoEvento(TipoInteraccion.REBOTE.getId())
+                    .idContactoCrm(idLead)
+                    .fechaEvento(LocalDateTime.now())
+                    .build();
+            interaccionRepo.save(interaccion);
+        }
+        
+        // Actualizar métrica de rebotes
+        actualizarMetricas(idCampana, TipoInteraccion.REBOTE.getId());
+        
+        log.warn("  ✓ Rebote registrado para campaña {} - email {}", idCampana, emailDestinatario);
+    }
+
+    /**
+     * Procesa evento de queja/spam (email.complained)
+     */
+    private void procesarQueja(String emailId, String emailDestinatario) {
+        log.warn("  🚫 Procesando QUEJA (spam)...");
+        
+        Optional<EmailMetadata> metadataOpt = emailMetadataRepo.findByResendEmailId(emailId);
+        
+        if (metadataOpt.isEmpty()) {
+            log.warn("  ⚠ No se encontró metadata para email_id: {}", emailId);
+            return;
+        }
+        
+        EmailMetadata metadata = metadataOpt.get();
+        Integer idCampana = metadata.getIdCampanaMailing();
+        Long idLead = metadata.getIdLead();
+        
+        // Registrar como baja
+        if (idLead != null) {
+            InteraccionLog interaccion = InteraccionLog.builder()
+                    .idCampanaMailingId(idCampana)
+                    .idTipoEvento(TipoInteraccion.BAJA.getId())
+                    .idContactoCrm(idLead)
+                    .fechaEvento(LocalDateTime.now())
+                    .build();
+            interaccionRepo.save(interaccion);
+        }
+        
+        // Actualizar métrica de bajas
+        actualizarMetricas(idCampana, TipoInteraccion.BAJA.getId());
+        
+        log.warn("  ✓ Queja registrada como baja para campaña {} - email {}", idCampana, emailDestinatario);
+    }
 
     // ========================================================================
     // TRACKING PROPIO (desde /api/v1/mailing/track/*)
@@ -53,9 +254,6 @@ public class WebhookResendService {
      * Procesa un clic desde nuestro endpoint de tracking.
      * 
      * ESTE ES EL MÉTODO PRINCIPAL QUE DERIVA A VENTAS.
-     * 
-     * @param idCampana ID de la campaña de mailing
-     * @param email Email del destinatario que hizo clic
      */
     @CacheEvict(value = "mailing_metricas", key = "#idCampana")
     public void procesarClicTracking(Integer idCampana, String email) {
@@ -112,14 +310,11 @@ public class WebhookResendService {
 
         } catch (Exception e) {
             log.error("  ✗ Error procesando clic tracking: {}", e.getMessage(), e);
-            // No relanzar excepción para mantener resilencia
-            // El usuario será redirigido de todos modos
         }
     }
 
     /**
      * Procesa una solicitud de baja (unsubscribe).
-     * Invalida el caché de métricas de la campaña.
      */
     @CacheEvict(value = "mailing_metricas", key = "#idCampana")
     public void procesarBajaTracking(Integer idCampana, String email) {
@@ -163,55 +358,34 @@ public class WebhookResendService {
     // DERIVACIÓN A VENTAS
     // ========================================================================
 
-    /**
-     * Deriva un lead interesado al módulo de Ventas.
-     * 
-     * Este método construye el payload completo que Ventas espera y lo envía.
-     * 
-     * @param idCampana ID de la campaña de mailing
-     * @param email Email del lead
-     * @param leadInfo Información completa del lead obtenida de la BD
-     */
     private void derivarLeadAVentas(Integer idCampana, String email, LeadInfoDTO leadInfo) {
         log.info("┌─────────────────────────────────────────────────────────────┐");
         log.info("│  INICIANDO DERIVACIÓN A VENTAS                              │");
         log.info("└─────────────────────────────────────────────────────────────┘");
         
         try {
-            // Obtener datos de la campaña
             CampanaMailing campana = campanaRepo.findById(idCampana)
                     .orElseThrow(() -> new NotFoundException("CampanaMailing", idCampana.longValue()));
 
             log.info("  Campaña: {} (ID Gestión: {})", 
                 campana.getNombre(), campana.getIdCampanaGestion());
 
-            // Construir el request para Ventas
             LeadVentasRequest request = LeadVentasRequest.builder()
-                    // Datos del Lead
                     .idLeadMarketing(leadInfo.getLeadId())
                     .nombres(leadInfo.getNombresParaVentas())
                     .apellidos(leadInfo.getApellidosParaVentas())
                     .correo(email)
                     .telefono(leadInfo.getTelefonoParaVentas())
-                    
-                    // Canal de origen (siempre CAMPANIA_MAILING para nosotros)
                     .canalOrigen("CAMPANIA_MAILING")
-                    
-                    // Datos de la campaña
-                    .idCampaniaMarketing(campana.getIdCampanaGestion()) // ID del Gestor
+                    .idCampaniaMarketing(campana.getIdCampanaGestion())
                     .nombreCampania(campana.getNombre())
                     .tematica(campana.getTematica())
                     .descripcion(campana.getDescripcion())
-                    
-                    // Notas para el vendedor
                     .notasLlamada(LeadVentasRequest.generarNotasAutomaticas(
                             campana.getNombre(), email))
-                    
-                    // Fecha de envío
                     .fechaEnvio(LocalDateTime.now())
                     .build();
 
-            // Log del request que vamos a enviar
             log.info("  Request construido:");
             log.info("    - Lead: {} {} (ID: {})", 
                 request.getNombres(), request.getApellidos(), request.getIdLeadMarketing());
@@ -219,7 +393,6 @@ public class WebhookResendService {
                 request.getNombreCampania(), request.getIdCampaniaMarketing());
             log.info("    - Canal: {}", request.getCanalOrigen());
 
-            // Enviar a Ventas
             boolean exito = ventasPort.derivarLeadInteresado(request);
 
             if (exito) {
@@ -232,81 +405,13 @@ public class WebhookResendService {
             log.error("  ✗ Campaña no encontrada: {}", idCampana);
         } catch (Exception e) {
             log.error("  ✗ Error derivando a Ventas: {}", e.getMessage(), e);
-            // No relanzar excepción - mantener resilencia
         }
-    }
-
-    // ========================================================================
-    // WEBHOOKS DE RESEND (si los usas en el futuro)
-    // ========================================================================
-
-    /**
-     * Procesa un evento webhook de Resend.
-     * Por ahora solo registra el evento - el tracking principal se hace
-     * con nuestros propios endpoints.
-     */
-    public void procesarEventoResend(ResendWebhookRequest evento) {
-        if (evento == null || evento.getType() == null) {
-            log.warn("Evento Resend inválido o sin tipo");
-            return;
-        }
-
-        log.info("📨 Webhook Resend: {} | email_id: {}", evento.getType(), evento.getEmailId());
-
-        try {
-            switch (evento.getType()) {
-                case "email.delivered" -> procesarEntregado(evento);
-                case "email.opened" -> procesarApertura(evento);
-                case "email.clicked" -> log.debug("Clic detectado por Resend (manejado por tracking propio)");
-                case "email.bounced" -> procesarRebote(evento);
-                case "email.complained" -> procesarQueja(evento);
-                case "email.sent" -> log.debug("Email enviado: {}", evento.getFirstRecipient());
-                default -> log.debug("Evento no manejado: {}", evento.getType());
-            }
-
-        } catch (Exception e) {
-            log.error("Error procesando evento Resend {}: {}", evento.getType(), e.getMessage(), e);
-        }
-    }
-
-    // ========================================================================
-    // PROCESADORES DE EVENTOS RESEND
-    // ========================================================================
-
-    private void procesarEntregado(ResendWebhookRequest evento) {
-        String email = evento.getFirstRecipient();
-        log.info("  📬 Email entregado a: {}", email);
-    }
-
-    private void procesarApertura(ResendWebhookRequest evento) {
-        String email = evento.getFirstRecipient();
-        log.info("  👁 Email abierto por: {}", email);
-    }
-
-    private void procesarRebote(ResendWebhookRequest evento) {
-        String email = evento.getFirstRecipient();
-        String tipo = evento.getData().getBounce() != null 
-            ? evento.getData().getBounce().getType() 
-            : "unknown";
-        String mensaje = evento.getData().getBounce() != null 
-            ? evento.getData().getBounce().getMessage() 
-            : "";
-        
-        log.warn("  ⚠ Rebote {} para: {} - {}", tipo, email, mensaje);
-    }
-
-    private void procesarQueja(ResendWebhookRequest evento) {
-        String email = evento.getFirstRecipient();
-        log.warn("  🚫 Queja de SPAM de: {}", email);
     }
 
     // ========================================================================
     // MÉTODOS AUXILIARES
     // ========================================================================
 
-    /**
-     * Verifica en BD si ya existe la interacción (deduplicación persistente)
-     */
     private boolean yaExisteInteraccion(Integer idCampana, Long idLead, Integer tipoEvento) {
         return interaccionRepo.existsByIdCampanaMailingIdAndIdContactoCrmAndIdTipoEvento(
             idCampana, idLead, tipoEvento
@@ -314,7 +419,7 @@ public class WebhookResendService {
     }
 
     /**
-     * Actualiza métricas de la campaña.
+     * Actualiza métricas de la campaña según el tipo de evento.
      */
     private void actualizarMetricas(Integer idCampana, Integer idTipo) {
         try {
@@ -336,6 +441,25 @@ public class WebhookResendService {
 
         } catch (Exception e) {
             log.error("Error actualizando métricas: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Actualiza solo la métrica de entregados.
+     */
+    private void actualizarMetricaEntregado(Integer idCampana) {
+        try {
+            MetricaCampana metricas = metricasRepo.findByCampanaMailingId(idCampana)
+                    .orElseThrow(() -> new NotFoundException("Métricas", idCampana.longValue()));
+
+            metricas.setEntregados(metricas.getEntregados() + 1);
+            metricas.setActualizadoEn(LocalDateTime.now());
+            metricasRepo.save(metricas);
+            
+            log.debug("  📊 Métrica de entregados actualizada: campaña={}", idCampana);
+
+        } catch (Exception e) {
+            log.error("Error actualizando métrica de entregados: {}", e.getMessage());
         }
     }
 }

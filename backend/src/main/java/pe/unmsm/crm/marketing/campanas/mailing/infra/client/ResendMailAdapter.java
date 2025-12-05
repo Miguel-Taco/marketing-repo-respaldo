@@ -6,24 +6,40 @@ import com.resend.services.emails.model.CreateEmailOptions;
 import com.resend.services.emails.model.CreateEmailResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.CampanaMailing;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.model.EmailMetadata;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IMailingPort;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.ILeadPort;
 import pe.unmsm.crm.marketing.campanas.mailing.infra.config.ResendConfig;
+import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaEmailMetadataRepository;
 import pe.unmsm.crm.marketing.shared.infra.exception.ExternalServiceException;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Adapter para envío de emails usando Resend.
+ * 
+ * CARACTERÍSTICAS:
+ * 1. Tracking de clics mediante URL de redirección
+ * 2. Guardado de email_id de Resend para mapear webhooks con campañas
+ * 3. Link de unsubscribe
+ * 
+ * IMPORTANTE: Se guarda el email_id de Resend en la tabla email_metadata
+ * para poder identificar la campaña cuando lleguen los webhooks.
+ */
 @Component
-@RequiredArgsConstructor  // <-- Cambiar a RequiredArgsConstructor
+@RequiredArgsConstructor
 @Slf4j
 public class ResendMailAdapter implements IMailingPort {
 
-    private final Resend resend;  // <-- Inyectar el Bean
-    private final ResendConfig resendConfig;  // <-- Inyectar config
+    private final Resend resend;
+    private final ResendConfig resendConfig;
+    private final JpaEmailMetadataRepository emailMetadataRepo;
+    private final ILeadPort leadPort;
 
     @Override
     public void enviarEmails(CampanaMailing campana, List<String> emails) {
@@ -37,6 +53,7 @@ public class ResendMailAdapter implements IMailingPort {
         log.info("║ Campaña: {} (ID: {})", campana.getNombre(), campana.getId());
         log.info("║ Total destinatarios: {}", emails.size());
         log.info("║ From: {}", resendConfig.getFormattedFrom());
+        log.info("║ Backend URL: {}", resendConfig.getBackendUrl());
         log.info("╚════════════════════════════════════════════════════════════╝");
 
         int enviados = 0;
@@ -79,7 +96,11 @@ public class ResendMailAdapter implements IMailingPort {
 
             CreateEmailResponse response = resend.emails().send(params);
             
-            log.debug("    Email ID de Resend: {}", response.getId());
+            String resendEmailId = response.getId();
+            log.debug("    Email ID de Resend: {}", resendEmailId);
+
+            // ✅ CRÍTICO: Guardar metadata para mapear webhooks con campañas
+            guardarEmailMetadata(resendEmailId, campana, destinatario);
 
         } catch (ResendException e) {
             log.error("ResendException enviando a {}: {}", destinatario, e.getMessage());
@@ -87,8 +108,39 @@ public class ResendMailAdapter implements IMailingPort {
         }
     }
 
+    /**
+     * ✅ CRÍTICO: Guarda la metadata del email enviado.
+     * Esto permite mapear el email_id de Resend con nuestra campaña
+     * cuando lleguen los webhooks (opened, delivered, clicked, etc.)
+     */
+    private void guardarEmailMetadata(String resendEmailId, CampanaMailing campana, String destinatario) {
+        try {
+            // Buscar lead_id si existe
+            Long leadId = leadPort.findLeadIdByEmail(destinatario);
+
+            EmailMetadata metadata = EmailMetadata.builder()
+                    .resendEmailId(resendEmailId)
+                    .idCampanaMailing(campana.getId())
+                    .emailDestinatario(destinatario)
+                    .idLead(leadId)
+                    .fechaEnvio(LocalDateTime.now())
+                    .build();
+
+            emailMetadataRepo.save(metadata);
+            log.debug("    ✓ Metadata guardada: {} -> campaña {}", resendEmailId, campana.getId());
+
+        } catch (Exception e) {
+            // No fallar el envío si no se puede guardar metadata
+            log.warn("    ⚠ No se pudo guardar metadata para {}: {}", destinatario, e.getMessage());
+        }
+    }
+
+    /**
+     * Construye el HTML del correo con tracking de clics y unsubscribe
+     */
     private String construirHtmlConTracking(CampanaMailing campana, String destinatario) {
-        String trackingUrl = String.format(
+        // URL para tracking de clics (redirige a la encuesta)
+        String trackingClickUrl = String.format(
             "%s/api/v1/mailing/track/click?cid=%d&email=%s&redirect=%s",
             resendConfig.getBackendUrl(),
             campana.getId(),
@@ -96,6 +148,7 @@ public class ResendMailAdapter implements IMailingPort {
             URLEncoder.encode(campana.getCtaUrl(), StandardCharsets.UTF_8)
         );
 
+        // URL para unsubscribe
         String unsubscribeUrl = String.format(
             "%s/api/v1/mailing/track/unsubscribe?cid=%d&email=%s",
             resendConfig.getBackendUrl(),
@@ -114,14 +167,19 @@ public class ResendMailAdapter implements IMailingPort {
             <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                     <div style="background-color: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+                        <!-- Header -->
                         <div style="background: linear-gradient(135deg, #3C83F6 0%%, #2563EB 100%%); padding: 30px 20px; text-align: center;">
                             <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">
                                 %s
                             </h1>
                         </div>
+                        
+                        <!-- Contenido -->
                         <div style="padding: 30px 25px;">
                             %s
                         </div>
+                        
+                        <!-- Botón CTA -->
                         <div style="padding: 0 25px 30px; text-align: center;">
                             <a href="%s" 
                                style="display: inline-block; 
@@ -136,7 +194,11 @@ public class ResendMailAdapter implements IMailingPort {
                                 %s
                             </a>
                         </div>
+                        
+                        <!-- Separador -->
                         <div style="border-top: 1px solid #eee; margin: 0 25px;"></div>
+                        
+                        <!-- Footer -->
                         <div style="padding: 20px 25px; text-align: center; color: #999; font-size: 12px;">
                             <p style="margin: 0 0 10px 0;">
                                 Este correo fue enviado por Marketing CRM - UNMSM
@@ -152,6 +214,8 @@ public class ResendMailAdapter implements IMailingPort {
                             </p>
                         </div>
                     </div>
+                    
+                    <!-- Copyright -->
                     <div style="text-align: center; padding: 20px; color: #999; font-size: 11px;">
                         <p style="margin: 0;">
                             © 2025 Marketing CRM - Universidad Nacional Mayor de San Marcos
@@ -161,13 +225,13 @@ public class ResendMailAdapter implements IMailingPort {
             </body>
             </html>
             """.formatted(
-                campana.getAsunto(),
-                campana.getNombre(),
-                campana.getCuerpo(),
-                trackingUrl,
-                campana.getCtaTexto(),
-                campana.getNombre(),
-                unsubscribeUrl
+                campana.getAsunto(),           // Title
+                campana.getNombre(),           // Header H1
+                campana.getCuerpo(),           // Contenido
+                trackingClickUrl,              // URL del botón CTA
+                campana.getCtaTexto(),         // Texto del botón
+                campana.getNombre(),           // Nombre campaña en footer
+                unsubscribeUrl                 // Link unsubscribe
             );
     }
 }
