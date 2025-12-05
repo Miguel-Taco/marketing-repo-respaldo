@@ -50,6 +50,9 @@ app:
   backend:
     url: ${BACKEND_URL:http://localhost:8080}
 
+  ventas:
+    url: ${VENTAS_URL:http://localhost:8080}
+
 management:
   endpoints:
     web:

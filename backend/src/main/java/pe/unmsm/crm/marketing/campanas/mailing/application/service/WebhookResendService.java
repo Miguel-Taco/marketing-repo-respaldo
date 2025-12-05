@@ -5,7 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.LeadVentasRequest;
 import pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.ResendWebhookRequest;
+import pe.unmsm.crm.marketing.campanas.mailing.api.dto.response.LeadInfoDTO;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.model.*;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.ILeadPort;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IVentasPort;
@@ -13,16 +15,23 @@ import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.*;
 import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * Servicio para procesar webhooks de Resend y tracking propio.
  * 
- * OPTIMIZACIONES APLICADAS:
+ * FLUJO PRINCIPAL DE DERIVACIÓN A VENTAS:
  * 
- * 1. Invalidación de caché de métricas al recibir eventos
- * 2. Deduplicación en BD (no en memoria)
- * 3. Manejo resiliente de errores (no falla el flujo principal)
- * 4. Logs estructurados para debugging
+ * 1. Usuario recibe email de la campaña
+ * 2. Usuario hace clic en el botón CTA
+ * 3. La URL del CTA pasa por nuestro endpoint de tracking (/api/v1/mailing/track/click)
+ * 4. Este servicio:
+ *    a) Registra la interacción (clic) en la BD
+ *    b) Actualiza las métricas de la campaña
+ *    c) Obtiene información completa del lead
+ *    d) Construye el payload para Ventas
+ *    e) Envía el lead interesado a Ventas
+ * 5. El usuario es redirigido a la URL real (encuesta)
  */
 @Service
 @Transactional
@@ -42,37 +51,45 @@ public class WebhookResendService {
 
     /**
      * Procesa un clic desde nuestro endpoint de tracking.
-     * Invalida el caché de métricas de la campaña.
+     * 
+     * ESTE ES EL MÉTODO PRINCIPAL QUE DERIVA A VENTAS.
      * 
      * @param idCampana ID de la campaña de mailing
      * @param email Email del destinatario que hizo clic
      */
     @CacheEvict(value = "mailing_metricas", key = "#idCampana")
     public void procesarClicTracking(Integer idCampana, String email) {
-        log.info("╔══════════════════════════════════════════════════╗");
-        log.info("║  PROCESANDO CLIC - Tracking Propio               ║");
-        log.info("╠══════════════════════════════════════════════════╣");
+        log.info("╔══════════════════════════════════════════════════════════════╗");
+        log.info("║          PROCESANDO CLIC - Tracking Propio                   ║");
+        log.info("╠══════════════════════════════════════════════════════════════╣");
         log.info("║  Campaña ID: {}", idCampana);
         log.info("║  Email: {}", email);
-        log.info("╚══════════════════════════════════════════════════╝");
+        log.info("╚══════════════════════════════════════════════════════════════╝");
         
         try {
-            // Buscar lead por email
-            Long idLead = leadPort.findLeadIdByEmail(email);
-            if (idLead == null) {
-                log.warn("⚠ No se encontró lead para email: {}", email);
+            // 1. Obtener información completa del lead
+            Optional<LeadInfoDTO> leadInfoOpt = leadPort.findLeadInfoByEmail(email);
+            
+            if (leadInfoOpt.isEmpty()) {
+                log.warn("  ⚠ No se encontró lead para email: {}", email);
                 // Aún así actualizamos métricas aunque no tengamos el lead
-                actualizarMetricasConEvict(idCampana, TipoInteraccion.CLIC.getId());
+                actualizarMetricas(idCampana, TipoInteraccion.CLIC.getId());
                 return;
             }
 
-            // Verificar duplicado en BD
+            LeadInfoDTO leadInfo = leadInfoOpt.get();
+            Long idLead = leadInfo.getLeadId();
+            
+            log.info("  ✓ Lead encontrado: ID={}, Nombre={}", 
+                idLead, leadInfo.getNombreCompleto());
+
+            // 2. Verificar duplicado en BD
             if (yaExisteInteraccion(idCampana, idLead, TipoInteraccion.CLIC.getId())) {
-                log.info("  ℹ Clic ya registrado previamente, ignorando duplicado");
+                log.info("  ℹ Clic ya registrado previamente para este lead, ignorando duplicado");
                 return;
             }
 
-            // Registrar interacción
+            // 3. Registrar interacción
             InteraccionLog interaccion = InteraccionLog.builder()
                     .idCampanaMailingId(idCampana)
                     .idTipoEvento(TipoInteraccion.CLIC.getId())
@@ -80,18 +97,23 @@ public class WebhookResendService {
                     .fechaEvento(LocalDateTime.now())
                     .build();
             interaccionRepo.save(interaccion);
+            log.info("  ✓ Interacción de clic registrada");
 
-            // Actualizar métricas
-            actualizarMetricasConEvict(idCampana, TipoInteraccion.CLIC.getId());
+            // 4. Actualizar métricas
+            actualizarMetricas(idCampana, TipoInteraccion.CLIC.getId());
+            log.info("  ✓ Métricas actualizadas");
 
-            // Derivar a Ventas (el clic indica interés)
-            derivarAVentas(idCampana, email, idLead);
+            // 5. DERIVAR A VENTAS (la parte más importante)
+            derivarLeadAVentas(idCampana, email, leadInfo);
 
-            log.info("✓ Clic registrado exitosamente para campaña {} - lead {}", idCampana, idLead);
+            log.info("═══════════════════════════════════════════════════════════════");
+            log.info("  PROCESAMIENTO DE CLIC COMPLETADO EXITOSAMENTE");
+            log.info("═══════════════════════════════════════════════════════════════");
 
         } catch (Exception e) {
-            log.error("✗ Error procesando clic tracking: {}", e.getMessage(), e);
+            log.error("  ✗ Error procesando clic tracking: {}", e.getMessage(), e);
             // No relanzar excepción para mantener resilencia
+            // El usuario será redirigido de todos modos
         }
     }
 
@@ -101,12 +123,12 @@ public class WebhookResendService {
      */
     @CacheEvict(value = "mailing_metricas", key = "#idCampana")
     public void procesarBajaTracking(Integer idCampana, String email) {
-        log.warn("╔══════════════════════════════════════════════════╗");
-        log.warn("║  PROCESANDO BAJA - Unsubscribe                   ║");
-        log.warn("╠══════════════════════════════════════════════════╣");
+        log.warn("╔══════════════════════════════════════════════════════════════╗");
+        log.warn("║          PROCESANDO BAJA - Unsubscribe                       ║");
+        log.warn("╠══════════════════════════════════════════════════════════════╣");
         log.warn("║  Campaña ID: {}", idCampana);
         log.warn("║  Email: {}", email);
-        log.warn("╚══════════════════════════════════════════════════╝");
+        log.warn("╚══════════════════════════════════════════════════════════════╝");
         
         try {
             Long idLead = leadPort.findLeadIdByEmail(email);
@@ -128,23 +150,100 @@ public class WebhookResendService {
             }
 
             // Actualizar métricas
-            actualizarMetricasConEvict(idCampana, TipoInteraccion.BAJA.getId());
+            actualizarMetricas(idCampana, TipoInteraccion.BAJA.getId());
 
-            log.info("✓ Baja registrada para campaña {} - email {}", idCampana, email);
+            log.info("  ✓ Baja registrada para campaña {} - email {}", idCampana, email);
 
         } catch (Exception e) {
-            log.error("✗ Error procesando baja: {}", e.getMessage(), e);
+            log.error("  ✗ Error procesando baja: {}", e.getMessage(), e);
         }
     }
 
     // ========================================================================
-    // WEBHOOKS DE RESEND
+    // DERIVACIÓN A VENTAS
+    // ========================================================================
+
+    /**
+     * Deriva un lead interesado al módulo de Ventas.
+     * 
+     * Este método construye el payload completo que Ventas espera y lo envía.
+     * 
+     * @param idCampana ID de la campaña de mailing
+     * @param email Email del lead
+     * @param leadInfo Información completa del lead obtenida de la BD
+     */
+    private void derivarLeadAVentas(Integer idCampana, String email, LeadInfoDTO leadInfo) {
+        log.info("┌─────────────────────────────────────────────────────────────┐");
+        log.info("│  INICIANDO DERIVACIÓN A VENTAS                              │");
+        log.info("└─────────────────────────────────────────────────────────────┘");
+        
+        try {
+            // Obtener datos de la campaña
+            CampanaMailing campana = campanaRepo.findById(idCampana)
+                    .orElseThrow(() -> new NotFoundException("CampanaMailing", idCampana.longValue()));
+
+            log.info("  Campaña: {} (ID Gestión: {})", 
+                campana.getNombre(), campana.getIdCampanaGestion());
+
+            // Construir el request para Ventas
+            LeadVentasRequest request = LeadVentasRequest.builder()
+                    // Datos del Lead
+                    .idLeadMarketing(leadInfo.getLeadId())
+                    .nombres(leadInfo.getNombresParaVentas())
+                    .apellidos(leadInfo.getApellidosParaVentas())
+                    .correo(email)
+                    .telefono(leadInfo.getTelefonoParaVentas())
+                    
+                    // Canal de origen (siempre CAMPANIA_MAILING para nosotros)
+                    .canalOrigen("CAMPANIA_MAILING")
+                    
+                    // Datos de la campaña
+                    .idCampaniaMarketing(campana.getIdCampanaGestion()) // ID del Gestor
+                    .nombreCampania(campana.getNombre())
+                    .tematica(campana.getTematica())
+                    .descripcion(campana.getDescripcion())
+                    
+                    // Notas para el vendedor
+                    .notasLlamada(LeadVentasRequest.generarNotasAutomaticas(
+                            campana.getNombre(), email))
+                    
+                    // Fecha de envío
+                    .fechaEnvio(LocalDateTime.now())
+                    .build();
+
+            // Log del request que vamos a enviar
+            log.info("  Request construido:");
+            log.info("    - Lead: {} {} (ID: {})", 
+                request.getNombres(), request.getApellidos(), request.getIdLeadMarketing());
+            log.info("    - Campaña: {} (ID: {})", 
+                request.getNombreCampania(), request.getIdCampaniaMarketing());
+            log.info("    - Canal: {}", request.getCanalOrigen());
+
+            // Enviar a Ventas
+            boolean exito = ventasPort.derivarLeadInteresado(request);
+
+            if (exito) {
+                log.info("  ✓ Lead derivado exitosamente a Ventas");
+            } else {
+                log.warn("  ⚠ No se pudo derivar el lead a Ventas (ver logs anteriores)");
+            }
+
+        } catch (NotFoundException e) {
+            log.error("  ✗ Campaña no encontrada: {}", idCampana);
+        } catch (Exception e) {
+            log.error("  ✗ Error derivando a Ventas: {}", e.getMessage(), e);
+            // No relanzar excepción - mantener resilencia
+        }
+    }
+
+    // ========================================================================
+    // WEBHOOKS DE RESEND (si los usas en el futuro)
     // ========================================================================
 
     /**
      * Procesa un evento webhook de Resend.
-     * Los eventos de Resend NO invalidan caché directamente porque 
-     * no tenemos el ID de campaña en el payload (solo email_id).
+     * Por ahora solo registra el evento - el tracking principal se hace
+     * con nuestros propios endpoints.
      */
     public void procesarEventoResend(ResendWebhookRequest evento) {
         if (evento == null || evento.getType() == null) {
@@ -177,13 +276,11 @@ public class WebhookResendService {
     private void procesarEntregado(ResendWebhookRequest evento) {
         String email = evento.getFirstRecipient();
         log.info("  📬 Email entregado a: {}", email);
-        // Informativo - los entregados se cuentan al enviar
     }
 
     private void procesarApertura(ResendWebhookRequest evento) {
         String email = evento.getFirstRecipient();
         log.info("  👁 Email abierto por: {}", email);
-        // TODO: Implementar mapeo email_id -> campaign_id si se necesita tracking de aperturas
     }
 
     private void procesarRebote(ResendWebhookRequest evento) {
@@ -196,13 +293,11 @@ public class WebhookResendService {
             : "";
         
         log.warn("  ⚠ Rebote {} para: {} - {}", tipo, email, mensaje);
-        // TODO: Marcar email como inválido si es hard bounce
     }
 
     private void procesarQueja(ResendWebhookRequest evento) {
         String email = evento.getFirstRecipient();
         log.warn("  🚫 Queja de SPAM de: {}", email);
-        // TODO: Marcar email para blacklist
     }
 
     // ========================================================================
@@ -220,10 +315,8 @@ public class WebhookResendService {
 
     /**
      * Actualiza métricas de la campaña.
-     * Este método NO usa @CacheEvict porque es llamado internamente.
-     * La invalidación se hace en el método público que lo llama.
      */
-    private void actualizarMetricasConEvict(Integer idCampana, Integer idTipo) {
+    private void actualizarMetricas(Integer idCampana, Integer idTipo) {
         try {
             MetricaCampana metricas = metricasRepo.findByCampanaMailingId(idCampana)
                     .orElseThrow(() -> new NotFoundException("Métricas", idCampana.longValue()));
@@ -243,32 +336,6 @@ public class WebhookResendService {
 
         } catch (Exception e) {
             log.error("Error actualizando métricas: {}", e.getMessage());
-        }
-    }
-
-    /**
-     * Deriva un lead interesado al módulo de Ventas.
-     */
-    private void derivarAVentas(Integer idCampana, String email, Long idLead) {
-        try {
-            CampanaMailing campana = campanaRepo.findById(idCampana)
-                    .orElseThrow(() -> new NotFoundException("CampanaMailing", idCampana.longValue()));
-
-            log.info("  → Derivando lead {} a Ventas...", idLead);
-
-            ventasPort.derivarInteresado(
-                    campana.getId(),
-                    campana.getIdAgenteAsignado(),
-                    idLead,
-                    campana.getIdSegmento(),
-                    campana.getIdCampanaGestion()
-            );
-
-            log.info("  ✓ Lead {} derivado a Ventas desde campaña {}", idLead, idCampana);
-
-        } catch (Exception e) {
-            log.error("  ✗ Error derivando a Ventas: {}", e.getMessage());
-            // No relanzar excepción - mantener resilencia
         }
     }
 }
