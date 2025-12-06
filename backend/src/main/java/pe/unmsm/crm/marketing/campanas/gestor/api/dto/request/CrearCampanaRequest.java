@@ -36,4 +36,5 @@ public class CrearCampanaRequest {
     private Integer idAgente;
     private Long idSegmento;
     private Integer idEncuesta;
+    private Integer idPlantilla;
 }

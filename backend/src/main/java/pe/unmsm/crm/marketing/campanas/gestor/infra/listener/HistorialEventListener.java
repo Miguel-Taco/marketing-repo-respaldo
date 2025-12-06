@@ -62,16 +62,15 @@ public class HistorialEventListener {
      * Construye una descripción legible del cambio de estado
      */
     private String construirDescripcion(CampanaEstadoCambiadoEvent event) {
-        StringBuilder desc = new StringBuilder();
-        desc.append("Cambio de estado: ")
-                .append(event.getEstadoAnterior())
-                .append(" → ")
-                .append(event.getEstadoNuevo());
+        // Obtener la descripción personalizada del tipo de acción
+        TipoAccion tipoAccion = TipoAccion.valueOf(event.getTipoAccion());
+        String desc = tipoAccion.getDescripcion();
 
+        // Agregar el motivo si existe
         if (event.getMotivo() != null && !event.getMotivo().isBlank()) {
-            desc.append(". Motivo: ").append(event.getMotivo());
+            desc = desc + ". Motivo: " + event.getMotivo();
         }
 
-        return desc.toString();
+        return desc;
     }
 }

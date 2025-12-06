@@ -114,6 +114,7 @@ public class CampanaController {
                                 .idAgente(request.getIdAgente())
                                 .idSegmento(request.getIdSegmento())
                                 .idEncuesta(request.getIdEncuesta())
+                                .idPlantilla(request.getIdPlantilla())
                                 .build();
 
                 Campana updated = gestorCampanaUseCase.editar(id, datosActualizados);

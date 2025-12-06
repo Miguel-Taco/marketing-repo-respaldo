@@ -24,4 +24,9 @@ public interface AgenteRepositoryPort {
      * Verifica si un agente existe y está activo.
      */
     boolean existsAndActive(Integer id);
+
+    /**
+     * Guarda o actualiza un agente.
+     */
+    Agente save(Agente agente);
 }

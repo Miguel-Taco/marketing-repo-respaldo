@@ -252,16 +252,32 @@ public class ResendMailAdapter implements IMailingPort {
     private String construirUrlEncuesta(CampanaMailing campana, Long leadId) {
         Integer idEncuesta = campana.getIdEncuesta();
         
+        log.debug("");
+        log.debug("    ╔═══════════════════════════════════════════════════════╗");
+        log.debug("    ║  CONSTRUCCIÓN DE URL DE ENCUESTA                      ║");
+        log.debug("    ╠═══════════════════════════════════════════════════════╣");
+        log.debug("    ║  ID Encuesta: {}", idEncuesta);
+        log.debug("    ║  Lead ID: {}", leadId);
+        log.debug("    ║  CTA URL: {}", campana.getCtaUrl());
+        log.debug("    ║  Frontend URL config: {}", resendConfig.getFrontendUrl());
+        log.debug("    ╚═══════════════════════════════════════════════════════╝");
+        
         // Si no hay encuesta configurada, usar la URL original del CTA
         if (idEncuesta == null || idEncuesta == 0) {
-            log.debug("    No hay encuesta configurada, usando ctaUrl original");
-            return campana.getCtaUrl() != null ? campana.getCtaUrl() : resendConfig.getFrontendUrl();
+            log.warn("    ⚠️  PROBLEMA: No hay encuesta configurada (idEncuesta = {})", idEncuesta);
+            log.warn("       Se usará ctaUrl como fallback: {}", campana.getCtaUrl());
+            String fallbackUrl = campana.getCtaUrl() != null ? campana.getCtaUrl() : resendConfig.getFrontendUrl();
+            log.warn("       URL final fallback: {}", fallbackUrl);
+            return fallbackUrl;
         }
         
         // Si no tenemos el leadId, enviar solo a la encuesta sin leadId
         if (leadId == null) {
-            log.warn("    No se tiene leadId, la encuesta no podrá vincular respuestas al lead");
-            return String.format("%s/q/%d", resendConfig.getFrontendUrl(), idEncuesta);
+            log.warn("    ⚠️  ADVERTENCIA: No se encontró lead_id para este email");
+            log.warn("       La encuesta no podrá vincular respuestas al lead");
+            String url = String.format("%s/q/%d", resendConfig.getFrontendUrl(), idEncuesta);
+            log.info("    ✓ URL construida SIN lead: {}", url);
+            return url;
         }
         
         // ✅ FORMATO CORRECTO: /q/{idEncuesta}/{idLead}
@@ -271,6 +287,7 @@ public class ResendMailAdapter implements IMailingPort {
             leadId
         );
         
+        log.info("    ✅ URL ENCUESTA CORRECTA: {}", urlEncuesta);
         return urlEncuesta;
     }
 }

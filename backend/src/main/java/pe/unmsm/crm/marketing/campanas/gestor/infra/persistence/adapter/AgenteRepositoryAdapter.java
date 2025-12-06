@@ -46,4 +46,21 @@ public class AgenteRepositoryAdapter implements AgenteRepositoryPort {
                 .activo(entity.getActivo())
                 .build();
     }
+
+    private AgenteEntity toEntity(Agente agente) {
+        AgenteEntity entity = new AgenteEntity();
+        entity.setIdAgente(agente.getIdAgente());
+        entity.setNombre(agente.getNombre());
+        entity.setEmail(agente.getEmail());
+        entity.setTelefono(agente.getTelefono());
+        entity.setActivo(agente.getActivo() != null ? agente.getActivo() : true);
+        return entity;
+    }
+
+    @Override
+    public Agente save(Agente agente) {
+        AgenteEntity entity = toEntity(agente);
+        AgenteEntity saved = jpaRepository.save(entity);
+        return toDomain(saved);
+    }
 }

@@ -116,6 +116,9 @@ public class GestorCampanaService implements IGestorCampanaUseCase {
         if (datosActualizados.getIdEncuesta() != null) {
             existente.setIdEncuesta(datosActualizados.getIdEncuesta());
         }
+        if (datosActualizados.getIdPlantilla() != null) {
+            existente.setIdPlantilla(datosActualizados.getIdPlantilla());
+        }
 
         Campana updated = campanaRepository.save(existente);
 

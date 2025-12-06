@@ -39,6 +39,7 @@ public class CampanaMapper {
                 .idAgente(request.getIdAgente())
                 .idEncuesta(request.getIdEncuesta())
                 .idSegmento(request.getIdSegmento())
+                .idPlantilla(request.getIdPlantilla())
                 .build();
     }
 
@@ -93,6 +94,12 @@ public class CampanaMapper {
      * Convierte HistorialCampana a HistorialItemResponse
      */
     public HistorialItemResponse toHistorialResponse(HistorialCampana historial) {
+        // Usar la descripción personalizada del enum si no hay detalle específico
+        String descripcion = historial.getDescripcionDetalle();
+        if (descripcion == null || descripcion.isBlank()) {
+            descripcion = historial.getTipoAccion().getDescripcion();
+        }
+
         return HistorialItemResponse.builder()
                 .idHistorial(historial.getIdHistorial())
                 .idCampana(historial.getIdCampana())
@@ -101,7 +108,7 @@ public class CampanaMapper {
                 .fechaAccion(historial.getFechaAccion())
                 .tipoAccion(historial.getTipoAccion().name())
                 .usuarioResponsable(historial.getUsuarioResponsable())
-                .descripcionDetalle(historial.getDescripcionDetalle())
+                .descripcionDetalle(descripcion)
                 .build();
     }
 

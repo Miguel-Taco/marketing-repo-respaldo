@@ -25,4 +25,5 @@ public class EditarCampanaRequest {
     private Integer idAgente;
     private Long idSegmento;
     private Integer idEncuesta;
+    private Integer idPlantilla;
 }
