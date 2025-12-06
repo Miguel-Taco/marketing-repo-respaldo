@@ -23,13 +23,11 @@ import java.util.List;
 /**
  * Adapter para envío de emails usando Resend.
  * 
- * CARACTERÍSTICAS:
- * 1. Tracking de clics mediante URL de redirección
- * 2. Guardado de email_id de Resend para mapear webhooks con campañas
- * 3. Link de unsubscribe
- * 
- * IMPORTANTE: Se guarda el email_id de Resend en la tabla email_metadata
- * para poder identificar la campaña cuando lleguen los webhooks.
+ * FLUJO DE TRACKING Y REDIRECCIÓN A ENCUESTA:
+ * 1. Usuario recibe email con botón CTA
+ * 2. Botón apunta a: /api/v1/mailing/track/click?cid={campanaId}&email={email}&redirect={urlEncuesta}
+ * 3. Backend registra el clic y deriva a Ventas
+ * 4. Backend redirige al usuario a la encuesta: /q/{idEncuesta}/{idLead}
  */
 @Component
 @RequiredArgsConstructor
@@ -51,9 +49,11 @@ public class ResendMailAdapter implements IMailingPort {
         log.info("║           INICIANDO ENVÍO CON RESEND                       ║");
         log.info("╠════════════════════════════════════════════════════════════╣");
         log.info("║ Campaña: {} (ID: {})", campana.getNombre(), campana.getId());
+        log.info("║ Encuesta ID: {}", campana.getIdEncuesta());
         log.info("║ Total destinatarios: {}", emails.size());
         log.info("║ From: {}", resendConfig.getFormattedFrom());
         log.info("║ Backend URL: {}", resendConfig.getBackendUrl());
+        log.info("║ Frontend URL: {}", resendConfig.getFrontendUrl());
         log.info("╚════════════════════════════════════════════════════════════╝");
 
         int enviados = 0;
@@ -85,7 +85,17 @@ public class ResendMailAdapter implements IMailingPort {
 
     private void enviarEmailIndividual(CampanaMailing campana, String destinatario) {
         try {
-            String htmlContent = construirHtmlConTracking(campana, destinatario);
+            // ✅ BUSCAR LEAD_ID ANTES DE CONSTRUIR EL HTML
+            Long leadId = leadPort.findLeadIdByEmail(destinatario);
+            
+            if (leadId == null) {
+                log.warn("    ⚠ No se encontró lead_id para {}, se enviará sin tracking de encuesta", destinatario);
+            } else {
+                log.debug("    ✓ Lead encontrado: {} -> lead_id: {}", destinatario, leadId);
+            }
+
+            // ✅ CONSTRUIR HTML CON LA URL DE ENCUESTA CORRECTA
+            String htmlContent = construirHtmlConTracking(campana, destinatario, leadId);
 
             CreateEmailOptions params = CreateEmailOptions.builder()
                     .from(resendConfig.getFormattedFrom())
@@ -99,8 +109,8 @@ public class ResendMailAdapter implements IMailingPort {
             String resendEmailId = response.getId();
             log.debug("    Email ID de Resend: {}", resendEmailId);
 
-            // ✅ CRÍTICO: Guardar metadata para mapear webhooks con campañas
-            guardarEmailMetadata(resendEmailId, campana, destinatario);
+            // Guardar metadata para mapear webhooks con campañas
+            guardarEmailMetadata(resendEmailId, campana, destinatario, leadId);
 
         } catch (ResendException e) {
             log.error("ResendException enviando a {}: {}", destinatario, e.getMessage());
@@ -109,15 +119,11 @@ public class ResendMailAdapter implements IMailingPort {
     }
 
     /**
-     * ✅ CRÍTICO: Guarda la metadata del email enviado.
-     * Esto permite mapear el email_id de Resend con nuestra campaña
-     * cuando lleguen los webhooks (opened, delivered, clicked, etc.)
+     * Guarda la metadata del email enviado.
      */
-    private void guardarEmailMetadata(String resendEmailId, CampanaMailing campana, String destinatario) {
+    private void guardarEmailMetadata(String resendEmailId, CampanaMailing campana, 
+                                     String destinatario, Long leadId) {
         try {
-            // Buscar lead_id si existe
-            Long leadId = leadPort.findLeadIdByEmail(destinatario);
-
             EmailMetadata metadata = EmailMetadata.builder()
                     .resendEmailId(resendEmailId)
                     .idCampanaMailing(campana.getId())
@@ -127,25 +133,33 @@ public class ResendMailAdapter implements IMailingPort {
                     .build();
 
             emailMetadataRepo.save(metadata);
-            log.debug("    ✓ Metadata guardada: {} -> campaña {}", resendEmailId, campana.getId());
+            log.debug("    ✓ Metadata guardada: {} -> campaña {}, lead {}", 
+                resendEmailId, campana.getId(), leadId);
 
         } catch (Exception e) {
-            // No fallar el envío si no se puede guardar metadata
             log.warn("    ⚠ No se pudo guardar metadata para {}: {}", destinatario, e.getMessage());
         }
     }
 
     /**
-     * Construye el HTML del correo con tracking de clics y unsubscribe
+     * ✅ MÉTODO CORREGIDO: Construye el HTML con tracking de clics
+     * 
+     * CAMBIO PRINCIPAL: Ahora recibe leadId como parámetro y construye 
+     * la URL de encuesta correctamente
      */
-    private String construirHtmlConTracking(CampanaMailing campana, String destinatario) {
-        // URL para tracking de clics (redirige a la encuesta)
+    private String construirHtmlConTracking(CampanaMailing campana, String destinatario, Long leadId) {
+        // ✅ CONSTRUIR URL DE ENCUESTA (donde el usuario será redirigido)
+        String urlEncuesta = construirUrlEncuesta(campana, leadId);
+        
+        log.debug("    URL Encuesta construida: {}", urlEncuesta);
+        
+        // ✅ URL DE TRACKING (pasa por nuestro backend para registrar clic)
         String trackingClickUrl = String.format(
             "%s/api/v1/mailing/track/click?cid=%d&email=%s&redirect=%s",
             resendConfig.getBackendUrl(),
             campana.getId(),
             URLEncoder.encode(destinatario, StandardCharsets.UTF_8),
-            URLEncoder.encode(campana.getCtaUrl(), StandardCharsets.UTF_8)
+            URLEncoder.encode(urlEncuesta, StandardCharsets.UTF_8) // ✅ Aquí va la URL de la encuesta
         );
 
         // URL para unsubscribe
@@ -228,7 +242,7 @@ public class ResendMailAdapter implements IMailingPort {
                 campana.getAsunto(),           // Title
                 campana.getNombre(),           // Header H1
                 campana.getCuerpo(),           // Contenido
-                trackingClickUrl,              // URL del botón CTA
+                trackingClickUrl,              // ✅ URL del botón (pasa por tracking)
                 campana.getCtaTexto(),         // Texto del botón
                 campana.getNombre(),           // Nombre campaña en footer
                 unsubscribeUrl                 // Link unsubscribe
@@ -244,14 +258,10 @@ public class ResendMailAdapter implements IMailingPort {
             return campana.getCtaUrl() != null ? campana.getCtaUrl() : resendConfig.getFrontendUrl();
         }
         
-        // Si no tenemos el leadId, usar un valor por defecto o solo el idEncuesta
+        // Si no tenemos el leadId, enviar solo a la encuesta sin leadId
         if (leadId == null) {
             log.warn("    No se tiene leadId, la encuesta no podrá vincular respuestas al lead");
-            // Opción 1: Solo enviar a la encuesta sin leadId
             return String.format("%s/q/%d", resendConfig.getFrontendUrl(), idEncuesta);
-            
-            // Opción 2: Usar la URL original
-            // return campana.getCtaUrl() != null ? campana.getCtaUrl() : resendConfig.getFrontendUrl();
         }
         
         // ✅ FORMATO CORRECTO: /q/{idEncuesta}/{idLead}
@@ -261,8 +271,6 @@ public class ResendMailAdapter implements IMailingPort {
             leadId
         );
         
-        log.debug("    URL Encuesta construida: {}", urlEncuesta);
-        
         return urlEncuesta;
-    }    
+    }
 }
