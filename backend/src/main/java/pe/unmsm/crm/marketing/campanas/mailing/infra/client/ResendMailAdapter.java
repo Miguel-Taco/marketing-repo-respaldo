@@ -234,4 +234,35 @@ public class ResendMailAdapter implements IMailingPort {
                 unsubscribeUrl                 // Link unsubscribe
             );
     }
+
+    private String construirUrlEncuesta(CampanaMailing campana, Long leadId) {
+        Integer idEncuesta = campana.getIdEncuesta();
+        
+        // Si no hay encuesta configurada, usar la URL original del CTA
+        if (idEncuesta == null || idEncuesta == 0) {
+            log.debug("    No hay encuesta configurada, usando ctaUrl original");
+            return campana.getCtaUrl() != null ? campana.getCtaUrl() : resendConfig.getFrontendUrl();
+        }
+        
+        // Si no tenemos el leadId, usar un valor por defecto o solo el idEncuesta
+        if (leadId == null) {
+            log.warn("    No se tiene leadId, la encuesta no podrá vincular respuestas al lead");
+            // Opción 1: Solo enviar a la encuesta sin leadId
+            return String.format("%s/q/%d", resendConfig.getFrontendUrl(), idEncuesta);
+            
+            // Opción 2: Usar la URL original
+            // return campana.getCtaUrl() != null ? campana.getCtaUrl() : resendConfig.getFrontendUrl();
+        }
+        
+        // ✅ FORMATO CORRECTO: /q/{idEncuesta}/{idLead}
+        String urlEncuesta = String.format("%s/q/%d/%d", 
+            resendConfig.getFrontendUrl(), 
+            idEncuesta, 
+            leadId
+        );
+        
+        log.debug("    URL Encuesta construida: {}", urlEncuesta);
+        
+        return urlEncuesta;
+    }    
 }

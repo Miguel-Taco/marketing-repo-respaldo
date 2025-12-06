@@ -1,21 +1,29 @@
 package pe.unmsm.crm.marketing.campanas.mailing.application.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.LeadVentasRequest;
 import pe.unmsm.crm.marketing.campanas.mailing.api.dto.request.ResendWebhookRequest;
 import pe.unmsm.crm.marketing.campanas.mailing.api.dto.response.LeadInfoDTO;
-import pe.unmsm.crm.marketing.campanas.mailing.domain.model.*;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.model.CampanaMailing;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.model.EmailMetadata;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.model.InteraccionLog;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.model.MetricaCampana;
+import pe.unmsm.crm.marketing.campanas.mailing.domain.model.TipoInteraccion;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.ILeadPort;
 import pe.unmsm.crm.marketing.campanas.mailing.domain.port.output.IVentasPort;
-import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.*;
+import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaCampanaMailingRepository;
+import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaEmailMetadataRepository;
+import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaInteraccionLogRepository;
+import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaMetricaMailingRepository;
 import pe.unmsm.crm.marketing.shared.infra.exception.NotFoundException;
-
-import java.time.LocalDateTime;
-import java.util.Optional;
 
 /**
  * Servicio para procesar webhooks de Resend y tracking propio.
@@ -376,13 +384,13 @@ public class WebhookResendService {
                     .apellidos(leadInfo.getApellidosParaVentas())
                     .correo(email)
                     .telefono(leadInfo.getTelefonoParaVentas())
+                    .dni(null)  
                     .canalOrigen("CAMPANIA_MAILING")
                     .idCampaniaMarketing(campana.getIdCampanaGestion())
                     .nombreCampania(campana.getNombre())
                     .tematica(campana.getTematica())
                     .descripcion(campana.getDescripcion())
-                    .notasLlamada(LeadVentasRequest.generarNotasAutomaticas(
-                            campana.getNombre(), email))
+                    .notasLlamada(null)
                     .fechaEnvio(LocalDateTime.now())
                     .build();
 

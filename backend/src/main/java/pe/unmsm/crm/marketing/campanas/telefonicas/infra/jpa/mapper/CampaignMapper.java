@@ -226,4 +226,24 @@ public class CampaignMapper {
                 .map(this::toLlamadaDTO)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * Convierte CampaniaTelefonicaConfigEntity a DTO
+     */
+    public CampaniaTelefonicaConfigDTO toConfigDTO(CampaniaTelefonicaConfigEntity entity) {
+        if (entity == null)
+            return null;
+
+        return CampaniaTelefonicaConfigDTO.builder()
+                .horaInicioPermitida(entity.getHoraInicioPermitida())
+                .horaFinPermitida(entity.getHoraFinPermitida())
+                .diasSemanaPermitidos(entity.getDiasSemanaPermitidos())
+                .maxIntentos(entity.getMaxIntentos())
+                .intervaloReintentosMin(entity.getIntervaloReintentosMin())
+                .tipoDiscado(entity.getTipoDiscado() != null ? entity.getTipoDiscado().name() : null)
+                .modoContacto(
+                        entity.getModoContacto() != null ? entity.getModoContacto().name().replace("_", "+") : null)
+                .permiteSmsRespaldo(entity.getPermiteSmsRespaldo())
+                .build();
+    }
 }

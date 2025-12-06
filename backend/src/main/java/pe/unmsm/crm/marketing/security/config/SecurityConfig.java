@@ -61,9 +61,10 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/public/v1/**").permitAll() // Endpoints públicos de encuestas
+                        .requestMatchers("/api/v1/public/v1/**").permitAll() // Endpoints públicos anidados en api/v1
                         .requestMatchers("/api/v1/internal/**").permitAll() // Permitir llamadas internas (cache, batch)
                         .requestMatchers("/api/v1/mailing/webhooks/**").permitAll()
-                        .requestMatchers("/api/v1/mailing/track/**").permitAll()                        
+                        .requestMatchers("/api/v1/mailing/track/**").permitAll()
 
                         .requestMatchers("/ws/**").permitAll()
 
@@ -133,5 +134,3 @@ public class SecurityConfig {
     }
 
 }
-
-    

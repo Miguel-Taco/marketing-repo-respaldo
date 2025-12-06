@@ -238,4 +238,14 @@ public class TelemarketingService {
     public ContactoDTO agregarContactoUrgente(AddUrgentContactRequest request) {
         return campaignDataProvider.agregarContactoUrgente(request);
     }
+
+    // === CONFIGURACION ===
+
+    public CampaniaTelefonicaConfigDTO obtenerConfiguracion(Long idCampania) {
+        return campaignDataProvider.obtenerConfiguracion(idCampania);
+    }
+
+    public CampaniaTelefonicaConfigDTO actualizarConfiguracion(Long idCampania, CampaniaTelefonicaConfigDTO config) {
+        return campaignDataProvider.actualizarConfiguracion(idCampania, config);
+    }
 }

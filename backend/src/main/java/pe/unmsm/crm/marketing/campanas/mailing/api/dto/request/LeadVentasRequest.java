@@ -65,6 +65,12 @@ public class LeadVentasRequest {
     private String telefono;
 
     /**
+     * DNI del lead (puede ser null si no está disponible)
+     */
+    @JsonProperty("dni")
+    private String dni;
+
+    /**
      * Canal de origen de la derivación.
      * Para mailing siempre es "CAMPANIA_MAILING"
      */

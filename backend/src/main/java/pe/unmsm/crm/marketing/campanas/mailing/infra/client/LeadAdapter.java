@@ -12,14 +12,17 @@ import java.util.Optional;
 /**
  * Adapter para obtener información de leads desde la BD.
  * 
- * ESTRUCTURA DE LA TABLA leads (según tu BD):
+ * ESTRUCTURA REAL DE LA TABLA leads:
  * - lead_id: BIGINT (PK)
- * - nombre_completo: VARCHAR(255)
+ * - nombre_completo: VARCHAR(255)  ← UN SOLO CAMPO, no hay nombres/apellidos separados
  * - email: VARCHAR(255) UNIQUE
- * - telefono: VARCHAR(20)
- * - (posiblemente otros campos como nombres, apellidos separados)
- * 
- * NOTA: Ajusta los nombres de las columnas según tu estructura real.
+ * - telefono: VARCHAR(255)
+ * - fecha_creacion: DATETIME
+ * - estado_lead_id: INT
+ * - utm_source, utm_medium, utm_campaign, etc.
+ * - distrito_id, edad, genero, estado_civil, nivel_educativo
+ * - fuente_tipo, envio_formulario_id, registro_importado_id
+ * - created_at, updated_at
  */
 @Component
 @RequiredArgsConstructor
@@ -56,6 +59,10 @@ public class LeadAdapter implements ILeadPort {
 
     /**
      * Obtiene información completa del lead por su email.
+     * 
+     * NOTA: La tabla leads tiene nombre_completo como un solo campo.
+     * Los métodos getNombresParaVentas() y getApellidosParaVentas() del DTO
+     * se encargan de extraer nombres/apellidos del nombre completo.
      */
     @Override
     public Optional<LeadInfoDTO> findLeadInfoByEmail(String email) {
@@ -64,18 +71,10 @@ public class LeadAdapter implements ILeadPort {
         }
 
         try {
-            // NOTA: Ajusta los nombres de columnas según tu tabla real
-            // Opciones comunes:
-            // - nombre_completo (un solo campo)
-            // - nombres + apellidos (campos separados)
-            // - primer_nombre + segundo_nombre + apellido_paterno + apellido_materno
-            
             String sql = """
                 SELECT 
                     lead_id,
-                    COALESCE(nombre_completo, CONCAT(COALESCE(nombres, ''), ' ', COALESCE(apellidos, ''))) as nombre_completo,
-                    nombres,
-                    apellidos,
+                    nombre_completo,
                     email,
                     telefono
                 FROM leads 
@@ -88,8 +87,6 @@ public class LeadAdapter implements ILeadPort {
                     return Optional.of(LeadInfoDTO.builder()
                             .leadId(rs.getLong("lead_id"))
                             .nombreCompleto(rs.getString("nombre_completo"))
-                            .nombres(rs.getString("nombres"))
-                            .apellidos(rs.getString("apellidos"))
                             .email(rs.getString("email"))
                             .telefono(rs.getString("telefono"))
                             .build());
@@ -99,8 +96,7 @@ public class LeadAdapter implements ILeadPort {
 
         } catch (Exception e) {
             log.error("Error obteniendo info de lead por email '{}': {}", email, e.getMessage());
-            // Intentar con query simplificada si la anterior falla
-            return findLeadInfoByEmailSimple(email);
+            return Optional.empty();
         }
     }
 
@@ -117,9 +113,7 @@ public class LeadAdapter implements ILeadPort {
             String sql = """
                 SELECT 
                     lead_id,
-                    COALESCE(nombre_completo, CONCAT(COALESCE(nombres, ''), ' ', COALESCE(apellidos, ''))) as nombre_completo,
-                    nombres,
-                    apellidos,
+                    nombre_completo,
                     email,
                     telefono
                 FROM leads 
@@ -132,8 +126,6 @@ public class LeadAdapter implements ILeadPort {
                     return Optional.of(LeadInfoDTO.builder()
                             .leadId(rs.getLong("lead_id"))
                             .nombreCompleto(rs.getString("nombre_completo"))
-                            .nombres(rs.getString("nombres"))
-                            .apellidos(rs.getString("apellidos"))
                             .email(rs.getString("email"))
                             .telefono(rs.getString("telefono"))
                             .build());
@@ -143,61 +135,6 @@ public class LeadAdapter implements ILeadPort {
 
         } catch (Exception e) {
             log.error("Error obteniendo info de lead por ID '{}': {}", leadId, e.getMessage());
-            return findLeadInfoByIdSimple(leadId);
-        }
-    }
-
-    // ========================================================================
-    // MÉTODOS DE FALLBACK (si la estructura de la tabla es diferente)
-    // ========================================================================
-
-    /**
-     * Query simplificada si la tabla no tiene todos los campos esperados
-     */
-    private Optional<LeadInfoDTO> findLeadInfoByEmailSimple(String email) {
-        try {
-            log.debug("Usando query simplificada para email: {}", email);
-            
-            String sql = "SELECT lead_id, nombre_completo, email, telefono FROM leads WHERE email = ? LIMIT 1";
-            
-            return jdbcTemplate.query(sql, rs -> {
-                if (rs.next()) {
-                    return Optional.of(LeadInfoDTO.builder()
-                            .leadId(rs.getLong("lead_id"))
-                            .nombreCompleto(rs.getString("nombre_completo"))
-                            .email(rs.getString("email"))
-                            .telefono(rs.getString("telefono"))
-                            .build());
-                }
-                return Optional.<LeadInfoDTO>empty();
-            }, email.trim().toLowerCase());
-
-        } catch (Exception e) {
-            log.error("Error en query simplificada: {}", e.getMessage());
-            return Optional.empty();
-        }
-    }
-
-    private Optional<LeadInfoDTO> findLeadInfoByIdSimple(Long leadId) {
-        try {
-            log.debug("Usando query simplificada para lead_id: {}", leadId);
-            
-            String sql = "SELECT lead_id, nombre_completo, email, telefono FROM leads WHERE lead_id = ? LIMIT 1";
-            
-            return jdbcTemplate.query(sql, rs -> {
-                if (rs.next()) {
-                    return Optional.of(LeadInfoDTO.builder()
-                            .leadId(rs.getLong("lead_id"))
-                            .nombreCompleto(rs.getString("nombre_completo"))
-                            .email(rs.getString("email"))
-                            .telefono(rs.getString("telefono"))
-                            .build());
-                }
-                return Optional.<LeadInfoDTO>empty();
-            }, leadId);
-
-        } catch (Exception e) {
-            log.error("Error en query simplificada por ID: {}", e.getMessage());
             return Optional.empty();
         }
     }

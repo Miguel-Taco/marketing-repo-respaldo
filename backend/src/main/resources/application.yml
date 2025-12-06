@@ -49,6 +49,8 @@ app:
   backend:
     url: ${BACKEND_URL:http://localhost:8080}
   
+  encuestas_frontend: 
+    url: ${ENCUESTAS_FRONTEND_URL:http://localhost:5173}
   # Notificación de leads interesados a sistema externo
   external-lead-notification:
     enabled: true

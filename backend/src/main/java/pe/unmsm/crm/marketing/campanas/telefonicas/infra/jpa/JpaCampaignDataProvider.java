@@ -28,6 +28,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         private final LlamadaRepository llamadaRepo;
         private final GuionRepository guionRepo;
         private final ResultadoLlamadaRepository resultadoRepo;
+        private final CampaniaTelefonicaConfigRepository configRepo;
         private final CampaignMapper mapper;
         private final pe.unmsm.crm.marketing.campanas.telefonicas.application.service.EncuestaLlamadaService encuestaLlamadaService;
         private final pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository leadRepository;
@@ -858,5 +859,98 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 if (agenteId != null) {
                         userAuthorizationService.ensureAgentAccess(agenteId.longValue());
                 }
+        }
+
+        @Override
+        @Transactional
+        public CampaniaTelefonicaConfigDTO obtenerConfiguracion(Long idCampania) {
+                log.info("Obteniendo configuración de campaña: {}", idCampania);
+                ensureCampaniaAccess(idCampania);
+
+                // First, find the campania_telefonica record using id_campana_gestion
+                CampaniaTelefonicaEntity campaniaTelefonica = campaniaRepo.findByIdCampanaGestion(idCampania)
+                                .orElseThrow(() -> new RuntimeException(
+                                                "No existe campaña telefónica para la campaña del gestor: "
+                                                                + idCampania));
+
+                Integer idCampaniaTelefonica = campaniaTelefonica.getId();
+
+                // Try to find existing config, or create default if missing
+                return configRepo.findById(idCampaniaTelefonica)
+                                .map(mapper::toConfigDTO)
+                                .orElseGet(() -> {
+                                        log.warn("Configuración no encontrada para campaña telefónica {}. Creando configuración por defecto.",
+                                                        idCampaniaTelefonica);
+                                        CampaniaTelefonicaConfigEntity config = crearConfiguracionPorDefectoParaCampania(
+                                                        idCampaniaTelefonica);
+                                        return mapper.toConfigDTO(config);
+                                });
+        }
+
+        private CampaniaTelefonicaConfigEntity crearConfiguracionPorDefectoParaCampania(Integer idCampaniaTelefonica) {
+                CampaniaTelefonicaConfigEntity config = new CampaniaTelefonicaConfigEntity();
+                config.setIdCampaniaTelefonica(idCampaniaTelefonica);
+                config.setHoraInicioPermitida(java.time.LocalTime.of(9, 0));
+                config.setHoraFinPermitida(java.time.LocalTime.of(21, 0));
+                config.setDiasSemanaPermitidos("LUN-MAR-MIE-JUE-VIE");
+                config.setMaxIntentos(3);
+                config.setIntervaloReintentosMin(60);
+                config.setTipoDiscado(CampaniaTelefonicaConfigEntity.TipoDiscadoEnum.Manual);
+                config.setModoContacto(CampaniaTelefonicaConfigEntity.ModoContactoEnum.Llamada);
+                config.setPermiteSmsRespaldo(false);
+
+                return configRepo.save(config);
+        }
+
+        @Override
+        @Transactional
+        public CampaniaTelefonicaConfigDTO actualizarConfiguracion(Long idCampania, CampaniaTelefonicaConfigDTO dto) {
+                log.info("Actualizando configuración de campaña: {}", idCampania);
+                ensureCampaniaAccess(idCampania);
+
+                // First, find the campania_telefonica record using id_campana_gestion
+                CampaniaTelefonicaEntity campaniaTelefonica = campaniaRepo.findByIdCampanaGestion(idCampania)
+                                .orElseThrow(() -> new RuntimeException(
+                                                "No existe campaña telefónica para la campaña del gestor: "
+                                                                + idCampania));
+
+                Integer idCampaniaTelefonica = campaniaTelefonica.getId();
+
+                CampaniaTelefonicaConfigEntity config = configRepo.findById(idCampaniaTelefonica)
+                                .orElseThrow(() -> new RuntimeException(
+                                                "Configuración no encontrada para campaña telefónica: "
+                                                                + idCampaniaTelefonica));
+
+                // Actualizar campos
+                if (dto.getHoraInicioPermitida() != null) {
+                        config.setHoraInicioPermitida(dto.getHoraInicioPermitida());
+                }
+                if (dto.getHoraFinPermitida() != null) {
+                        config.setHoraFinPermitida(dto.getHoraFinPermitida());
+                }
+                if (dto.getDiasSemanaPermitidos() != null) {
+                        config.setDiasSemanaPermitidos(dto.getDiasSemanaPermitidos());
+                }
+                if (dto.getMaxIntentos() != null) {
+                        config.setMaxIntentos(dto.getMaxIntentos());
+                }
+                if (dto.getIntervaloReintentosMin() != null) {
+                        config.setIntervaloReintentosMin(dto.getIntervaloReintentosMin());
+                }
+                if (dto.getTipoDiscado() != null) {
+                        config.setTipoDiscado(
+                                        CampaniaTelefonicaConfigEntity.TipoDiscadoEnum.valueOf(dto.getTipoDiscado()));
+                }
+                if (dto.getModoContacto() != null) {
+                        // Convert "Llamada+SMS" to "Llamada_SMS" for enum
+                        String modoContacto = dto.getModoContacto().replace("+", "_");
+                        config.setModoContacto(CampaniaTelefonicaConfigEntity.ModoContactoEnum.valueOf(modoContacto));
+                }
+                if (dto.getPermiteSmsRespaldo() != null) {
+                        config.setPermiteSmsRespaldo(dto.getPermiteSmsRespaldo());
+                }
+
+                CampaniaTelefonicaConfigEntity saved = configRepo.save(config);
+                return mapper.toConfigDTO(saved);
         }
 }

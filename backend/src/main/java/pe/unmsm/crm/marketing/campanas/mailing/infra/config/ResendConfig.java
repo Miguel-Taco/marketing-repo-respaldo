@@ -40,6 +40,9 @@ public class ResendConfig {
     @Value("${app.backend.url:http://localhost:8080}")
     private String backendUrl;
 
+    @Value("${app.encuestas_frontend.url:http://localhost:5173}")
+    private String frontendUrl;    
+
     /**
      * Log de configuración al iniciar
      */

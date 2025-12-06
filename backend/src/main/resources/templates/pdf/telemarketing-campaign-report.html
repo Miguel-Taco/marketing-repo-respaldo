@@ -60,7 +60,7 @@
 
         .campaign-info {
             background: #F9FAFB;
-            border-left: 4px solid #4F46E5;
+            border-left: 4px solid #374151;
             padding: 16px;
             margin-bottom: 24px;
         }
@@ -86,36 +86,18 @@
 
         .metric-card {
             display: table-cell;
+            background: #FAFAFA;
+            border: 1px solid #E5E7EB;
             border-radius: 8px;
             padding: 16px;
             text-align: center;
-            color: white;
-        }
-
-        .metric-card.indigo {
-            background-color: #4F46E5;
-        }
-
-        .metric-card.emerald {
-            background-color: #10B981;
-        }
-
-        .metric-card.amber {
-            background-color: #F59E0B;
-        }
-
-        .metric-card.blue {
-            background-color: #3B82F6;
-        }
-
-        .metric-card.violet {
-            background-color: #8B5CF6;
         }
 
         .metric-value {
             display: block;
             font-size: 24px;
             font-weight: 700;
+            color: #1F2937;
             margin-bottom: 4px;
         }
 
@@ -187,23 +169,23 @@
             </div>
 
             <div class="metrics-grid">
-                <div class="metric-card indigo">
+                <div class="metric-card">
                     <span class="metric-value">{{totalLlamadas}}</span>
                     <span class="metric-label">Total Llamadas</span>
                 </div>
-                <div class="metric-card emerald">
+                <div class="metric-card">
                     <span class="metric-value">{{llamadasEfectivas}}</span>
                     <span class="metric-label">Efectivas</span>
                 </div>
-                <div class="metric-card amber">
+                <div class="metric-card">
                     <span class="metric-value">{{llamadasNoEfectivas}}</span>
                     <span class="metric-label">No Efectivas</span>
                 </div>
-                <div class="metric-card blue">
+                <div class="metric-card">
                     <span class="metric-value">{{llamadasPendientes}}</span>
                     <span class="metric-label">Pendientes</span>
                 </div>
-                <div class="metric-card violet">
+                <div class="metric-card">
                     <span class="metric-value">{{tasaEfectividad}}</span>
                     <span class="metric-label">Efectividad</span>
                 </div>

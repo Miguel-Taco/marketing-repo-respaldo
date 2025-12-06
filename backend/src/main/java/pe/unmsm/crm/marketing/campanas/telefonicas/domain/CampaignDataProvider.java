@@ -66,4 +66,22 @@ public interface CampaignDataProvider {
      * @throws IllegalArgumentException si no existe campaña para la encuesta
      */
     ContactoDTO agregarContactoUrgente(AddUrgentContactRequest request);
+
+    // Configuración de campaña
+    /**
+     * Obtiene la configuración de una campaña telefónica.
+     * 
+     * @param idCampania ID de la campaña
+     * @return Configuración de la campaña
+     */
+    CampaniaTelefonicaConfigDTO obtenerConfiguracion(Long idCampania);
+
+    /**
+     * Actualiza la configuración de una campaña telefónica.
+     * 
+     * @param idCampania ID de la campaña
+     * @param config     Nueva configuración
+     * @return Configuración actualizada
+     */
+    CampaniaTelefonicaConfigDTO actualizarConfiguracion(Long idCampania, CampaniaTelefonicaConfigDTO config);
 }

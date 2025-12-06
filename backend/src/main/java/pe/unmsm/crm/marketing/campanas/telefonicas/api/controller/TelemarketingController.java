@@ -141,6 +141,17 @@ public class TelemarketingController {
      */
     @GetMapping("/agentes/me/llamadas-programadas")
     public ResponseEntity<Map<String, Object>> obtenerLlamadasProgramadas() {
+        if (userAuthorizationService.isAdmin()) {
+            try {
+                Long currentAgent = requireCurrentAgent();
+                List<ContactoDTO> llamadas = service.obtenerLlamadasProgramadas(currentAgent);
+                return ResponseUtils.success(llamadas, "Llamadas programadas obtenidas exitosamente");
+            } catch (AccessDeniedException e) {
+                // Admin sin agente -> Devolver TODAS las llamadas programadas
+                List<ContactoDTO> llamadas = service.obtenerLlamadasProgramadas(null);
+                return ResponseUtils.success(llamadas, "Todas las llamadas programadas");
+            }
+        }
         Long currentAgent = requireCurrentAgent();
         List<ContactoDTO> llamadas = service.obtenerLlamadasProgramadas(currentAgent);
         return ResponseUtils.success(llamadas, "Llamadas programadas obtenidas exitosamente");
@@ -516,7 +527,7 @@ public class TelemarketingController {
 
     /**
      * POST /campanias-telefonicas/{id}/vincular-guion
-     * Vincula un guiÃƒÂ³n estructurado a una campaÃƒÂ±a.
+     * Vincula un guión estructurado a una campaña.
      */
     @PostMapping("/campanias-telefonicas/{id}/vincular-guion")
     public ResponseEntity<Map<String, Object>> vincularGuionACampania(
@@ -533,11 +544,48 @@ public class TelemarketingController {
             Long idUsuario = 1L;
 
             GuionArchivoDTO guionArchivo = guionArchivoService.vincularGuionACampania(idCampania, idGuion, idUsuario);
-            return ResponseUtils.success(guionArchivo, "GuiÃƒÂ³n vinculado exitosamente");
+            return ResponseUtils.success(guionArchivo, "Guión vinculado exitosamente");
         } catch (Exception e) {
-            return ResponseUtils.error("Error al vincular guiÃƒÂ³n: " + e.getMessage(), 500);
+            return ResponseUtils.error("Error al vincular guión: " + e.getMessage(), 500);
         }
     }
+
+    // ==================== CONFIGURACIÓN ====================
+
+    /**
+     * GET /campanias-telefonicas/{id}/config
+     * Obtiene la configuración de una campaña telefónica.
+     */
+    @GetMapping("/campanias-telefonicas/{id}/config")
+    public ResponseEntity<Map<String, Object>> obtenerConfiguracion(@PathVariable Long id) {
+        try {
+            requireCampaniaAccess(id);
+            CampaniaTelefonicaConfigDTO config = service.obtenerConfiguracion(id);
+            return ResponseUtils.success(config, "Configuración obtenida exitosamente");
+        } catch (Exception e) {
+            return ResponseUtils.error("Error al obtener configuración: " + e.getMessage(), 500);
+        }
+    }
+
+    /**
+     * PUT /campanias-telefonicas/{id}/config
+     * Actualiza la configuración de una campaña telefónica.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/campanias-telefonicas/{id}/config")
+    public ResponseEntity<Map<String, Object>> actualizarConfiguracion(
+            @PathVariable Long id,
+            @Valid @RequestBody CampaniaTelefonicaConfigDTO config) {
+        try {
+            requireCampaniaAccess(id);
+            CampaniaTelefonicaConfigDTO updated = service.actualizarConfiguracion(id, config);
+            return ResponseUtils.success(updated, "Configuración actualizada exitosamente");
+        } catch (Exception e) {
+            return ResponseUtils.error("Error al actualizar configuración: " + e.getMessage(), 500);
+        }
+    }
+
+    // ==================== HELPER METHODS ====================
 
     private void requireCampaniaAccess(Long idCampania) {
         userAuthorizationService.ensureCampaniaTelefonicaAccess(idCampania);
@@ -557,7 +605,7 @@ public class TelemarketingController {
             requireAgentAccess(agenteId);
             return;
         }
-        throw new AccessDeniedException("La llamada no contiene datos suficientes para validar acceso");
+        throw new AccessDeniedException("La llamada no contiene datos suficientes para valid ar acceso");
     }
 
     private Long requireAgentAccess(Long idAgente) {
