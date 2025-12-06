@@ -10,6 +10,7 @@ import pe.unmsm.crm.marketing.campanas.telefonicas.api.dto.*;
 import pe.unmsm.crm.marketing.campanas.telefonicas.application.GuionArchivoService;
 import pe.unmsm.crm.marketing.campanas.telefonicas.application.GuionService;
 import pe.unmsm.crm.marketing.campanas.telefonicas.application.TelemarketingService;
+import pe.unmsm.crm.marketing.campanas.telefonicas.application.service.GrabacionService;
 import pe.unmsm.crm.marketing.security.service.UserAuthorizationService;
 import pe.unmsm.crm.marketing.shared.utils.ResponseUtils;
 
@@ -24,6 +25,7 @@ public class TelemarketingController {
     private final TelemarketingService service;
     private final GuionArchivoService guionArchivoService;
     private final GuionService guionService;
+    private final GrabacionService grabacionService;
     private final UserAuthorizationService userAuthorizationService;
 
     // ==================== CAMPAÃƒâ€˜AS ====================
@@ -201,6 +203,168 @@ public class TelemarketingController {
         Long resolvedAgente = resolveAgentOrCurrent(idAgente);
         LlamadaDTO llamada = service.registrarResultadoLlamada(idCampania, resolvedAgente, request);
         return ResponseUtils.success(llamada, "Resultado registrado exitosamente");
+    }
+
+    // ==================== GRABACIONES DE LLAMADAS ====================
+
+    /**
+     * POST /campanias-telefonicas/{idCampania}/grabaciones
+     * Sube una grabación de llamada
+     */
+    @PostMapping("/campanias-telefonicas/{idCampania}/grabaciones")
+    public ResponseEntity<Map<String, Object>> subirGrabacion(
+            @PathVariable Long idCampania,
+            @RequestParam("archivo") org.springframework.web.multipart.MultipartFile archivo,
+            @RequestParam Long idLead,
+            @RequestParam(required = false) Integer idLlamada,
+            @RequestParam Integer duracionSegundos,
+            @RequestParam(required = false) String resultado) {
+        try {
+            requireCampaniaAccess(idCampania);
+            Long currentAgent = requireCurrentAgent();
+
+            SubirGrabacionRequest request = new SubirGrabacionRequest();
+            request.setIdCampania(idCampania.intValue());
+            request.setIdLead(idLead);
+            request.setIdLlamada(idLlamada);
+            request.setDuracionSegundos(duracionSegundos);
+            request.setResultado(resultado);
+            request.setArchivo(archivo);
+
+            GrabacionDTO grabacion = grabacionService.procesarGrabacion(request, currentAgent.intValue());
+            return ResponseUtils.success(grabacion, "Grabación procesada exitosamente");
+        } catch (IllegalArgumentException e) {
+            return ResponseUtils.error(e.getMessage(), 400);
+        } catch (Exception e) {
+            return ResponseUtils.error("Error al procesar grabación: " + e.getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /agentes/me/grabaciones
+     * Lista las grabaciones del agente actual con filtros
+     * Admins pueden ver todas las grabaciones (sin filtro de agente)
+     */
+    @GetMapping("/agentes/me/grabaciones")
+    public ResponseEntity<Map<String, Object>> listarMisGrabaciones(
+            @RequestParam(required = false) Integer idCampania,
+            @RequestParam(required = false) String resultado,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime fechaDesde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime fechaHasta,
+            @RequestParam(required = false) String busqueda,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            Integer currentAgent = null;
+            if (!userAuthorizationService.isAdmin()) {
+                currentAgent = requireCurrentAgent().intValue();
+            }
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page,
+                    size);
+
+            org.springframework.data.domain.Page<GrabacionDTO> grabaciones = grabacionService.listarGrabaciones(
+                    currentAgent,
+                    idCampania,
+                    resultado,
+                    fechaDesde,
+                    fechaHasta,
+                    busqueda,
+                    pageable);
+
+            return ResponseUtils.success(grabaciones, "Grabaciones obtenidas exitosamente");
+        } catch (Exception e) {
+            return ResponseUtils.error("Error al listar grabaciones: " + e.getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /grabaciones/{idGrabacion}
+     * Obtiene los detalles de una grabación específica
+     * Admins pueden acceder a cualquier grabación
+     */
+    @GetMapping("/grabaciones/{idGrabacion}")
+    public ResponseEntity<Map<String, Object>> obtenerGrabacion(
+            @PathVariable Long idGrabacion) {
+        try {
+            Integer currentAgent = null;
+            if (!userAuthorizationService.isAdmin()) {
+                currentAgent = requireCurrentAgent().intValue();
+            }
+            GrabacionDTO grabacion = grabacionService.obtenerGrabacion(idGrabacion, currentAgent);
+            return ResponseUtils.success(grabacion, "Grabación obtenida exitosamente");
+        } catch (RuntimeException e) {
+            return ResponseUtils.error(e.getMessage(), 404);
+        } catch (Exception e) {
+            return ResponseUtils.error("Error al obtener grabación: " + e.getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /grabaciones/{idGrabacion}/audio
+     * Obtiene la URL firmada temporal para reproducir el audio
+     * Admins pueden acceder a cualquier grabación
+     */
+    @GetMapping("/grabaciones/{idGrabacion}/audio")
+    public ResponseEntity<Map<String, Object>> obtenerAudioUrl(
+            @PathVariable Long idGrabacion) {
+        try {
+            Integer currentAgent = null;
+            if (!userAuthorizationService.isAdmin()) {
+                currentAgent = requireCurrentAgent().intValue();
+            }
+            String audioUrl = grabacionService.obtenerAudioUrl(idGrabacion, currentAgent);
+            return ResponseUtils.success(Map.of("url", audioUrl), "URL de audio generada exitosamente");
+        } catch (RuntimeException e) {
+            return ResponseUtils.error(e.getMessage(), 404);
+        } catch (Exception e) {
+            return ResponseUtils.error("Error al obtener URL de audio: " + e.getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /grabaciones/{idGrabacion}/transcripcion
+     * Obtiene la transcripción en formato markdown
+     * Admins pueden acceder a cualquier grabación
+     */
+    @GetMapping("/grabaciones/{idGrabacion}/transcripcion")
+    public ResponseEntity<String> obtenerTranscripcion(
+            @PathVariable Long idGrabacion) {
+        try {
+            Integer currentAgent = null;
+            if (!userAuthorizationService.isAdmin()) {
+                currentAgent = requireCurrentAgent().intValue();
+            }
+            String transcripcion = grabacionService.obtenerTranscripcion(idGrabacion, currentAgent);
+            return ResponseEntity.ok()
+                    .header("Content-Type", "text/markdown; charset=UTF-8")
+                    .body(transcripcion);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body("Transcripción no encontrada: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error al obtener transcripción: " + e.getMessage());
+        }
+    }
+
+    /**
+     * DELETE /grabaciones/{idGrabacion}
+     * Elimina una grabación (audio y transcripción)
+     * Admins pueden eliminar cualquier grabación
+     */
+    @DeleteMapping("/grabaciones/{idGrabacion}")
+    public ResponseEntity<Map<String, Object>> eliminarGrabacion(
+            @PathVariable Long idGrabacion) {
+        try {
+            Integer currentAgent = null;
+            if (!userAuthorizationService.isAdmin()) {
+                currentAgent = requireCurrentAgent().intValue();
+            }
+            grabacionService.eliminarGrabacion(idGrabacion, currentAgent);
+            return ResponseUtils.success(null, "Grabación elimin ada exitosamente");
+        } catch (RuntimeException e) {
+            return ResponseUtils.error(e.getMessage(), 404);
+        } catch (Exception e) {
+            return ResponseUtils.error("Error al eliminar grabación: " + e.getMessage(), 500);
+        }
     }
 
     // ==================== HISTORIAL DE LLAMADAS ====================

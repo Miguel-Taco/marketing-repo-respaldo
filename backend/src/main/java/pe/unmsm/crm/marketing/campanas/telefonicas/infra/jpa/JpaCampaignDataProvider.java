@@ -28,7 +28,6 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         private final LlamadaRepository llamadaRepo;
         private final GuionRepository guionRepo;
         private final ResultadoLlamadaRepository resultadoRepo;
-        private final CampaniaTelefonicaConfigRepository configRepo;
         private final CampaignMapper mapper;
         private final pe.unmsm.crm.marketing.campanas.telefonicas.application.service.EncuestaLlamadaService encuestaLlamadaService;
         private final pe.unmsm.crm.marketing.leads.domain.repository.LeadRepository leadRepository;
@@ -307,38 +306,7 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                 LlamadaEntity savedLlamada = llamadaRepo.save(llamada);
                 log.info("Llamada registrada con ID: {}", savedLlamada.getId());
 
-                // 2. Notificar a sistema externo si el resultado es INTERESADO
-                if ("INTERESADO".equalsIgnoreCase(request.getResultado())) {
-                        try {
-                                log.info("Resultado INTERESADO detectado, preparando notificación externa [leadId={}]",
-                                                request.getIdLead());
-
-                                // Obtener datos de campaña
-                                CampaniaTelefonicaEntity campania = campaniaRepo.findById(idCampania.intValue())
-                                                .orElseThrow(() -> new RuntimeException(
-                                                                "Campaña no encontrada: " + idCampania));
-
-                                // Variables finales para uso en lambda
-                                final LlamadaEntity finalLlamada = savedLlamada;
-                                final CampaniaTelefonicaEntity finalCampania = campania;
-
-                                // Obtener datos del lead
-                                leadRepository.findById(request.getIdLead()).ifPresent(lead -> {
-                                        // Notificar de forma asíncrona
-                                        externalLeadNotificationService.notificarLeadInteresado(
-                                                        finalLlamada,
-                                                        finalCampania,
-                                                        lead);
-                                });
-                        } catch (Exception e) {
-                                // No lanzar excepción para no afectar el flujo principal
-                                log.error("Error al preparar notificación externa [leadId={}]: {}",
-                                                request.getIdLead(), e.getMessage());
-                        }
-                }
-
-                // 3. Procesar envío de encuesta si está habilitado
-
+                // 2. Procesar envÃ­o de encuesta si estÃ¡ habilitado
                 if (Boolean.TRUE.equals(request.getEnviarEncuesta())) {
                         log.info("Procesando envÃ­o de encuesta para llamada ID: {}", savedLlamada.getId());
 
@@ -414,6 +382,32 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
                         colaRepo.save(contacto);
                 }
 
+                // 4. Notificar lead interesado al sistema externo si corresponde
+                if ("INTERESADO".equalsIgnoreCase(request.getResultado())) {
+                        log.info("Resultado INTERESADO detectado, preparando notificación externa...");
+
+                        // Obtener entidades completas para el servicio de notificación
+                        CampaniaTelefonicaEntity campaniaEntity = campaniaRepo.findById(idCampania.intValue())
+                                        .orElse(null);
+
+                        // Crear referencia final para usar en lambda
+                        final LlamadaEntity llamadaFinal = savedLlamada;
+
+                        if (request.getIdLead() != null && campaniaEntity != null) {
+                                leadRepository.findById(request.getIdLead()).ifPresent(lead -> {
+                                        // Llamar al servicio de notificación de forma asíncrona
+                                        externalLeadNotificationService.notificarLeadInteresado(
+                                                        llamadaFinal,
+                                                        campaniaEntity,
+                                                        lead);
+                                });
+                        } else {
+                                log.warn("No se pudo notificar lead interesado: lead={}, campania={}",
+                                                request.getIdLead(),
+                                                campaniaEntity != null ? campaniaEntity.getId() : "null");
+                        }
+                }
+
                 return mapper.toLlamadaDTO(savedLlamada);
         }
 
@@ -432,9 +426,9 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
 
                 List<LlamadaEntity> llamadas;
                 if (agenteFiltro == null) {
-                        llamadas = llamadaRepo.findByIdCampaniaWithDetailsOrderByInicioDesc(campaniaId);
+                        llamadas = llamadaRepo.findByIdCampaniaOrderByInicioDesc(campaniaId);
                 } else {
-                        llamadas = llamadaRepo.findByIdCampaniaAndIdAgenteWithDetailsOrderByInicioDesc(
+                        llamadas = llamadaRepo.findByIdCampaniaAndIdAgenteOrderByInicioDesc(
                                         campaniaId,
                                         agenteFiltro);
                 }
@@ -862,95 +856,19 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         }
 
         @Override
-        @Transactional
         public CampaniaTelefonicaConfigDTO obtenerConfiguracion(Long idCampania) {
                 log.info("Obteniendo configuración de campaña: {}", idCampania);
                 ensureCampaniaAccess(idCampania);
-
-                // First, find the campania_telefonica record using id_campana_gestion
-                CampaniaTelefonicaEntity campaniaTelefonica = campaniaRepo.findByIdCampanaGestion(idCampania)
-                                .orElseThrow(() -> new RuntimeException(
-                                                "No existe campaña telefónica para la campaña del gestor: "
-                                                                + idCampania));
-
-                Integer idCampaniaTelefonica = campaniaTelefonica.getId();
-
-                // Try to find existing config, or create default if missing
-                return configRepo.findById(idCampaniaTelefonica)
-                                .map(mapper::toConfigDTO)
-                                .orElseGet(() -> {
-                                        log.warn("Configuración no encontrada para campaña telefónica {}. Creando configuración por defecto.",
-                                                        idCampaniaTelefonica);
-                                        CampaniaTelefonicaConfigEntity config = crearConfiguracionPorDefectoParaCampania(
-                                                        idCampaniaTelefonica);
-                                        return mapper.toConfigDTO(config);
-                                });
-        }
-
-        private CampaniaTelefonicaConfigEntity crearConfiguracionPorDefectoParaCampania(Integer idCampaniaTelefonica) {
-                CampaniaTelefonicaConfigEntity config = new CampaniaTelefonicaConfigEntity();
-                config.setIdCampaniaTelefonica(idCampaniaTelefonica);
-                config.setHoraInicioPermitida(java.time.LocalTime.of(9, 0));
-                config.setHoraFinPermitida(java.time.LocalTime.of(21, 0));
-                config.setDiasSemanaPermitidos("LUN-MAR-MIE-JUE-VIE");
-                config.setMaxIntentos(3);
-                config.setIntervaloReintentosMin(60);
-                config.setTipoDiscado(CampaniaTelefonicaConfigEntity.TipoDiscadoEnum.Manual);
-                config.setModoContacto(CampaniaTelefonicaConfigEntity.ModoContactoEnum.Llamada);
-                config.setPermiteSmsRespaldo(false);
-
-                return configRepo.save(config);
+                // TODO: Implementar cuando se cree la entidad CampaniaTelefonicaConfigEntity
+                return null;
         }
 
         @Override
-        @Transactional
-        public CampaniaTelefonicaConfigDTO actualizarConfiguracion(Long idCampania, CampaniaTelefonicaConfigDTO dto) {
+        public CampaniaTelefonicaConfigDTO actualizarConfiguracion(Long idCampania,
+                        CampaniaTelefonicaConfigDTO config) {
                 log.info("Actualizando configuración de campaña: {}", idCampania);
                 ensureCampaniaAccess(idCampania);
-
-                // First, find the campania_telefonica record using id_campana_gestion
-                CampaniaTelefonicaEntity campaniaTelefonica = campaniaRepo.findByIdCampanaGestion(idCampania)
-                                .orElseThrow(() -> new RuntimeException(
-                                                "No existe campaña telefónica para la campaña del gestor: "
-                                                                + idCampania));
-
-                Integer idCampaniaTelefonica = campaniaTelefonica.getId();
-
-                CampaniaTelefonicaConfigEntity config = configRepo.findById(idCampaniaTelefonica)
-                                .orElseThrow(() -> new RuntimeException(
-                                                "Configuración no encontrada para campaña telefónica: "
-                                                                + idCampaniaTelefonica));
-
-                // Actualizar campos
-                if (dto.getHoraInicioPermitida() != null) {
-                        config.setHoraInicioPermitida(dto.getHoraInicioPermitida());
-                }
-                if (dto.getHoraFinPermitida() != null) {
-                        config.setHoraFinPermitida(dto.getHoraFinPermitida());
-                }
-                if (dto.getDiasSemanaPermitidos() != null) {
-                        config.setDiasSemanaPermitidos(dto.getDiasSemanaPermitidos());
-                }
-                if (dto.getMaxIntentos() != null) {
-                        config.setMaxIntentos(dto.getMaxIntentos());
-                }
-                if (dto.getIntervaloReintentosMin() != null) {
-                        config.setIntervaloReintentosMin(dto.getIntervaloReintentosMin());
-                }
-                if (dto.getTipoDiscado() != null) {
-                        config.setTipoDiscado(
-                                        CampaniaTelefonicaConfigEntity.TipoDiscadoEnum.valueOf(dto.getTipoDiscado()));
-                }
-                if (dto.getModoContacto() != null) {
-                        // Convert "Llamada+SMS" to "Llamada_SMS" for enum
-                        String modoContacto = dto.getModoContacto().replace("+", "_");
-                        config.setModoContacto(CampaniaTelefonicaConfigEntity.ModoContactoEnum.valueOf(modoContacto));
-                }
-                if (dto.getPermiteSmsRespaldo() != null) {
-                        config.setPermiteSmsRespaldo(dto.getPermiteSmsRespaldo());
-                }
-
-                CampaniaTelefonicaConfigEntity saved = configRepo.save(config);
-                return mapper.toConfigDTO(saved);
+                // TODO: Implementar cuando se cree la entidad CampaniaTelefonicaConfigEntity
+                return null;
         }
 }

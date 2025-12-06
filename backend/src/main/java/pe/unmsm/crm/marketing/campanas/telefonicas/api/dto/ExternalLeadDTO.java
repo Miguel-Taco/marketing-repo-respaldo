@@ -8,10 +8,10 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * DTO para enviar datos de lead interesado a sistema externo.
+ * DTO para enviar datos de leads interesados al sistema externo de ventas.
  * 
- * Estructura de datos que se enviará al endpoint externo cuando
- * un contacto sea marcado como INTERESADO durante una llamada.
+ * Este objeto se serializa a JSON y se envía mediante POST al endpoint
+ * /api/venta/lead/desde-marketing del sistema de ventas.
  */
 @Data
 @Builder

@@ -1,0 +1,33 @@
+                // 3. Actualizar estado en cola si se proporciona el ID del contacto
+                if (request.getIdContactoCola() != null) {
+                        ColaLlamadaEntity contacto = colaRepo.findById(request.getIdContactoCola().intValue())
+                                        .orElseThrow(() -> new RuntimeException("Contacto en cola no encontrado"));
+
+                        Integer contactoCampaniaId = contacto.getIdCampania();
+                        if (contactoCampaniaId == null || !contactoCampaniaId.equals(idCampania.intValue())) {
+                                throw new AccessDeniedException("Contacto en cola no pertenece a la campaña");
+                        }
+
+                        // Verificar si hay reagendamiento
+                        if (request.getFechaReagendamiento() != null) {
+                                // REAGENDAR: Volver a PENDIENTE con fecha programada
+                                contacto.setEstadoEnCola("PENDIENTE");
+                                contacto.setFechaProgramada(request.getFechaReagendamiento());
+                                contacto.setPrioridadCola("ALTA"); // Alta prioridad para reagendados
+                                contacto.setIdAgenteActual(null); // Liberar al pool
+                                
+                                log.info("Contacto reagendado para {} [contactoId={}]",
+                                                request.getFechaReagendamiento(), request.getIdContactoCola());
+                        } else {
+                                // COMPLETAR: Marcar como completado
+                                contacto.setEstadoEnCola("COMPLETADO");
+                                contacto.setIdAgenteActual(null); // Liberar asignación
+                                
+                                log.info("Estado de contacto actualizado a COMPLETADO [contactoId={}]",
+                                                request.getIdContactoCola());
+                        }
+                        
+                        colaRepo.save(contacto);
+                }
+
+                return mapper.toLlamadaDTO(savedLlamada);

@@ -92,19 +92,43 @@ public class TelemarketingService {
         // Sin embargo, la estrategia de asignación (CallAssignmentStrategy) podría
         // tener lógica extra.
         // Por ahora, delegamos al provider que es lo más eficiente en BD.
-        return campaignDataProvider.obtenerSiguienteContacto(idCampania, idAgente);
+        ContactoDTO contacto = campaignDataProvider.obtenerSiguienteContacto(idCampania, idAgente);
+
+        // Publicar evento de contacto tomado
+        if (contacto != null) {
+            eventPublisher.publish(new pe.unmsm.crm.marketing.campanas.telefonicas.domain.event.ContactTakenEvent(
+                    idCampania, idAgente, contacto.getId()));
+        }
+
+        return contacto;
     }
 
     public ContactoDTO tomarContacto(Long idCampania, Long idContacto, Long idAgente) {
-        return campaignDataProvider.tomarContacto(idCampania, idContacto, idAgente);
+        ContactoDTO contacto = campaignDataProvider.tomarContacto(idCampania, idContacto, idAgente);
+
+        // Publicar evento de contacto tomado
+        if (contacto != null) {
+            eventPublisher.publish(new pe.unmsm.crm.marketing.campanas.telefonicas.domain.event.ContactTakenEvent(
+                    idCampania, idAgente, idContacto));
+        }
+
+        return contacto;
     }
 
     public void pausarCola(Long idAgente, Long idCampania) {
         campaignDataProvider.pausarCola(idAgente, idCampania);
+
+        // Publicar evento de cola pausada
+        eventPublisher.publish(new pe.unmsm.crm.marketing.campanas.telefonicas.domain.event.QueueToggledEvent(
+                idCampania, "PAUSED"));
     }
 
     public void reanudarCola(Long idAgente, Long idCampania) {
         campaignDataProvider.reanudarCola(idAgente, idCampania);
+
+        // Publicar evento de cola reanudada
+        eventPublisher.publish(new pe.unmsm.crm.marketing.campanas.telefonicas.domain.event.QueueToggledEvent(
+                idCampania, "RESUMED"));
     }
 
     // === LLAMADAS ===

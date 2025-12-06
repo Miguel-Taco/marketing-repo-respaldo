@@ -10,12 +10,17 @@ import pe.unmsm.crm.marketing.campanas.mailing.domain.model.CampanaMailing;
 
 import java.time.LocalDateTime;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class ProcesadorMailing {
 
     private final CampanaMailingService campanaMailingService;
+
+    @Value("${app.encuestas_frontend.url}")
+    private String encuestasFrontendUrl;
 
     public void programarCampana(Campana campana) {
         log.info("Programando campaña de mailing: {}", campana.getNombre());
@@ -31,7 +36,7 @@ public class ProcesadorMailing {
                 .idSegmento(campana.getIdSegmento())
                 .idEncuesta(campana.getIdEncuesta())
                 .idAgenteAsignado(campana.getIdAgente())
-                .ctaUrl("http://localhost:3000/encuesta/" + campana.getIdEncuesta())
+                .ctaUrl(null)
                 .build();
 
         campanaMailingService.crearCampana(request);

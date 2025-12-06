@@ -3,39 +3,33 @@ package pe.unmsm.crm.marketing.campanas.telefonicas.infra.config;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Configuration;
+
 import jakarta.annotation.PostConstruct;
 
 /**
- * Propiedades de configuración para notificación de leads a sistema externo.
+ * Configuración para notificaciones de leads a sistema externo de ventas.
  * 
- * Permite configurar el envío automático de datos de leads marcados como
- * INTERESADO
- * a un endpoint externo mediante variables de entorno.
+ * Lee las propiedades desde application.yml bajo el prefijo:
+ * app.external-lead-notification
  */
-@Data
 @Slf4j
-@Component
+@Data
+@Configuration
 @ConfigurationProperties(prefix = "app.external-lead-notification")
 public class ExternalLeadNotificationProperties {
 
     /**
-     * Habilita o deshabilita el envío de notificaciones al sistema externo.
-     * Por defecto: false (deshabilitado)
+     * Habilita o deshabilita el envío HTTP de notificaciones.
+     * Por defecto: false (para que el sistema funcione sin configuración)
      */
     private boolean enabled = false;
 
     /**
-     * URL del endpoint externo donde se enviarán los datos del lead.
-     * Ejemplo: https://sistema-externo.com/api/leads
+     * URL base del sistema de ventas (se construye desde VENTAS_URL).
+     * Ejemplo: https://mod-ventas.onrender.com
      */
-    private String endpointUrl;
-
-    /**
-     * Timeout en segundos para la petición HTTP.
-     * Por defecto: 5 segundos
-     */
-    private int timeoutSeconds = 5;
+    private String ventasUrl;
 
     /**
      * API Key opcional para autenticación con el sistema externo.
@@ -43,31 +37,47 @@ public class ExternalLeadNotificationProperties {
     private String apiKey;
 
     /**
-     * Log de configuración al iniciar - permite verificar qué valores se cargaron
+     * Timeout en segundos para las peticiones HTTP.
+     * Por defecto: 5 segundos
+     */
+    private int timeoutSeconds = 5;
+
+    /**
+     * Obtiene la URL completa del endpoint para enviar leads.
+     * Construye: {ventasUrl}/api/venta/lead/desde-marketing
+     * 
+     * @return URL completa del endpoint o null si ventasUrl no está configurado
+     */
+    public String getEndpointUrl() {
+        if (ventasUrl == null || ventasUrl.trim().isEmpty()) {
+            return null;
+        }
+        // Asegurar que no haya doble slash
+        String baseUrl = ventasUrl.endsWith("/") ? ventasUrl.substring(0, ventasUrl.length() - 1) : ventasUrl;
+        return baseUrl + "/api/venta/lead/desde-marketing";
+    }
+
+    /**
+     * Log de configuración al iniciar la aplicación.
      */
     @PostConstruct
-    public void logConfig() {
-        log.info("╔══════════════════════════════════════════════════╗");
-        log.info("║  EXTERNAL LEAD NOTIFICATION CONFIG               ║");
-        log.info("╠══════════════════════════════════════════════════╣");
-        log.info("║  Enabled: {}", enabled);
-        log.info("║  Endpoint URL: {}", endpointUrl != null ? endpointUrl : "NO CONFIGURADO");
-        log.info("║  Timeout: {} seconds", timeoutSeconds);
-        log.info("║  API Key: {}", apiKey != null && !apiKey.isEmpty() ? "CONFIGURADO" : "NO CONFIGURADO");
-        log.info("╚══════════════════════════════════════════════════╝");
+    public void logConfiguration() {
+        log.info("=================================================================");
+        log.info("EXTERNAL LEAD NOTIFICATION - Configuración cargada:");
+        log.info("  Habilitado: {}", enabled);
+        log.info("  Ventas URL base: {}", ventasUrl != null ? ventasUrl : "NO CONFIGURADO");
+        log.info("  Endpoint completo: {}", getEndpointUrl() != null ? getEndpointUrl() : "NO CONFIGURADO");
+        log.info("  Timeout: {} segundos", timeoutSeconds);
+        log.info("  API Key configurada: {}", apiKey != null && !apiKey.trim().isEmpty() ? "SÍ" : "NO");
 
-        if (!enabled) {
-            log.warn("⚠ External lead notification DISABLED.");
-            log.warn("  To enable, set: EXTERNAL_LEAD_NOTIFICATION_ENABLED=true");
+        if (enabled && getEndpointUrl() == null) {
+            log.warn("⚠️  ADVERTENCIA: Notificación externa HABILITADA pero VENTAS_URL no configurado!");
+            log.warn("⚠️  Configure VENTAS_URL en variables de entorno para enviar notificaciones.");
+        } else if (enabled) {
+            log.info("✅ Sistema de notificación externa LISTO para enviar a: {}", getEndpointUrl());
+        } else {
+            log.info("ℹ️  Notificación externa DESHABILITADA. Para habilitar: EXTERNAL_LEAD_NOTIFICATION_ENABLED=true");
         }
-
-        if (enabled && (endpointUrl == null || endpointUrl.trim().isEmpty())) {
-            log.error("❌ External lead notification ENABLED but NO ENDPOINT URL configured!");
-            log.error("  Set: EXTERNAL_LEAD_NOTIFICATION_URL=https://your-endpoint.com/api");
-        }
-
-        if (enabled && endpointUrl != null && !endpointUrl.trim().isEmpty()) {
-            log.info("✅ External lead notification is READY to send data");
-        }
+        log.info("=================================================================");
     }
 }

@@ -17,6 +17,7 @@ import pe.unmsm.crm.marketing.segmentacion.infra.cache.LeadCacheService;
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@org.springframework.context.annotation.Profile("!console")
 public class LeadEventListener {
 
     private final LeadCacheService leadCacheService;

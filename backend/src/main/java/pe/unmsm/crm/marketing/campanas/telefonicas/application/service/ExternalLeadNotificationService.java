@@ -37,6 +37,9 @@ public class ExternalLeadNotificationService {
 
     private final ExternalLeadNotificationProperties properties;
     private final RestClient restClient;
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .enable(SerializationFeature.INDENT_OUTPUT);
 
     /**
      * Notifica un lead interesado al sistema externo de forma asíncrona.
@@ -51,74 +54,117 @@ public class ExternalLeadNotificationService {
             CampaniaTelefonicaEntity campania,
             Lead lead) {
 
-        try {
-            log.info("Preparando notificación de lead interesado [leadId={}, campaniaId={}]",
-                    lead.getId(), campania.getId());
+        log.info("----------------------------------------------------------------");
+        log.info("       NOTIFICACION EXTERNA - LEAD INTERESADO                   ");
+        log.info("----------------------------------------------------------------");
+        log.info("  Lead ID: {}", lead.getId());
+        log.info("  Campania: {} (ID: {})", campania.getNombre(), campania.getId());
+        log.info("  Canal: CAMPANIA_TELEFONICA");
+        log.info("----------------------------------------------------------------");
 
-            // Construir payload SIEMPRE (independiente de configuración)
+        try {
+            // Construir payload
             ExternalLeadDTO payload = construirPayload(llamada, campania, lead);
 
-            // TESTING: Guardar archivo SIEMPRE para facilitar debugging
-            guardarPayloadEnArchivo(payload);
-
-            // TESTING: Mostrar payload completo en consola SIEMPRE
-            log.info("==================== PAYLOAD PARA SISTEMA EXTERNO ====================");
-            log.info("Endpoint: {}",
-                    properties.getEndpointUrl() != null ? properties.getEndpointUrl() : "NO CONFIGURADO");
-            log.info("Payload JSON:");
-            log.info("  idLeadMarketing: {}", payload.getIdLeadMarketing());
-            log.info("  nombres: {}", payload.getNombres());
-            log.info("  apellidos: {}", payload.getApellidos());
-            log.info("  correo: {}", payload.getCorreo());
-            log.info("  telefono: {}", payload.getTelefono());
-            log.info("  dni: {}", payload.getDni());
-            log.info("  canalOrigen: {}", payload.getCanalOrigen());
-            log.info("  idCampaniaMarketing: {}", payload.getIdCampaniaMarketing());
-            log.info("  nombreCampania: {}", payload.getNombreCampania());
-            log.info("  tematica: {}", payload.getTematica());
-            log.info("  descripcion: {}", payload.getDescripcion());
-            log.info("  notas_llamada: {}", payload.getNotasLlamada());
-            log.info("  fecha_envio: {}", payload.getFechaEnvio());
-
-            // Mostrar JSON completo formateado (para copiar y pegar en tests)
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                mapper.registerModule(new JavaTimeModule());
-                mapper.enable(SerializationFeature.INDENT_OUTPUT);
-                String jsonPayload = mapper.writeValueAsString(payload);
-                log.info("JSON Completo (Copy-Paste):\n{}", jsonPayload);
-            } catch (Exception e) {
-                log.warn("No se pudo serializar payload a JSON: {}", e.getMessage());
-            }
-
-            log.info("======================================================================");
-
-            // Verificar si la notificación HTTP está habilitada
+            // Verificar configuración
             if (!properties.isEnabled()) {
-                log.info(
-                        "Notificación HTTP externa DESHABILITADA. Payload guardado en archivo pero no se enviará HTTP.");
-                log.info("Para habilitar, configurar: EXTERNAL_LEAD_NOTIFICATION_ENABLED=true");
+                log.warn("  [WARN] Notificación HTTP DESHABILITADA");
+                log.warn("    El payload se generó correctamente pero NO se enviará HTTP");
+                log.warn("    Para habilitar: EXTERNAL_LEAD_NOTIFICATION_ENABLED=true");
+                logPayloadDetallado(payload);
                 return;
             }
 
-            // Validar que exista URL configurada
             if (properties.getEndpointUrl() == null || properties.getEndpointUrl().trim().isEmpty()) {
-                log.warn(
-                        "URL de endpoint externo NO CONFIGURADA. Payload guardado en archivo pero no se enviará HTTP.");
-                log.warn("Para configurar, agregar: EXTERNAL_LEAD_NOTIFICATION_URL=https://tu-endpoint.com/api");
+                log.error("  [ERROR] URL de endpoint NO CONFIGURADA");
+                log.error("    Configure VENTAS_URL en variables de entorno");
+                logPayloadDetallado(payload);
                 return;
             }
 
-            // Enviar al sistema externo
+            // Log del endpoint y payload antes de enviar
+            log.info("  -> Endpoint: {}", properties.getEndpointUrl());
+            log.info("  -> Timeout: {} segundos", properties.getTimeoutSeconds());
+
+            // Mostrar payload detallado
+            logPayloadDetallado(payload);
+
+            // Enviar HTTP
             enviarHttp(payload);
 
-            log.info("Notificación enviada exitosamente al sistema externo [leadId={}, endpoint={}]",
-                    lead.getId(), properties.getEndpointUrl());
+            log.info("  [SUCCESS] Notificación enviada exitosamente");
+            log.info("    Lead ID: {}", lead.getId());
+            log.info("    Endpoint: {}", properties.getEndpointUrl());
 
         } catch (Exception e) {
-            // No lanzar excepción para no afectar el flujo principal
-            log.error("Error al procesar notificación externa [leadId={}]: {}",
-                    lead.getId(), e.getMessage(), e);
+            log.error("  [ERROR] Error al procesar notificación externa");
+            log.error("    Lead ID: {}", lead.getId());
+            log.error("    Error: {}", e.getMessage());
+            if (log.isDebugEnabled()) {
+                log.error("    Stacktrace:", e);
+            }
+        } finally {
+            log.info("----------------------------------------------------------------");
+        }
+    }
+
+    /**
+     * Guarda el payload JSON en un archivo de texto para debugging.
+     */
+    private void guardarPayloadEnArchivo(ExternalLeadDTO payload) {
+        try {
+            // Crear directorio si no existe
+            Path logsDir = Paths.get("logs", "external-lead-notifications");
+            Files.createDirectories(logsDir);
+
+            // Generar nombre de archivo con timestamp
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String fileName = String.format("lead-%d-%s.txt", payload.getIdLeadMarketing(), timestamp);
+            Path filePath = logsDir.resolve(fileName);
+
+            // Escribir JSON al archivo
+            String jsonContent = objectMapper.writeValueAsString(payload);
+            Files.writeString(filePath, jsonContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+            log.info("  [FILE] JSON guardado en: {}", filePath.toAbsolutePath());
+
+        } catch (IOException e) {
+            log.warn("  [WARN] No se pudo guardar JSON en archivo: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Log detallado del payload en formato estructurado
+     */
+    private void logPayloadDetallado(ExternalLeadDTO payload) {
+        try {
+            log.info("  ---------------------------------------------------------");
+            log.info("  |  PAYLOAD JSON                                         |");
+            log.info("  ---------------------------------------------------------");
+            log.info("  |  idLeadMarketing: {}", payload.getIdLeadMarketing());
+            log.info("  |  nombres: '{}'", payload.getNombres());
+            log.info("  |  apellidos: '{}'", payload.getApellidos());
+            log.info("  |  correo: '{}'", payload.getCorreo());
+            log.info("  |  telefono: '{}'", payload.getTelefono());
+            log.info("  |  dni: '{}'", payload.getDni());
+            log.info("  |  canalOrigen: '{}'", payload.getCanalOrigen());
+            log.info("  |  idCampaniaMarketing: {}", payload.getIdCampaniaMarketing());
+            log.info("  |  nombreCampania: '{}'", payload.getNombreCampania());
+            log.info("  |  tematica: '{}'", payload.getTematica());
+            log.info("  |  descripcion: '{}'", truncate(payload.getDescripcion(), 40));
+            log.info("  |  notas_llamada: '{}'", truncate(payload.getNotasLlamada(), 40));
+            log.info("  |  fecha_envio: {}", payload.getFechaEnvio());
+            log.info("  ---------------------------------------------------------");
+
+            // JSON completo para copiar/pegar
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+            log.info("  JSON Completo (Copy-Paste):\n{}", jsonPayload);
+
+            // Guardar en archivo para debugging
+            guardarPayloadEnArchivo(payload);
+
+        } catch (Exception e) {
+            log.warn("  Error al loguear payload: {}", e.getMessage());
         }
     }
 
@@ -130,10 +176,10 @@ public class ExternalLeadNotificationService {
             CampaniaTelefonicaEntity campania,
             Lead lead) {
 
-        // Parsear nombre completo a nombres y apellidos
-        String[] nombreParseado = parsearNombreCompleto(lead.getNombre());
-        String nombres = nombreParseado[0];
-        String apellidos = nombreParseado[1];
+        // Limpiar y separar nombre completo en nombres y apellidos
+        String[] nombreApellido = limpiarYSepararNombre(lead.getNombre());
+        String nombres = nombreApellido[0];
+        String apellidos = nombreApellido[1];
 
         return ExternalLeadDTO.builder()
                 .idLeadMarketing(lead.getId())
@@ -153,89 +199,64 @@ public class ExternalLeadNotificationService {
     }
 
     /**
-     * Parsea un nombre completo y lo divide en nombres y apellidos.
+     * Limpia y separa el nombre completo en nombres y apellidos.
      * 
-     * Lógica:
-     * 1. Elimina números, guiones "-" y la palabra "import" (case insensitive)
-     * 2. Divide las palabras restantes según cantidad:
-     * - 4+ palabras: primeras 2 = nombres, últimas 2 = apellidos
-     * - 3 palabras: primera = nombre, últimas 2 = apellidos
-     * - 2 palabras: primera = nombre, segunda = apellido
-     * - 1 palabra: nombre sin apellido
+     * Reglas:
+     * 1. Elimina sufijos como "- Import 9", "- import 24", números sueltos, etc.
+     * 2. Después de limpiar:
+     * - 4 palabras: 2 primeras = nombre, 2 últimas = apellido
+     * - 3 palabras: 1 primera = nombre, 2 últimas = apellido
+     * - 2 palabras: 1 = nombre, 1 = apellido
+     * - 1 palabra o menos: nombre completo como nombre, "Sin Apellido" como
+     * apellido
      * 
-     * Ejemplos:
-     * - "Ana Soto 9" -> nombres="Ana", apellidos="Soto"
-     * - "Luis Pacheco - Import 10" -> nombres="Luis", apellidos="Pacheco"
-     * - "Maria Elena Garcia Torres" -> nombres="Maria Elena", apellidos="Garcia
-     * Torres"
-     * - "Juan Carlos Lopez" -> nombres="Juan", apellidos="Carlos Lopez"
-     * 
-     * @param nombreCompleto Nombre completo a parsear
-     * @return Array de 2 elementos: [nombres, apellidos]
+     * @param nombreCompleto Nombre completo del lead
+     * @return Array [nombres, apellidos]
      */
-    private String[] parsearNombreCompleto(String nombreCompleto) {
+    private String[] limpiarYSepararNombre(String nombreCompleto) {
         if (nombreCompleto == null || nombreCompleto.trim().isEmpty()) {
-            return new String[] { "", "" };
+            return new String[] { "Sin Nombre", "Sin Apellido" };
         }
 
-        // Limpiar el nombre:
-        // 1. Eliminar números
-        // 2. Eliminar guiones
-        // 3. Eliminar la palabra "import" (case insensitive)
+        // Limpiar el nombre
         String nombreLimpio = nombreCompleto
-                .replaceAll("\\d+", "") // Eliminar números
-                .replaceAll("-", " ") // Reemplazar guiones por espacios
-                .replaceAll("(?i)\\bimport\\b", "") // Eliminar "import" (case insensitive)
-                .replaceAll("\\s+", " ") // Normalizar espacios múltiples
+                // Eliminar sufijos como "- Import 9", "- import 24", etc.
+                .replaceAll("(?i)\\s*-\\s*import\\s*\\d+", "")
+                // Eliminar números sueltos al final
+                .replaceAll("\\s+\\d+$", "")
+                // Eliminar espacios múltiples
+                .replaceAll("\\s+", " ")
                 .trim();
+
+        // Si después de limpiar está vacío
+        if (nombreLimpio.isEmpty()) {
+            return new String[] { "Sin Nombre", "Sin Apellido" };
+        }
 
         // Dividir en palabras
         String[] palabras = nombreLimpio.split("\\s+");
-
-        // Filtrar palabras vacías
-        palabras = java.util.Arrays.stream(palabras)
-                .filter(p -> !p.isEmpty())
-                .toArray(String[]::new);
-
-        if (palabras.length == 0) {
-            return new String[] { "", "" };
-        }
+        int numPalabras = palabras.length;
 
         String nombres;
         String apellidos;
 
-        switch (palabras.length) {
-            case 1:
-                // Solo 1 palabra: es el nombre, sin apellido
-                nombres = palabras[0];
-                apellidos = "";
-                break;
-            case 2:
-                // 2 palabras: primera es nombre, segunda es apellido
-                nombres = palabras[0];
-                apellidos = palabras[1];
-                break;
-            case 3:
-                // 3 palabras: primera es nombre, últimas 2 son apellidos
-                nombres = palabras[0];
-                apellidos = palabras[1] + " " + palabras[2];
-                break;
-            default:
-                // 4+ palabras: primeras 2 son nombres, últimas son apellidos
-                nombres = palabras[0] + " " + palabras[1];
-                // Unir el resto como apellidos (puede ser más de 2)
-                StringBuilder apellidosBuilder = new StringBuilder();
-                for (int i = 2; i < palabras.length; i++) {
-                    if (i > 2)
-                        apellidosBuilder.append(" ");
-                    apellidosBuilder.append(palabras[i]);
-                }
-                apellidos = apellidosBuilder.toString();
-                break;
+        if (numPalabras >= 4) {
+            // 4 o más palabras: 2 primeras = nombre, resto = apellido
+            nombres = palabras[0] + " " + palabras[1];
+            apellidos = String.join(" ", java.util.Arrays.copyOfRange(palabras, 2, numPalabras));
+        } else if (numPalabras == 3) {
+            // 3 palabras: 1 primera = nombre, 2 últimas = apellido
+            nombres = palabras[0];
+            apellidos = palabras[1] + " " + palabras[2];
+        } else if (numPalabras == 2) {
+            // 2 palabras: 1 = nombre, 1 = apellido
+            nombres = palabras[0];
+            apellidos = palabras[1];
+        } else {
+            // 1 palabra: usar como nombre y "Sin Apellido"
+            nombres = palabras[0];
+            apellidos = "Sin Apellido";
         }
-
-        log.debug("Nombre parseado: '{}' -> nombres='{}', apellidos='{}'",
-                nombreCompleto, nombres, apellidos);
 
         return new String[] { nombres, apellidos };
     }
@@ -252,59 +273,47 @@ public class ExternalLeadNotificationService {
         // Agregar API Key si está configurada
         if (properties.getApiKey() != null && !properties.getApiKey().trim().isEmpty()) {
             request = request.header("Authorization", "Bearer " + properties.getApiKey());
+            log.info("  -> Usando API Key configurada");
         }
 
-        // Ejecutar request con timeout
-        request.retrieve()
-                .toBodilessEntity();
-
-        log.debug("POST enviado a {} con payload: {}", properties.getEndpointUrl(), payload);
-    }
-
-    /**
-     * Guarda el payload en un archivo de texto para testing.
-     * El archivo se crea en:
-     * C:\Users\marec\Desktop\Wankas_v2\external-leads-payload.txt
-     */
-    private void guardarPayloadEnArchivo(ExternalLeadDTO payload) {
+        // Ejecutar request y capturar respuesta
         try {
-            // Ruta del archivo
-            Path filePath = Paths.get("C:\\Users\\marec\\Desktop\\Wankas_v2\\external-leads-payload.txt");
+            org.springframework.http.ResponseEntity<String> response = request
+                    .retrieve()
+                    .toEntity(String.class);
 
-            // Crear archivo si no existe
-            if (!Files.exists(filePath)) {
-                Files.createFile(filePath);
-                log.info("Archivo de payloads creado en: {}", filePath.toAbsolutePath());
+            log.info("  ---------------------------------------------------------");
+            log.info("  |  RESPUESTA DEL ENDPOINT EXTERNO                     |");
+            log.info("  ---------------------------------------------------------");
+            log.info("  |  Status Code: {}", response.getStatusCode());
+            log.info("  |  Status: {}", response.getStatusCode().is2xxSuccessful() ? "✓ SUCCESS" : "✗ ERROR");
+
+            if (response.hasBody() && response.getBody() != null) {
+                String responseBody = response.getBody();
+                log.info("  |  Response Body:");
+                log.info("  |  {}", responseBody);
+            } else {
+                log.info("  |  Response Body: (vacío)");
             }
 
-            // Preparar contenido
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            StringBuilder content = new StringBuilder();
+            log.info("  ---------------------------------------------------------");
 
-            content.append("\n");
-            content.append("================================================================================\n");
-            content.append("TIMESTAMP: ").append(LocalDateTime.now().format(formatter)).append("\n");
-            content.append("LEAD ID: ").append(payload.getIdLeadMarketing()).append("\n");
-            content.append("CAMPAÑA: ").append(payload.getNombreCampania()).append("\n");
-            content.append("================================================================================\n");
-
-            // JSON formateado
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new JavaTimeModule());
-            mapper.enable(SerializationFeature.INDENT_OUTPUT);
-            String jsonPayload = mapper.writeValueAsString(payload);
-
-            content.append("PAYLOAD JSON:\n");
-            content.append(jsonPayload);
-            content.append("\n\n");
-
-            // Escribir al archivo (append)
-            Files.writeString(filePath, content.toString(), StandardOpenOption.APPEND);
-
-            log.info("Payload guardado en archivo: {}", filePath.toAbsolutePath());
-
-        } catch (IOException e) {
-            log.error("Error al guardar payload en archivo: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("  ---------------------------------------------------------");
+            log.error("  |  ERROR EN RESPUESTA DEL ENDPOINT                    |");
+            log.error("  ---------------------------------------------------------");
+            log.error("  |  Error: {}", e.getMessage());
+            log.error("  ---------------------------------------------------------");
+            throw e; // Re-lanzar para que se maneje en el try-catch superior
         }
     }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null)
+            return "null";
+        if (text.length() <= maxLength)
+            return text;
+        return text.substring(0, maxLength) + "...";
+    }
+
 }
