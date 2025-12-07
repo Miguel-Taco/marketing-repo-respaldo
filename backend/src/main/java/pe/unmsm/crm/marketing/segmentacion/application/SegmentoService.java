@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.unmsm.crm.marketing.segmentacion.domain.model.Segmento;
 import pe.unmsm.crm.marketing.segmentacion.domain.repository.SegmentoRepository;
 import pe.unmsm.crm.marketing.segmentacion.infra.persistence.JpaSegmentoMiembroRepository;
+import pe.unmsm.crm.marketing.segmentacion.infra.persistence.JpaSegmentoRepository;
 import pe.unmsm.crm.marketing.segmentacion.infra.persistence.SegmentoMiembroBatchRepository;
 import pe.unmsm.crm.marketing.shared.logging.AuditoriaService;
 import pe.unmsm.crm.marketing.shared.logging.ModuloLog;
@@ -18,6 +19,7 @@ import java.util.Optional;
 public class SegmentoService {
 
     private final SegmentoRepository segmentoRepository;
+    private final JpaSegmentoRepository jpaSegmentoRepository;
     private final LeadServicePort leadServicePort;
     private final ClienteServicePort clienteServicePort;
     private final JpaSegmentoMiembroRepository miembroRepository;
@@ -25,12 +27,14 @@ public class SegmentoService {
     private final AuditoriaService auditoriaService;
 
     public SegmentoService(SegmentoRepository segmentoRepository,
+            JpaSegmentoRepository jpaSegmentoRepository,
             LeadServicePort leadServicePort,
             ClienteServicePort clienteServicePort,
             JpaSegmentoMiembroRepository miembroRepository,
             SegmentoMiembroBatchRepository batchRepository,
             AuditoriaService auditoriaService) {
         this.segmentoRepository = segmentoRepository;
+        this.jpaSegmentoRepository = jpaSegmentoRepository;
         this.leadServicePort = leadServicePort;
         this.clienteServicePort = clienteServicePort;
         this.miembroRepository = miembroRepository;
@@ -214,9 +218,9 @@ public class SegmentoService {
 
         batchRepository.batchInsertMiembros(id, tipoMiembro, memberIds, ahora);
 
-        // Actualizar cantidad de miembros en el segmento
-        segmento.setCantidadMiembros(memberIds.size());
-        segmentoRepository.save(segmento);
+        // Actualizar cantidad de miembros en el segmento (OPTIMIZADO: solo UPDATE, sin
+        // tocar filtros)
+        jpaSegmentoRepository.updateCantidadMiembros(id, memberIds.size());
 
         // AUDITORÍA: Registrar materialización exitosa
         auditoriaService.registrarEvento(

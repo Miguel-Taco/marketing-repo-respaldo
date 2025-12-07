@@ -2,7 +2,6 @@ package pe.unmsm.crm.marketing.segmentacion.infra.listener;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -17,7 +16,6 @@ import pe.unmsm.crm.marketing.segmentacion.infra.cache.LeadCacheService;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@org.springframework.context.annotation.Profile("!console")
 public class LeadEventListener {
 
     private final LeadCacheService leadCacheService;

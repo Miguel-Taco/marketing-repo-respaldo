@@ -256,6 +256,17 @@ public class JpaCampaignDataProvider implements CampaignDataProvider {
         @Transactional(readOnly = true)
         public List<ContactoDTO> obtenerLlamadasProgramadas(Long idAgente) {
                 log.info("Obteniendo llamadas programadas para agente: {}", idAgente);
+
+                // Si idAgente es null (Admin sin agente), devolver todas las llamadas
+                // programadas
+                if (idAgente == null) {
+                        log.info("Admin sin agente - obteniendo todas las llamadas programadas");
+                        List<ColaLlamadaEntity> llamadasProgramadas = colaRepo.findAllScheduledCalls();
+                        return llamadasProgramadas.stream()
+                                        .map(mapper::toContactoDTO)
+                                        .collect(Collectors.toList());
+                }
+
                 Integer agenteId = requireAgent(idAgente);
 
                 List<ColaLlamadaEntity> llamadasProgramadas = colaRepo.findScheduledCallsByAgent(agenteId);

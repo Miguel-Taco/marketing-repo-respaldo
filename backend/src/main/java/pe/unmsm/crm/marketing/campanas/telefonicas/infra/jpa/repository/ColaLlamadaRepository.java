@@ -69,6 +69,15 @@ public interface ColaLlamadaRepository extends JpaRepository<ColaLlamadaEntity, 
         List<ColaLlamadaEntity> findScheduledCallsByAgent(@Param("idAgente") Integer idAgente);
 
         /**
+         * Obtiene TODAS las llamadas programadas pendientes (para Admin sin agente)
+         */
+        @Query("SELECT c FROM ColaLlamadaEntity c " +
+                        "WHERE c.estadoEnCola = 'PENDIENTE' " +
+                        "AND c.fechaProgramada IS NOT NULL " +
+                        "ORDER BY c.fechaProgramada ASC")
+        List<ColaLlamadaEntity> findAllScheduledCalls();
+
+        /**
          * Cuenta los contactos pendientes de una campaña
          */
         @Query("SELECT COUNT(c) FROM ColaLlamadaEntity c " +

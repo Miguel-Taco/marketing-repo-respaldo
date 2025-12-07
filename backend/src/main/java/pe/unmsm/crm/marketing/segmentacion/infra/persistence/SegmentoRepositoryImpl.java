@@ -16,13 +16,19 @@ public class SegmentoRepositoryImpl implements SegmentoRepository {
     private final JpaSegmentoRepository jpaSegmentoRepository;
     private final JpaSegmentoFiltroRepository jpaSegmentoFiltroRepository;
     private final JpaCatalogoFiltroRepository jpaCatalogoFiltroRepository;
+    private final pe.unmsm.crm.marketing.segmentacion.infra.cache.CatalogoFiltroCache catalogoCache;
+    private final SegmentoFiltroBatchRepository filtroBatchRepository;
 
     public SegmentoRepositoryImpl(JpaSegmentoRepository jpaSegmentoRepository,
             JpaSegmentoFiltroRepository jpaSegmentoFiltroRepository,
-            JpaCatalogoFiltroRepository jpaCatalogoFiltroRepository) {
+            JpaCatalogoFiltroRepository jpaCatalogoFiltroRepository,
+            pe.unmsm.crm.marketing.segmentacion.infra.cache.CatalogoFiltroCache catalogoCache,
+            SegmentoFiltroBatchRepository filtroBatchRepository) {
         this.jpaSegmentoRepository = jpaSegmentoRepository;
         this.jpaSegmentoFiltroRepository = jpaSegmentoFiltroRepository;
         this.jpaCatalogoFiltroRepository = jpaCatalogoFiltroRepository;
+        this.catalogoCache = catalogoCache;
+        this.filtroBatchRepository = filtroBatchRepository;
     }
 
     @Override
@@ -43,7 +49,7 @@ public class SegmentoRepositoryImpl implements SegmentoRepository {
             List<JpaSegmentoFiltroEntity> filtros = mapRulesToFiltros(segmento.getReglaPrincipal(), entity);
             if (!filtros.isEmpty()) {
                 System.out.println("Insertando " + filtros.size() + " filtros");
-                jpaSegmentoFiltroRepository.saveAll(filtros);
+                filtroBatchRepository.batchInsertFiltros(filtros); // OPTIMIZADO: batch insert
                 System.out.println("✓ Filtros guardados exitosamente");
             } else {
                 System.out.println("⚠ No hay filtros para guardar");
@@ -180,7 +186,7 @@ public class SegmentoRepositoryImpl implements SegmentoRepository {
                 String campoNormalizado = simple.getCampo().toLowerCase().trim();
                 System.out.println("Buscando en catálogo con campo normalizado: '" + campoNormalizado + "'");
 
-                List<JpaCatalogoFiltroEntity> catalogos = jpaCatalogoFiltroRepository.findByCampo(campoNormalizado);
+                List<JpaCatalogoFiltroEntity> catalogos = catalogoCache.findByCampo(campoNormalizado);
                 if (!catalogos.isEmpty()) {
                     if (catalogos.size() > 1) {
                         System.out.println("⚠ ADVERTENCIA: Se encontraron " + catalogos.size()
@@ -191,13 +197,8 @@ public class SegmentoRepositoryImpl implements SegmentoRepository {
                 } else {
                     System.err.println(
                             "✗ ERROR: Filtro NO encontrado en catálogo para campo: '" + campoNormalizado + "'");
-
-                    // Mostrar todos los campos disponibles
-                    List<JpaCatalogoFiltroEntity> todosFiltros = jpaCatalogoFiltroRepository.findAll();
-                    System.err.println("Campos disponibles en catálogo:");
-                    todosFiltros.forEach(
-                            f -> System.err.println("  - '" + f.getCampo() + "' (ID: " + f.getIdFiltro() + ")"));
-
+                    // Nota: Para ver campos disponibles, consulta directamente la tabla
+                    // catalogo_filtros
                     return result; // Skip this rule
                 }
             }

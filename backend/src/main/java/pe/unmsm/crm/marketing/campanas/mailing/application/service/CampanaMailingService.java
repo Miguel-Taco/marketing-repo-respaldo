@@ -39,7 +39,7 @@ public class CampanaMailingService {
      */
     @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
     public CampanaMailing crearCampana(CrearCampanaMailingRequest req) {
-        log.info("📝 Creando campaña: {}", req.getNombre());
+        log.info(" Creando campaña: {}", req.getNombre());
         
         if (req.getPrioridad() == null || req.getPrioridad().trim().isEmpty()) {
             throw new ValidationException("La prioridad es obligatoria");
@@ -73,7 +73,7 @@ public class CampanaMailingService {
         @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
     })
     public void guardarBorrador(Integer id, ActualizarContenidoRequest req) {
-        log.info("💾 Guardando borrador para campaña {}", id);
+        log.info(" Guardando borrador para campaña {}", id);
         
         CampanaMailing c = obtenerDetalleSinCache(id);
 
@@ -104,7 +104,7 @@ public class CampanaMailingService {
     })
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void marcarListo(Integer id) {
-        log.info("✅ Marcando campaña {} como LISTO", id);
+        log.info(" Marcando campaña {} como LISTO", id);
         
         CampanaMailing c = obtenerDetalleSinCache(id);
 
@@ -125,7 +125,7 @@ public class CampanaMailingService {
         @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
     })
     public void pausarPorGestor(Long idCampanaGestion) {
-        log.info("⏸️ Pausando campaña desde Gestor: {}", idCampanaGestion);
+        log.info("⏸ Pausando campaña desde Gestor: {}", idCampanaGestion);
 
         CampanaMailing c = campanaRepo.findByIdCampanaGestion(idCampanaGestion)
                 .orElseThrow(() -> new NotFoundException(
@@ -150,7 +150,7 @@ public class CampanaMailingService {
         @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
     })
     public void cancelarPorGestor(Long idCampanaGestion) {
-        log.info("🚫 Cancelando campaña desde Gestor: {}", idCampanaGestion);
+        log.info(" Cancelando campaña desde Gestor: {}", idCampanaGestion);
 
         CampanaMailing c = campanaRepo.findByIdCampanaGestion(idCampanaGestion)
                 .orElseThrow(() -> new NotFoundException(
@@ -175,7 +175,7 @@ public class CampanaMailingService {
         @CacheEvict(value = "mailing_campanias_lista", allEntries = true)
     })
     public void reprogramarPorGestor(Long idCampanaGestion, ReprogramarCampanaRequest req) {
-        log.info("📅 Reprogramando campaña desde Gestor: {}", idCampanaGestion);
+        log.info(" Reprogramando campaña desde Gestor: {}", idCampanaGestion);
 
         CampanaMailing c = campanaRepo.findByIdCampanaGestion(idCampanaGestion)
                 .orElseThrow(() -> new NotFoundException(
@@ -226,7 +226,7 @@ public class CampanaMailingService {
     @Cacheable(value = "mailing_campanias_lista", key = "'listos_' + #campaniasPermitidas.hashCode()")
     @Transactional(readOnly = true)
     public List<CampanaMailing> listarListos(List<Integer> campaniasPermitidas) {
-        log.info("📋 Consultando campañas LISTAS");
+        log.info(" Consultando campañas LISTAS");
         if (isEmpty(campaniasPermitidas)) {
             return List.of();
         }
@@ -239,7 +239,7 @@ public class CampanaMailingService {
     @Cacheable(value = "mailing_campanias_lista", key = "'enviados_' + #campaniasPermitidas.hashCode()")
     @Transactional(readOnly = true)
     public List<CampanaMailing> listarEnviados(List<Integer> campaniasPermitidas) {
-        log.info("📋 Consultando campañas ENVIADAS");
+        log.info(" Consultando campañas ENVIADAS");
         if (isEmpty(campaniasPermitidas)) {
             return List.of();
         }
@@ -252,7 +252,7 @@ public class CampanaMailingService {
     @Cacheable(value = "mailing_campanias_lista", key = "'finalizados_' + #campaniasPermitidas.hashCode()")
     @Transactional(readOnly = true)
     public List<CampanaMailing> listarFinalizados(List<Integer> campaniasPermitidas) {
-        log.info("📋 Consultando campañas FINALIZADAS");
+        log.info(" Consultando campañas FINALIZADAS");
         if (isEmpty(campaniasPermitidas)) {
             return List.of();
         }
@@ -265,7 +265,7 @@ public class CampanaMailingService {
     @Cacheable(value = "mailing_campanias_lista", key = "'todas_' + #campaniasPermitidas.hashCode()")
     @Transactional(readOnly = true)
     public List<CampanaMailing> listarTodas(List<Integer> campaniasPermitidas) {
-        log.info("📋 Consultando TODAS las campañas");
+        log.info(" Consultando TODAS las campañas");
         if (isEmpty(campaniasPermitidas)) {
             return List.of();
         }
@@ -278,7 +278,7 @@ public class CampanaMailingService {
     @Cacheable(value = "mailing_campania_detalle", key = "#id")
     @Transactional(readOnly = true)
     public CampanaMailing obtenerDetalle(Integer id) {
-        log.info("🔍 Consultando detalle de campaña {}", id);
+        log.info(" Consultando detalle de campaña {}", id);
         return obtenerDetalleSinCache(id);
     }
 
@@ -288,7 +288,7 @@ public class CampanaMailingService {
     @Cacheable(value = "mailing_metricas", key = "#id")
     @Transactional(readOnly = true)
     public MetricasMailingResponse obtenerMetricas(Integer id) {
-        log.info("📊 Consultando métricas de campaña {}", id);
+        log.info(" Consultando métricas de campaña {}", id);
         MetricaCampana m = metricasRepo.findByCampanaMailingId(id)
                 .orElseThrow(() -> new NotFoundException("Métricas", id.longValue()));
         return mapper.toMetricasResponse(m);

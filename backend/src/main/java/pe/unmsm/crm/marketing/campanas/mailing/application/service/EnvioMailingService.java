@@ -34,7 +34,7 @@ public class EnvioMailingService {
      * Envía una campaña de mailing
      * 1. Valida que esté en estado LISTO
      * 2. Obtiene emails del segmento
-     * 3. Envía via SendGrid
+     * 3. Envía via Resend
      * 4. Actualiza estado a ENVIADO
      */
     public void enviarCampana(Integer idCampana) {

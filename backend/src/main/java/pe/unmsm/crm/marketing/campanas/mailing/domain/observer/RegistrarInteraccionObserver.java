@@ -11,7 +11,16 @@ import pe.unmsm.crm.marketing.campanas.mailing.domain.model.InteraccionLog;
 import pe.unmsm.crm.marketing.campanas.mailing.infra.persistence.repository.JpaInteraccionLogRepository;
 
 /**
- * Observer que registra las interacciones en la base de datos
+ * ✅ PATRÓN OBSERVER
+ * 
+ * Observer que registra interacciones en la base de datos.
+ * 
+ * RESPONSABILIDAD:
+ * - Escuchar EventoInteraccion
+ * - Guardar en la tabla interacciones_log
+ * 
+ * NOTA: Este observer se ejecuta de forma asíncrona
+ * para no bloquear el hilo principal.
  */
 @Component
 @RequiredArgsConstructor
@@ -25,10 +34,10 @@ public class RegistrarInteraccionObserver {
     @Transactional
     public void onEventoInteraccion(EventoInteraccion evento) {
         try {
-            log.debug("Observer: Registrando interacción {} para campaña {}", 
-                evento.getTipoEvento(), evento.getIdCampanaMailingId());
+            log.debug("Observer [LOG]: {} - Campaña {}", 
+                evento.getTipoEvento().getNombre(),
+                evento.getIdCampanaMailingId());
             
-            // ✅ CORREGIDO: Cambié nombre de variable de 'log' a 'interaccion'
             InteraccionLog interaccion = InteraccionLog.builder()
                     .idCampanaMailingId(evento.getIdCampanaMailingId())
                     .idTipoEvento(evento.getTipoEvento().getId())
@@ -38,10 +47,10 @@ public class RegistrarInteraccionObserver {
             
             interaccionRepo.save(interaccion);
             
-            log.debug("✓ Interacción registrada en BD");
+            log.debug("  ✓ Interacción guardada en BD");
             
         } catch (Exception e) {
-            log.error("Error registrando interacción: {}", e.getMessage(), e);
+            log.error("Observer [LOG]: Error - {}", e.getMessage());
         }
     }
 }

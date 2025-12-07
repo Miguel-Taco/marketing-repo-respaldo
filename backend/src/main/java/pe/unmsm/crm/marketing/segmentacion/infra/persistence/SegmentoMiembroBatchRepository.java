@@ -35,15 +35,28 @@ public class SegmentoMiembroBatchRepository {
 
         long startTime = System.currentTimeMillis();
 
-        jdbcTemplate.batchUpdate(sql, leadIds, leadIds.size(), (PreparedStatement ps, Long leadId) -> {
-            ps.setLong(1, idSegmento);
-            ps.setString(2, tipoMiembro);
-            ps.setLong(3, leadId);
-            ps.setObject(4, fechaAgregado);
-        });
+        // Procesar en chunks de 500 para mejor rendimiento
+        int batchSize = 500;
+        int totalInserted = 0;
+
+        for (int i = 0; i < leadIds.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, leadIds.size());
+            List<Long> chunk = leadIds.subList(i, end);
+
+            jdbcTemplate.batchUpdate(sql, chunk, chunk.size(), (PreparedStatement ps, Long leadId) -> {
+                ps.setLong(1, idSegmento);
+                ps.setString(2, tipoMiembro);
+                ps.setLong(3, leadId);
+                ps.setObject(4, fechaAgregado);
+            });
+
+            totalInserted += chunk.size();
+            log.debug("Insertados {}/{} miembros", totalInserted, leadIds.size());
+        }
 
         long duration = System.currentTimeMillis() - startTime;
-        log.info("✓ BATCH INSERT completado: {} miembros insertados en {}ms", leadIds.size(), duration);
+        log.info("✓ BATCH INSERT completado: {} miembros insertados en {}ms ({} ms/miembro)",
+                leadIds.size(), duration, duration / leadIds.size());
     }
 
     /**
